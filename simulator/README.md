@@ -24,6 +24,7 @@ au doigt sur la vue du circuit.
 | Suspension adaptative | Masse-ressort-amortisseur par roue ; l'amortissement se raidit avec les accélérations et l'appui, et se relâche sur la bosse |
 | Transferts de charge | Longitudinal et latéral via la hauteur du centre de gravité, + appui aéro/ventilateurs |
 | Pneus | Glissement longitudinal et angle de dérive, ellipse d'adhérence, sensibilité à la charge |
+| Rupteur | Le couple s'annule à l'approche de 14 500 tr/min moteur (rapport 4,6), ce qui fixe la vitesse de pointe |
 | ABS / antipatinage | Écrêtage du couple au-delà de 14 % de glissement |
 | Énergie | Consommation batterie, récupération au freinage, soutien du V12 |
 
@@ -37,5 +38,7 @@ avant/arrière, rugosité de la piste.
 
 ## Ordres de grandeur obtenus
 
-Masse 1420 kg, 0–100 km/h ≈ 2,1 s, appui total > 1600 kg à 180 km/h.
+Masse 1420 kg, 0–100 km/h ≈ 2,1 s, appui total > 1600 kg à 180 km/h,
+vitesse de pointe ≈ 392 km/h (limitée par le régime moteur et la traînée),
+freinage ≈ 1,4 g, 2,0 g en virage à haute vitesse.
 Ce sont des valeurs de démonstration, pas les spécifications d'un véhicule réel.

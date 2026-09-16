@@ -99,13 +99,15 @@ const cv=$('#track'), cx=cv.getContext('2d');
 const CAR={
   mass:1420, inertia:1900, wb:2.66, track:1.70, cgH:0.32,
   frontShare:0.45, wheelR:0.35, wheelI:1.5,
-  motorKW:425, motorNm:1900, motorRpmMax:14500,
+  motorKW:425, motorNm:1900, motorRpmMax:14500, gear:4.6,
   v12KW:1100, v12Idle:900, v12Max:8500,
   cd:0.32, area:1.85, clA:2.9,        // aéro passive
   fanMaxN:8200,                        // appui ventilateurs (~835 kg)
   battKWh:22
 };
 const RHO=1.204, G=9.81;
+const clamp=(v,lo,hi)=>v<lo?lo:v>hi?hi:v;
+const finite=a=>a.every(Number.isFinite);
 
 /* ---------- État ---------- */
 let S, best100=null;
@@ -185,18 +187,27 @@ function step(dt){
   for(let i=0;i<4;i++)S.load[i]=Math.max(200,L[i]);
 
   // ---- suspension adaptative (masse non suspendue simplifiée) ----
-  const kBase=95000, cSoft=6500, cFirm=17000;
+  // La charge "brute" pilote la suspension ; la suspension ne module ensuite
+  // la charge pneu que de façon bornée, sinon les deux se bouclent et divergent.
+  const kBase=300000, cSoft=9000, cFirm=26000;
+  const quarter=CAR.mass/4;
+  // pas de temps sûr pour l'intégration du ressort (critère de stabilité explicite)
+  const dtS=Math.min(dt,0.4*Math.sqrt(quarter/kBase));
+  const nS=Math.max(1,Math.ceil(dt/dtS)), hS=dt/nS;
+  const demand=Math.min(1,(Math.abs(ax)+Math.abs(ay))/12+downforce/CAR.fanMaxN*0.4);
+  const c=sys.esp?(cSoft+(cFirm-cSoft)*demand):11000;
   for(let i=0;i<4;i++){
+    const raw=S.load[i];
     const bump=rough*0.035*Math.sin(S.dist*(1.7+i*0.31)+i*2.1)*Math.sin(S.dist*0.23+i);
-    // amortissement piloté : ferme en appui/transfert, souple sur la bosse
-    const demand=Math.min(1,(Math.abs(ax)+Math.abs(ay))/12 + downforce/(CAR.fanMaxN+1e-6)*0.4);
-    const c=sys.esp?(cSoft+(cFirm-cSoft)*demand):11000;
-    const x=S.susp[i], vS=S.suspV[i];
-    const target=(S.load[i]-CAR.mass*G/4)/kBase + bump;
-    const a=(target-x)*kBase/ (CAR.mass/4) - vS*c/(CAR.mass/4);
-    S.suspV[i]=vS+a*dt; S.susp[i]=x+S.suspV[i]*dt;
-    // variation de charge due au débattement (module l'adhérence instantanée)
-    S.load[i]=Math.max(150,S.load[i]-S.suspV[i]*(sys.esp?900:1800));
+    const target=clamp((raw-quarter*G)/kBase+bump,-0.12,0.12);
+    for(let k=0;k<nS;k++){
+      const a=((target-S.susp[i])*kBase-S.suspV[i]*c)/quarter;
+      S.suspV[i]=clamp(S.suspV[i]+a*hS,-4,4);            // vitesse de débattement bornée
+      S.susp[i]=clamp(S.susp[i]+S.suspV[i]*hS,-0.12,0.12); // butées ±120 mm
+    }
+    // variation de charge due au débattement, bornée à ±35 % de la charge statique
+    const dLoad=clamp(-S.suspV[i]*(sys.esp?2200:4400),-0.35*raw,0.35*raw);
+    S.load[i]=Math.max(150,raw+dLoad);
   }
 
   // ---- groupe motopropulseur ----
@@ -214,8 +225,11 @@ function step(dt){
   // couple demandé par roue
   const tq=[0,0,0,0];
   for(let i=0;i<4;i++){
-    const wRpm=Math.abs(S.w[i])*60/(2*Math.PI);
-    const cap=Math.min(CAR.motorNm, perWheelKW*1000/Math.max(8,Math.abs(S.w[i])));
+    // régime moteur = régime roue x rapport de réduction ; le couple s'annule
+    // à l'approche du régime maxi, ce qui fixe la vitesse de pointe
+    const mRpm=Math.abs(S.w[i])*60/(2*Math.PI)*CAR.gear;
+    const rev=clamp(1-Math.pow(mRpm/CAR.motorRpmMax,6),0,1);
+    const cap=Math.min(CAR.motorNm, perWheelKW*1000/Math.max(8,Math.abs(S.w[i])))*rev;
     let demand=In.thr*cap*wheelSplit[i];
     // torque vectoring : couple différentiel selon l'écart de lacet
     if(sys.tv){
@@ -254,7 +268,9 @@ function step(dt){
     if(sys.tc&&sx>0.14&&tq[i]>0)tq[i]*=0.14/sx;
     if(sys.abs&&sx<-0.14&&tq[i]<0)tq[i]*=0.14/-sx;
 
-    const muEff=mu*(1-0.00013*Math.max(0,S.load[i]-3000));   // sensibilité à la charge
+    // sensibilité à la charge : rendement décroissant mais toujours > 0
+    // (une soustraction linéaire rendait µ négatif sous fort appui)
+    const muEff=mu/(1+0.45*Math.max(0,S.load[i]-3000)/9000);
     const Fmax=muEff*S.load[i];
     const k=14, kA=11;
     let fx=Fmax*Math.tanh(k*sx), fy=-Fmax*Math.tanh(kA*sa);
@@ -265,7 +281,7 @@ function step(dt){
 
     // dynamique de roue
     const wdot=(tq[i]-fx*CAR.wheelR)/CAR.wheelI;
-    S.w[i]+=wdot*dt;
+    S.w[i]=clamp(S.w[i]+wdot*dt,-700,700);
     if(In.brk>0.9&&Math.abs(S.w[i])<1)S.w[i]=0;
     S.tq[i]=tq[i];
     elecKW+=Math.max(0,tq[i]*S.w[i])/1000;
@@ -284,9 +300,13 @@ function step(dt){
 
   const axl=Fx/CAR.mass+S.r*S.vy;
   const ayl=Fy/CAR.mass-S.r*S.vx;
-  S.vx+=axl*dt; S.vy+=ayl*dt; S.r+=Mz/CAR.inertia*dt;
+  S.vx=clamp(S.vx+axl*dt,-40,160);        // ~576 km/h max, garde-fou numérique
+  S.vy=clamp(S.vy+ayl*dt,-60,60);
+  S.r=clamp(S.r+Mz/CAR.inertia*dt,-4,4);  // lacet borné à ±229 °/s
   S.r*=Math.pow(0.995,dt*60);
-  S.ax=axl; S.ay=ayl;
+  // accélérations ressenties (celles qui font le transfert de charge et les g
+  // affichés) : la part gravitationnelle des forces, hors termes de Coriolis
+  S.ax=Fx/CAR.mass; S.ay=Fy/CAR.mass;
 
   S.psi+=S.r*dt;
   S.x+=(S.vx*Math.cos(S.psi)-S.vy*Math.sin(S.psi))*dt;
@@ -299,6 +319,14 @@ function step(dt){
   if(S.t100===null&&S.t0!==null&&kmh>=100){S.t100=S.t0;if(best100===null||S.t100<best100)best100=S.t100;}
   if(kmh<1)S.t100=null;
   S.elecKW=elecKW; S.v12kW=v12kW; S.down=downforce; S.speed=v;
+
+  // filet de sécurité : si un état devient non fini, on remet la voiture au point mort
+  if(![S.x,S.y,S.vx,S.vy,S.r,S.psi].every(Number.isFinite)||!finite(S.w)||!finite(S.susp)){
+    const px=Number.isFinite(S.x)?S.x:0, py=Number.isFinite(S.y)?S.y:0;
+    const ppsi=Number.isFinite(S.psi)?S.psi:-Math.PI/2;
+    const soc=Number.isFinite(S.soc)?S.soc:1, best=S.dist, r0=(S.resets||0)+1;
+    reset(); S.x=px; S.y=py; S.psi=ppsi; S.soc=soc; S.dist=Number.isFinite(best)?best:0; S.resets=r0;
+  }
 }
 
 /* ---------- Rendu ---------- */
@@ -306,7 +334,7 @@ const trail=[];
 function draw(){
   const W=cv.width,H=cv.height;
   cx.fillStyle='#05070a';cx.fillRect(0,0,W,H);
-  const scale=Math.max(2.2,9-S.speed*0.09);
+  const scale=clamp(9-S.speed*0.09,2.2,9);
   cx.save();cx.translate(W/2,H*0.62);cx.rotate(-S.psi-Math.PI/2);cx.scale(scale,scale);cx.translate(-S.x,-S.y);
 
   // grille
