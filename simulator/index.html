@@ -36,7 +36,7 @@
 </head>
 <body>
 <header>
-  <h1>Hypercar Simulator — châssis Koenigsegg, 4× 500 ch électriques + V12 quad-turbo 3000 ch ≈ 5000 ch</h1>
+  <h1>Hypercar Simulator — monocoque carbone 1250 kg, 4× 500 ch électriques + V12 quad-turbo 3000 ch ≈ 5000 ch</h1>
   <span>Flèches / WASD — ou glisser sur le circuit. Espace = frein à main.</span>
 </header>
 
@@ -50,6 +50,8 @@
       <button id="bFAN" class="on">Ventilateurs</button>
       <button id="bESP" class="on">Suspension adaptative</button>
       <button id="bV12" class="on">V12 quad-turbo</button>
+      <button id="bAL" class="on">Anti-lag turbos</button>
+      <button id="bOB" class="on">Surpuissance</button>
       <button id="bReset">Reset</button>
     </div>
   </section>
@@ -64,8 +66,11 @@
     <div class="kv"><span>Pression turbo</span><b id="tBoost">0.00 bar</b></div>
     <div class="kv"><span>Batterie</span><b id="tSoc">100 %</b></div>
     <div class="kv"><span>Appui ventilateurs</span><b id="tFan">0 kg</b></div>
+    <div class="kv"><span>Conso ventilateurs</span><b id="tFkw">0 ch</b></div>
     <div class="kv"><span>Appui total</span><b id="tDF">0 kg</b></div>
     <div class="kv"><span>Dérive (yaw)</span><b id="tYaw">0 °/s</b></div>
+    <div class="kv"><span>Surpuissance</span><b id="tOB">prête</b></div>
+    <div class="kv"><span>Calculateur</span><b id="tHz">— Hz</b></div>
 
     <h2 style="margin-top:14px">Roues — couple & glissement</h2>
     <div id="wheels"></div>
@@ -87,9 +92,11 @@
     <input id="sBias" type="range" min="0" max="100" step="1" value="50">
     <label>Rugosité de la piste : <b id="lRough">0.25</b></label>
     <input id="sRough" type="range" min="0" max="1" step="0.01" value="0.25">
+    <label>Rapport de réduction (court = reprise, long = pointe) : <b id="lGear">2.45 : 1</b></label>
+    <input id="sGear" type="range" min="1.8" max="4.6" step="0.05" value="2.45">
   </aside>
 </main>
-<footer>Modèle de démonstration : masse 1420 kg, 4 moteurs × 500 ch (373 kW), V12 quad-turbo 3000 ch (2237 kW), total ≈ 5000 ch — 2 ventilateurs d’extraction.</footer>
+<footer>Modèle de démonstration : monocoque carbone 1250 kg, 4 moteurs × 500 ch (373 kW), V12 quad-turbo 3000 ch (2237 kW), total ≈ 5000 ch, 2 ventilateurs d’extraction — calculateur à 1000 Hz.</footer>
 
 <script>
 const $=s=>document.querySelector(s);
@@ -97,12 +104,16 @@ const cv=$('#track'), cx=cv.getContext('2d');
 
 /* ---------- Paramètres véhicule ---------- */
 const CAR={
-  mass:1420, inertia:1900, wb:2.66, track:1.70, cgH:0.32,
+  // monocoque carbone allégée : -170 kg et centre de gravité plus bas
+  mass:1250, inertia:1650, wb:2.66, track:1.70, cgH:0.29,
   frontShare:0.45, wheelR:0.35, wheelI:1.5,
-  motorKW:373, motorNm:1900, motorRpmMax:14500, gear:4.6,
+  motorKW:373, motorNm:1900, motorRpmMax:14500,
   v12KW:2237, v12Idle:900, v12Max:8500,
-  cd:0.32, area:1.85, clA:2.9,        // aéro passive
-  fanMaxN:8200,                        // appui ventilateurs (~835 kg)
+  cd:0.30, area:1.82, clA:2.9,        // aéro passive (carrosserie affinée)
+  kInduced:0.030,                     // traînée induite par l'appui aéro
+  fanMaxN:8200, fanKW:190,            // appui ventilateurs et puissance consommée
+  overboost:0.18, overboostS:9,       // surpuissance temporaire : +18 % pendant 9 s
+  ctrlHz:1000,                        // calculateur : une passe toutes les 1 ms
   battKWh:22
 };
 const RHO=1.204, G=9.81;
@@ -115,19 +126,22 @@ function reset(){
   S={x:0,y:0,psi:-Math.PI/2,vx:0.0001,vy:0,r:0,
      soc:1, rpm:CAR.v12Idle, boost:0, fan:0,
      w:[0,0,0,0], slip:[0,0,0,0], tq:[0,0,0,0], load:[0,0,0,0],
-     susp:[0,0,0,0], suspV:[0,0,0,0], t100:null, t0:null, dist:0};
+     susp:[0,0,0,0], suspV:[0,0,0,0], t100:null, t0:null, dist:0,
+     obT:CAR.overboostS, bm:0, ctrl:0};
 }
 reset();
 
-const sys={tv:true,abs:true,tc:true,fan:true,esp:true,v12:true};
+const sys={tv:true,abs:true,tc:true,fan:true,esp:true,v12:true,antilag:true,ob:true};
 const bind=(id,k)=>{const b=$(id);b.onclick=()=>{sys[k]=!sys[k];b.classList.toggle('on',sys[k]);};};
 bind('#bTV','tv');bind('#bABS','abs');bind('#bTC','tc');bind('#bFAN','fan');bind('#bESP','esp');bind('#bV12','v12');
+bind('#bAL','antilag');bind('#bOB','ob');
 $('#bReset').onclick=()=>{reset();best100=null;};
 
-let mu=1.55, bias=0.5, rough=0.25;
+let mu=1.55, bias=0.5, rough=0.25, gear=2.45;   // rapport long = vitesse de pointe
 $('#sMu').oninput=e=>{mu=+e.target.value;$('#lMu').textContent=mu.toFixed(2);};
 $('#sBias').oninput=e=>{bias=+e.target.value/100;$('#lBias').textContent=e.target.value+' %';};
 $('#sRough').oninput=e=>{rough=+e.target.value;$('#lRough').textContent=rough.toFixed(2);};
+$('#sGear').oninput=e=>{gear=+e.target.value;$('#lGear').textContent=gear.toFixed(2)+' : 1';};
 document.querySelectorAll('.mode').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('.mode').forEach(o=>o.classList.remove('on'));b.classList.add('on');
   const m=b.dataset.m;
@@ -162,16 +176,27 @@ function step(dt){
   const In=inputs();
   const v=Math.hypot(S.vx,S.vy);
 
+  // Mode accélération : pied au plancher, moteurs, V12 et turbos donnent leur
+  // maximum tant qu'il reste de la réserve de surpuissance (elle se recharge
+  // dès qu'on lève le pied).
+  const want=sys.ob&&In.thr>0.9&&S.obT>0;
+  S.obT=clamp(S.obT+(want?-dt:dt*0.6),0,CAR.overboostS);
+  const boostMode=S.bm+=( (want?1:0)-S.bm)*Math.min(1,dt*6);
+
   // direction : gain décroissant avec la vitesse (assistance électronique)
   const maxSteer=0.52/(1+v*v/1400);
   const steer=In.st*maxSteer;
 
   // ---- aéro ----
-  const drag=0.5*RHO*CAR.cd*CAR.area*v*v;
+  const q=0.5*RHO*CAR.area*v*v;
   const aeroDF=0.5*RHO*CAR.clA*CAR.area*v*v;
+  // l'appui aéro coûte de la traînée induite : c'est elle qui borne la pointe
+  const drag=q*CAR.cd+CAR.kInduced*aeroDF*aeroDF/Math.max(1,q);
   // ventilateurs : appui indépendant de la vitesse, monté au démarrage et en freinage
-  const fanTarget=sys.fan?CAR.fanMaxN*Math.min(1,0.55+0.45*(In.thr+In.brk)):0;
-  S.fan+=(fanTarget-S.fan)*Math.min(1,dt*3.2);      // inertie des turbines
+  // à pleine accélération les turbines passent à 100 % (appui maximal au départ)
+  const fanTarget=sys.fan?CAR.fanMaxN*Math.min(1,0.55+0.45*(In.thr+In.brk)+0.45*boostMode):0;
+  S.fan+=(fanTarget-S.fan)*Math.min(1,dt*(fanTarget>S.fan?5.0:3.2)); // inertie des turbines
+  const fanKW=sys.fan?CAR.fanKW*Math.pow(S.fan/CAR.fanMaxN,1.5):0;
   const downforce=aeroDF+S.fan;
 
   // ---- transferts de charge ----
@@ -212,14 +237,19 @@ function step(dt){
 
   // ---- groupe motopropulseur ----
   // V12 quad-turbo : générateur + couple direct à l'essieu arrière
-  const boostTarget=sys.v12?In.thr*(1.9*Math.min(1,S.rpm/4200)):0;
-  S.boost+=(boostTarget-S.boost)*Math.min(1,dt*(In.thr>0.1?1.8:5.0));  // lag turbo
+  // Turbos : anti-lag (les turbines restent en pression pied levé) et surpression
+  // en mode accélération, pour que les quatre turbos donnent leur maximum.
+  const bMax=sys.antilag?2.6:1.9;
+  const boostTarget=sys.v12?Math.max(In.thr,sys.antilag?0.35:0)*(bMax*Math.min(1,S.rpm/(sys.antilag?2600:4200))):0;
+  const spool=In.thr>0.1?(sys.antilag?4.2:1.8):(sys.antilag?1.2:5.0);
+  S.boost+=(boostTarget-S.boost)*Math.min(1,dt*spool);
   const rpmTarget=sys.v12?(CAR.v12Idle+(CAR.v12Max-CAR.v12Idle)*Math.min(1,v/95+In.thr*0.35)):0;
   S.rpm+=(rpmTarget-S.rpm)*Math.min(1,dt*2.5);
   const v12kW=sys.v12? CAR.v12KW*Math.min(1,S.rpm/CAR.v12Max*1.15)*(S.boost/1.9)*In.thr : 0;
 
   const socOk=S.soc>0.02?1:0.15;
-  let perWheelKW=CAR.motorKW*socOk;
+  // les quatre moteurs passent en surpuissance tant que le pied est au plancher
+  let perWheelKW=CAR.motorKW*socOk*(1+CAR.overboost*boostMode);
   const wheelSplit=[bias/2,bias/2,(1-bias)/2,(1-bias)/2].map(x=>x*4);
 
   // couple demandé par roue
@@ -227,9 +257,10 @@ function step(dt){
   for(let i=0;i<4;i++){
     // régime moteur = régime roue x rapport de réduction ; le couple s'annule
     // à l'approche du régime maxi, ce qui fixe la vitesse de pointe
-    const mRpm=Math.abs(S.w[i])*60/(2*Math.PI)*CAR.gear;
+    const mRpm=Math.abs(S.w[i])*60/(2*Math.PI)*gear;
     const rev=clamp(1-Math.pow(mRpm/CAR.motorRpmMax,6),0,1);
-    const cap=Math.min(CAR.motorNm, perWheelKW*1000/Math.max(8,Math.abs(S.w[i])))*rev;
+    // le couple à la roue suit le rapport : plus long = moins de couple, plus de pointe
+    const cap=Math.min(CAR.motorNm*gear/3.2, perWheelKW*1000/Math.max(8,Math.abs(S.w[i])))*rev;
     let demand=In.thr*cap*wheelSplit[i];
     // torque vectoring : couple différentiel selon l'écart de lacet
     if(sys.tv){
@@ -293,7 +324,7 @@ function step(dt){
   }
 
   // bilan énergie
-  S.soc=Math.max(0,Math.min(1,S.soc-Math.max(0,elecKW-v12kW)*dt/(CAR.battKWh*3600)));
+  S.soc=Math.max(0,Math.min(1,S.soc-Math.max(0,elecKW+fanKW-v12kW)*dt/(CAR.battKWh*3600)));
 
   Fx-=drag*Math.sign(S.vx||1)*Math.abs(S.vx)/Math.max(0.1,v||0.1);
   Fy-=0.5*RHO*CAR.cd*CAR.area*v*Math.abs(S.vy)*0.3;
@@ -318,7 +349,8 @@ function step(dt){
   if(kmh<1)S.t0=0; else if(S.t0!==null)S.t0+=dt;
   if(S.t100===null&&S.t0!==null&&kmh>=100){S.t100=S.t0;if(best100===null||S.t100<best100)best100=S.t100;}
   if(kmh<1)S.t100=null;
-  S.elecKW=elecKW; S.v12kW=v12kW; S.down=downforce; S.speed=v;
+  S.elecKW=elecKW; S.v12kW=v12kW; S.fanKW=fanKW; S.down=downforce; S.speed=v;
+  S.boostMode=boostMode; S.ctrl++;
 
   // filet de sécurité : si un état devient non fini, on remet la voiture au point mort
   if(![S.x,S.y,S.vx,S.vy,S.r,S.psi].every(Number.isFinite)||!finite(S.w)||!finite(S.susp)){
@@ -387,6 +419,12 @@ function hud(){
   $('#tFan').textContent=(S.fan/G).toFixed(0)+' kg';
   $('#tDF').textContent=(S.down/G).toFixed(0)+' kg';
   $('#tYaw').textContent=(S.r*180/Math.PI).toFixed(0)+' °/s';
+  $('#tFkw').textContent=((S.fanKW||0)*1.341).toFixed(0)+' ch';
+  const ob=$('#tOB');
+  const act=S.boostMode>0.5&&S.obT>0.05;
+  ob.textContent=act?'ACTIVE '+S.obT.toFixed(1)+' s':(S.obT<=0.05?'épuisée':S.obT>=CAR.overboostS-0.05?'prête':'recharge '+S.obT.toFixed(1)+' s');
+  ob.style.color=act?'var(--warn)':(S.obT<=0.05?'var(--hot)':'');
+  $('#tHz').textContent=(S.hz||0).toFixed(0)+' Hz (pas de '+(1000/CAR.ctrlHz).toFixed(0)+' ms)';
   for(let i=0;i<4;i++){
     document.getElementById('w'+i).textContent=S.tq[i].toFixed(0)+' Nm';
     const b=document.getElementById('ws'+i);
@@ -397,10 +435,17 @@ function hud(){
 }
 
 /* ---------- Boucle ---------- */
-let last=performance.now();
+let last=performance.now(), acc=0, ctrlPrev=0, ctrlT=last, hz=0;
+const H=1/CAR.ctrlHz;                    // pas du calculateur : 1 ms
 function loop(now){
-  let dt=Math.min(0.05,(now-last)/1000);last=now;
-  const n=4;for(let i=0;i<n;i++)step(dt/n);
+  let dt=Math.min(0.25,(now-last)/1000);last=now;
+  // pas fixe : la physique et tous les asservissements avancent par tranches de
+  // 1 ms, donc le comportement ne dépend pas de la fluidité de l'affichage.
+  acc=Math.min(acc+dt,0.25);
+  let guard=0;
+  while(acc>=H&&guard++<400){step(H);acc-=H;}
+  if(now-ctrlT>500){hz=(S.ctrl-ctrlPrev)*1000/(now-ctrlT);ctrlPrev=S.ctrl;ctrlT=now;}
+  S.hz=hz;
   trail.push({x:S.x,y:S.y});if(trail.length>900)trail.shift();
   draw();hud();
   requestAnimationFrame(loop);
