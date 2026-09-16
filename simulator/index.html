@@ -36,7 +36,7 @@
 </head>
 <body>
 <header>
-  <h1>Hypercar Simulator — châssis Koenigsegg, 4× moteurs électriques, V12 quad-turbo</h1>
+  <h1>Hypercar Simulator — châssis Koenigsegg, 4× 500 ch électriques + V12 quad-turbo 3000 ch ≈ 5000 ch</h1>
   <span>Flèches / WASD — ou glisser sur le circuit. Espace = frein à main.</span>
 </header>
 
@@ -59,7 +59,7 @@
     <div class="kv"><span>Vitesse</span><b id="tSpd">0 km/h</b></div>
     <div class="kv"><span>0–100 km/h</span><b id="t100">—</b></div>
     <div class="kv"><span>Accél. long. / lat.</span><b id="tG">0.00 / 0.00 g</b></div>
-    <div class="kv"><span>Puissance totale</span><b id="tPwr">0 kW</b></div>
+    <div class="kv"><span>Puissance totale</span><b id="tPwr">0 ch</b></div>
     <div class="kv"><span>Régime V12</span><b id="tRpm">0 tr/min</b></div>
     <div class="kv"><span>Pression turbo</span><b id="tBoost">0.00 bar</b></div>
     <div class="kv"><span>Batterie</span><b id="tSoc">100 %</b></div>
@@ -89,7 +89,7 @@
     <input id="sRough" type="range" min="0" max="1" step="0.01" value="0.25">
   </aside>
 </main>
-<footer>Modèle de démonstration : masse 1420 kg, 4 moteurs × 425 kW, V12 6.0 quad-turbo 1100 kW, 2 ventilateurs d’extraction.</footer>
+<footer>Modèle de démonstration : masse 1420 kg, 4 moteurs × 500 ch (373 kW), V12 quad-turbo 3000 ch (2237 kW), total ≈ 5000 ch — 2 ventilateurs d’extraction.</footer>
 
 <script>
 const $=s=>document.querySelector(s);
@@ -99,8 +99,8 @@ const cv=$('#track'), cx=cv.getContext('2d');
 const CAR={
   mass:1420, inertia:1900, wb:2.66, track:1.70, cgH:0.32,
   frontShare:0.45, wheelR:0.35, wheelI:1.5,
-  motorKW:425, motorNm:1900, motorRpmMax:14500, gear:4.6,
-  v12KW:1100, v12Idle:900, v12Max:8500,
+  motorKW:373, motorNm:1900, motorRpmMax:14500, gear:4.6,
+  v12KW:2237, v12Idle:900, v12Max:8500,
   cd:0.32, area:1.85, clA:2.9,        // aéro passive
   fanMaxN:8200,                        // appui ventilateurs (~835 kg)
   battKWh:22
@@ -379,7 +379,8 @@ function hud(){
   $('#tSpd').textContent=(S.speed*3.6).toFixed(0)+' km/h';
   $('#t100').textContent=best100?best100.toFixed(2)+' s':'—';
   $('#tG').textContent=(S.ax/G).toFixed(2)+' / '+(S.ay/G).toFixed(2)+' g';
-  $('#tPwr').textContent=(S.elecKW+S.v12kW).toFixed(0)+' kW';
+  const kW=S.elecKW+S.v12kW;
+  $('#tPwr').textContent=(kW*1.341).toFixed(0)+' ch ('+kW.toFixed(0)+' kW)';
   $('#tRpm').textContent=S.rpm.toFixed(0)+' tr/min';
   $('#tBoost').textContent=S.boost.toFixed(2)+' bar';
   $('#tSoc').textContent=(S.soc*100).toFixed(0)+' %';
