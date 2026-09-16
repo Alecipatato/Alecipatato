@@ -23,7 +23,12 @@ au doigt sur la vue du circuit.
 | Aéro passive | Traînée `½ρCdA v²` + portance négative `½ρClA v²` |
 | Suspension adaptative | Masse-ressort-amortisseur par roue ; l'amortissement se raidit avec les accélérations et l'appui, et se relâche sur la bosse |
 | Transferts de charge | Longitudinal et latéral via la hauteur du centre de gravité, + appui aéro/ventilateurs |
-| Pneus | Glissement longitudinal et angle de dérive, ellipse d'adhérence, sensibilité à la charge |
+| Pneus | Formule de Pacejka calée sur un Michelin Cup 2 R : le grip culmine vers 10-12 % de glissement puis redescend, ellipse d'adhérence, sensibilité à la charge |
+| Masse | Bilan de composants poste par poste (≈ 1671 kg en ordre de marche), affiché dans la page |
+| Alimentation électrique | Batterie 30 kWh limitée à 25 C (750 kW) + génératrice 600 kW entraînée par le V12, dont la puissance est retirée de ce que le V12 envoie aux roues |
+| Thermique moteurs | Échauffement selon les pertes, réduction de puissance au-delà de 165 °C |
+| Freins | Couple plafonné par les étriers carbone-céramique |
+| Résistance au roulement | Crr 0,012 appliqué à la charge totale, appui compris |
 | Rapport de réduction | Réglable de 1,8 à 4,6 : court = reprise, long = vitesse de pointe (2,45 par défaut) |
 | Surpuissance | Pied au plancher, moteurs +18 %, turbos en surpression et ventilateurs à 100 %, pendant 9 s puis recharge |
 | Anti-lag | Les turbos restent en pression pied levé : la reprise est immédiate |
@@ -44,8 +49,17 @@ avant/arrière, rugosité de la piste.
 
 ## Ordres de grandeur obtenus
 
-Monocoque carbone 1250 kg, ≈ 5000 ch cumulés (4 × 500 ch électriques + 3000 ch thermiques), 0–100 km/h ≈ 2,1 s, appui total > 1600 kg à 180 km/h,
-vitesse de pointe ≈ 486 km/h au rapport 2,45 (bornée par la traînée induite),
-0–100 km/h en 1,4 s au rapport court,
+Masse en ordre de marche ≈ 1671 kg (bilan de composants), ≈ 5000 ch cumulés (4 × 500 ch électriques + 3000 ch thermiques), appui total > 2000 kg à 220 km/h,
+vitesse de pointe ≈ 440 km/h, 0–100 km/h en 1,74 s, 1,64 g au départ,
 freinage ≈ 1,4 g, 2,0 g en virage à haute vitesse.
 Ce sont des valeurs de démonstration, pas les spécifications d'un véhicule réel.
+
+## Ce qui vient de chiffres réels et ce qui vient du cahier des charges
+
+Réels (publiés par Koenigsegg pour le Jesko Absolut) : empattement 2,70 m,
+voie 1,68 m, Cx 0,278, surface frontale ≈ 1,88 m².
+Réalistes mais estimés : bilan de masse, capacité et taux de décharge de la
+batterie, rendements, couples de freinage, appui des ventilateurs (ordre de
+grandeur des Brabham BT46B et McMurtry Spéirling).
+Cahier des charges, pas un véhicule existant : le V12 quad-turbo de 3000 ch et
+les 4 moteurs de 500 ch. Aucun V12 de série n'atteint ces valeurs.
