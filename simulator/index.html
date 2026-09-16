@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hypercar Simulator</title>
+<style>
+  :root{
+    --bg:#0b0d10; --panel:#14181d; --line:#232a32; --txt:#e6ebf0; --dim:#8b97a4;
+    --accent:#37e0b0; --warn:#ffb340; --hot:#ff5c5c; --blue:#5aa9ff;
+  }
+  :root[data-theme="light"]{
+    --bg:#f2f4f7; --panel:#ffffff; --line:#dde3ea; --txt:#151a20; --dim:#5d6b7a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.45 ui-sans-serif,system-ui,"Segoe UI",Roboto,sans-serif}
+  header{padding:14px 16px;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}
+  h1{font-size:17px;margin:0;letter-spacing:.02em}
+  header span{color:var(--dim);font-size:12px}
+  main{display:grid;grid-template-columns:1fr 340px;gap:12px;padding:12px;max-width:1500px;margin:0 auto}
+  @media(max-width:900px){main{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
+  canvas{width:100%;display:block;border-radius:8px;background:#05070a;touch-action:none}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  button{background:#1d242c;color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:7px 11px;font:inherit;cursor:pointer}
+  button.on{background:var(--accent);color:#04120d;border-color:var(--accent)}
+  h2{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--dim);margin:0 0 8px}
+  .kv{display:flex;justify-content:space-between;border-bottom:1px dotted var(--line);padding:3px 0;font-variant-numeric:tabular-nums}
+  .kv b{font-weight:600}
+  .bar{height:7px;background:#000;border-radius:4px;overflow:hidden;margin:4px 0 9px}
+  .bar>i{display:block;height:100%;background:var(--accent)}
+  label{font-size:12px;color:var(--dim);display:block;margin-top:8px}
+  input[type=range]{width:100%}
+  footer{padding:8px 16px 24px;color:var(--dim);font-size:12px;text-align:center}
+</style>
+</head>
+<body>
+<header>
+  <h1>Hypercar Simulator — châssis Koenigsegg, 4× moteurs électriques, V12 quad-turbo</h1>
+  <span>Flèches / WASD — ou glisser sur le circuit. Espace = frein à main.</span>
+</header>
+
+<main>
+  <section class="card">
+    <canvas id="track" width="960" height="600"></canvas>
+    <div class="row" style="margin-top:10px">
+      <button id="bTV" class="on">Torque vectoring</button>
+      <button id="bABS" class="on">ABS</button>
+      <button id="bTC" class="on">Antipatinage</button>
+      <button id="bFAN" class="on">Ventilateurs</button>
+      <button id="bESP" class="on">Suspension adaptative</button>
+      <button id="bV12" class="on">V12 quad-turbo</button>
+      <button id="bReset">Reset</button>
+    </div>
+  </section>
+
+  <aside class="card">
+    <h2>Télémétrie</h2>
+    <div class="kv"><span>Vitesse</span><b id="tSpd">0 km/h</b></div>
+    <div class="kv"><span>0–100 km/h</span><b id="t100">—</b></div>
+    <div class="kv"><span>Accél. long. / lat.</span><b id="tG">0.00 / 0.00 g</b></div>
+    <div class="kv"><span>Puissance totale</span><b id="tPwr">0 kW</b></div>
+    <div class="kv"><span>Régime V12</span><b id="tRpm">0 tr/min</b></div>
+    <div class="kv"><span>Pression turbo</span><b id="tBoost">0.00 bar</b></div>
+    <div class="kv"><span>Batterie</span><b id="tSoc">100 %</b></div>
+    <div class="kv"><span>Appui ventilateurs</span><b id="tFan">0 kg</b></div>
+    <div class="kv"><span>Appui total</span><b id="tDF">0 kg</b></div>
+    <div class="kv"><span>Dérive (yaw)</span><b id="tYaw">0 °/s</b></div>
+
+    <h2 style="margin-top:14px">Roues — couple & glissement</h2>
+    <div id="wheels"></div>
+
+    <h2 style="margin-top:14px">Suspension (débattement)</h2>
+    <div id="susp"></div>
+
+    <h2 style="margin-top:14px">Réglages</h2>
+    <label>Mode de conduite</label>
+    <div class="row">
+      <button class="mode on" data-m="track">Circuit</button>
+      <button class="mode" data-m="road">Route</button>
+      <button class="mode" data-m="wet">Pluie</button>
+      <button class="mode" data-m="drag">Drag</button>
+    </div>
+    <label>Adhérence (µ) : <b id="lMu">1.55</b></label>
+    <input id="sMu" type="range" min="0.5" max="2" step="0.01" value="1.55">
+    <label>Répartition avant/arrière du couple : <b id="lBias">50 %</b></label>
+    <input id="sBias" type="range" min="0" max="100" step="1" value="50">
+    <label>Rugosité de la piste : <b id="lRough">0.25</b></label>
+    <input id="sRough" type="range" min="0" max="1" step="0.01" value="0.25">
+  </aside>
+</main>
+<footer>Modèle de démonstration : masse 1420 kg, 4 moteurs × 425 kW, V12 6.0 quad-turbo 1100 kW, 2 ventilateurs d’extraction.</footer>
+
+<script>
+const $=s=>document.querySelector(s);
+const cv=$('#track'), cx=cv.getContext('2d');
+
+/* ---------- Paramètres véhicule ---------- */
+const CAR={
+  mass:1420, inertia:1900, wb:2.66, track:1.70, cgH:0.32,
+  frontShare:0.45, wheelR:0.35, wheelI:1.5,
+  motorKW:425, motorNm:1900, motorRpmMax:14500,
+  v12KW:1100, v12Idle:900, v12Max:8500,
+  cd:0.32, area:1.85, clA:2.9,        // aéro passive
+  fanMaxN:8200,                        // appui ventilateurs (~835 kg)
+  battKWh:22
+};
+const RHO=1.204, G=9.81;
+
+/* ---------- État ---------- */
+let S, best100=null;
+function reset(){
+  S={x:0,y:0,psi:-Math.PI/2,vx:0.0001,vy:0,r:0,
+     soc:1, rpm:CAR.v12Idle, boost:0, fan:0,
+     w:[0,0,0,0], slip:[0,0,0,0], tq:[0,0,0,0], load:[0,0,0,0],
+     susp:[0,0,0,0], suspV:[0,0,0,0], t100:null, t0:null, dist:0};
+}
+reset();
+
+const sys={tv:true,abs:true,tc:true,fan:true,esp:true,v12:true};
+const bind=(id,k)=>{const b=$(id);b.onclick=()=>{sys[k]=!sys[k];b.classList.toggle('on',sys[k]);};};
+bind('#bTV','tv');bind('#bABS','abs');bind('#bTC','tc');bind('#bFAN','fan');bind('#bESP','esp');bind('#bV12','v12');
+$('#bReset').onclick=()=>{reset();best100=null;};
+
+let mu=1.55, bias=0.5, rough=0.25;
+$('#sMu').oninput=e=>{mu=+e.target.value;$('#lMu').textContent=mu.toFixed(2);};
+$('#sBias').oninput=e=>{bias=+e.target.value/100;$('#lBias').textContent=e.target.value+' %';};
+$('#sRough').oninput=e=>{rough=+e.target.value;$('#lRough').textContent=rough.toFixed(2);};
+document.querySelectorAll('.mode').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.mode').forEach(o=>o.classList.remove('on'));b.classList.add('on');
+  const m=b.dataset.m;
+  const p={track:[1.55,.25],road:[1.25,.45],wet:[0.75,.30],drag:[1.80,.05]}[m];
+  mu=p[0];rough=p[1];
+  $('#sMu').value=mu;$('#lMu').textContent=mu.toFixed(2);
+  $('#sRough').value=rough;$('#lRough').textContent=rough.toFixed(2);
+});
+
+/* ---------- Entrées ---------- */
+const keys={};
+addEventListener('keydown',e=>{keys[e.code]=true;if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();});
+addEventListener('keyup',e=>keys[e.code]=false);
+let touch=null;
+cv.addEventListener('pointerdown',e=>{cv.setPointerCapture(e.pointerId);touch=rel(e);});
+cv.addEventListener('pointermove',e=>{if(touch)touch=rel(e);});
+cv.addEventListener('pointerup',()=>touch=null);
+function rel(e){const r=cv.getBoundingClientRect();return{x:(e.clientX-r.left)/r.width*2-1,y:(e.clientY-r.top)/r.height*2-1};}
+
+function inputs(){
+  let thr=0,brk=0,st=0;
+  if(keys.ArrowUp||keys.KeyW)thr=1;
+  if(keys.ArrowDown||keys.KeyS)brk=1;
+  if(keys.ArrowLeft||keys.KeyA)st=-1;
+  if(keys.ArrowRight||keys.KeyD)st=1;
+  if(touch){st=Math.max(-1,Math.min(1,touch.x*1.6));touch.y<0?thr=Math.min(1,-touch.y*1.6):brk=Math.min(1,touch.y*1.6);}
+  return{thr,brk,st,hb:!!keys.Space};
+}
+
+/* ---------- Physique ---------- */
+function step(dt){
+  const In=inputs();
+  const v=Math.hypot(S.vx,S.vy);
+
+  // direction : gain décroissant avec la vitesse (assistance électronique)
+  const maxSteer=0.52/(1+v*v/1400);
+  const steer=In.st*maxSteer;
+
+  // ---- aéro ----
+  const drag=0.5*RHO*CAR.cd*CAR.area*v*v;
+  const aeroDF=0.5*RHO*CAR.clA*CAR.area*v*v;
+  // ventilateurs : appui indépendant de la vitesse, monté au démarrage et en freinage
+  const fanTarget=sys.fan?CAR.fanMaxN*Math.min(1,0.55+0.45*(In.thr+In.brk)):0;
+  S.fan+=(fanTarget-S.fan)*Math.min(1,dt*3.2);      // inertie des turbines
+  const downforce=aeroDF+S.fan;
+
+  // ---- transferts de charge ----
+  const statF=CAR.mass*G*CAR.frontShare, statR=CAR.mass*G*(1-CAR.frontShare);
+  const ax=S.ax||0, ay=S.ay||0;
+  const dLong=CAR.mass*ax*CAR.cgH/CAR.wb;
+  const dLat =CAR.mass*ay*CAR.cgH/CAR.track;
+  const dfF=downforce*0.46, dfR=downforce*0.54;
+  const L=[ (statF+dfF)/2 - dLong/2 - dLat*CAR.frontShare,
+            (statF+dfF)/2 - dLong/2 + dLat*CAR.frontShare,
+            (statR+dfR)/2 + dLong/2 - dLat*(1-CAR.frontShare),
+            (statR+dfR)/2 + dLong/2 + dLat*(1-CAR.frontShare) ];
+  for(let i=0;i<4;i++)S.load[i]=Math.max(200,L[i]);
+
+  // ---- suspension adaptative (masse non suspendue simplifiée) ----
+  const kBase=95000, cSoft=6500, cFirm=17000;
+  for(let i=0;i<4;i++){
+    const bump=rough*0.035*Math.sin(S.dist*(1.7+i*0.31)+i*2.1)*Math.sin(S.dist*0.23+i);
+    // amortissement piloté : ferme en appui/transfert, souple sur la bosse
+    const demand=Math.min(1,(Math.abs(ax)+Math.abs(ay))/12 + downforce/(CAR.fanMaxN+1e-6)*0.4);
+    const c=sys.esp?(cSoft+(cFirm-cSoft)*demand):11000;
+    const x=S.susp[i], vS=S.suspV[i];
+    const target=(S.load[i]-CAR.mass*G/4)/kBase + bump;
+    const a=(target-x)*kBase/ (CAR.mass/4) - vS*c/(CAR.mass/4);
+    S.suspV[i]=vS+a*dt; S.susp[i]=x+S.suspV[i]*dt;
+    // variation de charge due au débattement (module l'adhérence instantanée)
+    S.load[i]=Math.max(150,S.load[i]-S.suspV[i]*(sys.esp?900:1800));
+  }
+
+  // ---- groupe motopropulseur ----
+  // V12 quad-turbo : générateur + couple direct à l'essieu arrière
+  const boostTarget=sys.v12?In.thr*(1.9*Math.min(1,S.rpm/4200)):0;
+  S.boost+=(boostTarget-S.boost)*Math.min(1,dt*(In.thr>0.1?1.8:5.0));  // lag turbo
+  const rpmTarget=sys.v12?(CAR.v12Idle+(CAR.v12Max-CAR.v12Idle)*Math.min(1,v/95+In.thr*0.35)):0;
+  S.rpm+=(rpmTarget-S.rpm)*Math.min(1,dt*2.5);
+  const v12kW=sys.v12? CAR.v12KW*Math.min(1,S.rpm/CAR.v12Max*1.15)*(S.boost/1.9)*In.thr : 0;
+
+  const socOk=S.soc>0.02?1:0.15;
+  let perWheelKW=CAR.motorKW*socOk;
+  const wheelSplit=[bias/2,bias/2,(1-bias)/2,(1-bias)/2].map(x=>x*4);
+
+  // couple demandé par roue
+  const tq=[0,0,0,0];
+  for(let i=0;i<4;i++){
+    const wRpm=Math.abs(S.w[i])*60/(2*Math.PI);
+    const cap=Math.min(CAR.motorNm, perWheelKW*1000/Math.max(8,Math.abs(S.w[i])));
+    let demand=In.thr*cap*wheelSplit[i];
+    // torque vectoring : couple différentiel selon l'écart de lacet
+    if(sys.tv){
+      const rDes=v*Math.tan(steer)/CAR.wb;
+      const err=Math.max(-1.2,Math.min(1.2,rDes-S.r));
+      const side=(i%2===0)?-1:1;                    // 0,2 = gauche ; 1,3 = droite
+      demand+=side*err*950*Math.min(1,v/12);
+    }
+    // frein régénératif + frein mécanique, réparti sur la charge
+    const brakeN=In.brk*CAR.mass*G*1.35*(S.load[i]/(S.load.reduce((a,b)=>a+b,0)||1));
+    demand-=brakeN*CAR.wheelR*Math.sign(S.w[i]||1);
+    if(In.hb&&i>1)demand-=Math.sign(S.w[i]||1)*4000;
+    tq[i]=demand;
+  }
+
+  // ---- pneus (modèle de glissement simplifié) ----
+  let Fx=0,Fy=0,Mz=0,elecKW=0;
+  const cosd=Math.cos(steer),sind=Math.sin(steer);
+  const halfT=CAR.track/2, a=CAR.wb*CAR.frontShare, b=CAR.wb*(1-CAR.frontShare);
+  const pos=[[a,-halfT],[a,halfT],[-b,-halfT],[-b,halfT]];
+
+  for(let i=0;i<4;i++){
+    const front=i<2;
+    const vxw=S.vx - S.r*pos[i][1];
+    const vyw=S.vy + S.r*pos[i][0];
+    // vitesses dans le repère roue
+    const lx=front? vxw*cosd+vyw*sind : vxw;
+    const ly=front? -vxw*sind+vyw*cosd : vyw;
+
+    const wv=S.w[i]*CAR.wheelR;
+    const denom=Math.max(2,Math.abs(lx));
+    let sx=(wv-lx)/denom;                     // glissement longitudinal
+    let sa=Math.atan2(ly,denom);              // angle de dérive
+
+    // contrôles électroniques
+    if(sys.tc&&sx>0.14&&tq[i]>0)tq[i]*=0.14/sx;
+    if(sys.abs&&sx<-0.14&&tq[i]<0)tq[i]*=0.14/-sx;
+
+    const muEff=mu*(1-0.00013*Math.max(0,S.load[i]-3000));   // sensibilité à la charge
+    const Fmax=muEff*S.load[i];
+    const k=14, kA=11;
+    let fx=Fmax*Math.tanh(k*sx), fy=-Fmax*Math.tanh(kA*sa);
+    // ellipse d'adhérence
+    const m=Math.hypot(fx,fy);
+    if(m>Fmax){fx*=Fmax/m;fy*=Fmax/m;}
+    S.slip[i]=Math.min(1,Math.hypot(sx,sa*1.3));
+
+    // dynamique de roue
+    const wdot=(tq[i]-fx*CAR.wheelR)/CAR.wheelI;
+    S.w[i]+=wdot*dt;
+    if(In.brk>0.9&&Math.abs(S.w[i])<1)S.w[i]=0;
+    S.tq[i]=tq[i];
+    elecKW+=Math.max(0,tq[i]*S.w[i])/1000;
+    if(tq[i]*S.w[i]<0)S.soc+=Math.min(0.00002,-tq[i]*S.w[i]*dt/(CAR.battKWh*3.6e6))*3; // régén
+
+    const gx=front? fx*cosd-fy*sind : fx;
+    const gy=front? fx*sind+fy*cosd : fy;
+    Fx+=gx;Fy+=gy;Mz+=pos[i][0]*gy-pos[i][1]*gx;
+  }
+
+  // bilan énergie
+  S.soc=Math.max(0,Math.min(1,S.soc-Math.max(0,elecKW-v12kW)*dt/(CAR.battKWh*3600)));
+
+  Fx-=drag*Math.sign(S.vx||1)*Math.abs(S.vx)/Math.max(0.1,v||0.1);
+  Fy-=0.5*RHO*CAR.cd*CAR.area*v*Math.abs(S.vy)*0.3;
+
+  const axl=Fx/CAR.mass+S.r*S.vy;
+  const ayl=Fy/CAR.mass-S.r*S.vx;
+  S.vx+=axl*dt; S.vy+=ayl*dt; S.r+=Mz/CAR.inertia*dt;
+  S.r*=Math.pow(0.995,dt*60);
+  S.ax=axl; S.ay=ayl;
+
+  S.psi+=S.r*dt;
+  S.x+=(S.vx*Math.cos(S.psi)-S.vy*Math.sin(S.psi))*dt;
+  S.y+=(S.vx*Math.sin(S.psi)+S.vy*Math.cos(S.psi))*dt;
+  S.dist+=v*dt;
+
+  // chrono 0-100
+  const kmh=v*3.6;
+  if(kmh<1)S.t0=0; else if(S.t0!==null)S.t0+=dt;
+  if(S.t100===null&&S.t0!==null&&kmh>=100){S.t100=S.t0;if(best100===null||S.t100<best100)best100=S.t100;}
+  if(kmh<1)S.t100=null;
+  S.elecKW=elecKW; S.v12kW=v12kW; S.down=downforce; S.speed=v;
+}
+
+/* ---------- Rendu ---------- */
+const trail=[];
+function draw(){
+  const W=cv.width,H=cv.height;
+  cx.fillStyle='#05070a';cx.fillRect(0,0,W,H);
+  const scale=Math.max(2.2,9-S.speed*0.09);
+  cx.save();cx.translate(W/2,H*0.62);cx.rotate(-S.psi-Math.PI/2);cx.scale(scale,scale);cx.translate(-S.x,-S.y);
+
+  // grille
+  cx.strokeStyle='#121a22';cx.lineWidth=0.12;
+  const g=10, x0=Math.floor((S.x-120)/g)*g, y0=Math.floor((S.y-120)/g)*g;
+  cx.beginPath();
+  for(let i=0;i<48;i++){cx.moveTo(x0+i*g,y0);cx.lineTo(x0+i*g,y0+480);cx.moveTo(x0,y0+i*g);cx.lineTo(x0+480,y0+i*g);}
+  cx.stroke();
+
+  // traces de pneus
+  cx.strokeStyle='rgba(255,255,255,.14)';cx.lineWidth=0.22;
+  cx.beginPath();
+  for(let i=1;i<trail.length;i++){const p=trail[i-1],q=trail[i];if(Math.hypot(q.x-p.x,q.y-p.y)<5){cx.moveTo(p.x,p.y);cx.lineTo(q.x,q.y);}}
+  cx.stroke();
+
+  // voiture
+  cx.save();cx.translate(S.x,S.y);cx.rotate(S.psi);
+  cx.fillStyle='#37e0b0';cx.strokeStyle='#0b1f19';cx.lineWidth=0.1;
+  cx.beginPath();cx.moveTo(2.3,0);cx.lineTo(1.0,-0.95);cx.lineTo(-2.0,-0.95);cx.lineTo(-2.3,0);cx.lineTo(-2.0,0.95);cx.lineTo(1.0,0.95);cx.closePath();cx.fill();
+  const wp=[[1.2,-0.85],[1.2,0.85],[-1.35,-0.85],[-1.35,0.85]];
+  for(let i=0;i<4;i++){
+    cx.save();cx.translate(wp[i][0],wp[i][1]);
+    const t=Math.max(0,Math.min(1,S.slip[i]));
+    cx.fillStyle=`rgb(${40+215*t},${200-140*t},${140-120*t})`;
+    cx.fillRect(-0.35,-0.16,0.7,0.32);cx.restore();
+  }
+  // halo ventilateurs
+  if(S.fan>50){cx.strokeStyle=`rgba(90,169,255,${Math.min(.6,S.fan/CAR.fanMaxN)})`;cx.lineWidth=0.12;
+    cx.beginPath();cx.arc(-0.6,0,2.6,0,Math.PI*2);cx.stroke();}
+  cx.restore();
+  cx.restore();
+}
+
+/* ---------- HUD ---------- */
+const wheelNames=['AV G','AV D','AR G','AR D'];
+$('#wheels').innerHTML=wheelNames.map((n,i)=>
+  `<div class="kv"><span>${n}</span><b id="w${i}">0 Nm</b></div><div class="bar"><i id="ws${i}"></i></div>`).join('');
+$('#susp').innerHTML=wheelNames.map((n,i)=>
+  `<div class="kv"><span>${n}</span><b id="sp${i}">0 mm</b></div>`).join('');
+
+function hud(){
+  $('#tSpd').textContent=(S.speed*3.6).toFixed(0)+' km/h';
+  $('#t100').textContent=best100?best100.toFixed(2)+' s':'—';
+  $('#tG').textContent=(S.ax/G).toFixed(2)+' / '+(S.ay/G).toFixed(2)+' g';
+  $('#tPwr').textContent=(S.elecKW+S.v12kW).toFixed(0)+' kW';
+  $('#tRpm').textContent=S.rpm.toFixed(0)+' tr/min';
+  $('#tBoost').textContent=S.boost.toFixed(2)+' bar';
+  $('#tSoc').textContent=(S.soc*100).toFixed(0)+' %';
+  $('#tFan').textContent=(S.fan/G).toFixed(0)+' kg';
+  $('#tDF').textContent=(S.down/G).toFixed(0)+' kg';
+  $('#tYaw').textContent=(S.r*180/Math.PI).toFixed(0)+' °/s';
+  for(let i=0;i<4;i++){
+    document.getElementById('w'+i).textContent=S.tq[i].toFixed(0)+' Nm';
+    const b=document.getElementById('ws'+i);
+    b.style.width=Math.min(100,Math.abs(S.tq[i])/2000*100)+'%';
+    b.style.background=S.slip[i]>0.25?'var(--hot)':S.slip[i]>0.12?'var(--warn)':'var(--accent)';
+    document.getElementById('sp'+i).textContent=(S.susp[i]*1000).toFixed(0)+' mm';
+  }
+}
+
+/* ---------- Boucle ---------- */
+let last=performance.now();
+function loop(now){
+  let dt=Math.min(0.05,(now-last)/1000);last=now;
+  const n=4;for(let i=0;i<n;i++)step(dt/n);
+  trail.push({x:S.x,y:S.y});if(trail.length>900)trail.shift();
+  draw();hud();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
