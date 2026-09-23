@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RappelPro | Ne perdez plus un client à cause d'un appel manqué</title>
+<meta name="description" content="RappelPro texte automatiquement chaque appelant manqué et multiplie vos avis Google. Installation en 30 minutes, sans changer de numéro.">
+<style>
+  :root {
+    --bg: #fbfaf7; --surface: #ffffff; --text: #1c1f24; --muted: #5b626d;
+    --accent: #0f6b4f; --accent-ink: #ffffff; --border: #e4e1da; --soft: #eef5f1;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #121416; --surface: #1b1e21; --text: #eceae5; --muted: #a3a9b1;
+      --accent: #3fbf8f; --accent-ink: #0b1a14; --border: #2c3035; --soft: #17251f;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 17px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 16px; }
+  header { display: flex; justify-content: space-between; align-items: center; padding: 20px 0; }
+  .logo { font-weight: 800; font-size: 1.25rem; letter-spacing: -0.02em; }
+  .logo span { color: var(--accent); }
+  .btn { display: inline-block; background: var(--accent); color: var(--accent-ink); text-decoration: none; font-weight: 700; padding: 14px 24px; border-radius: 10px; }
+  .btn.ghost { background: transparent; color: var(--text); border: 1px solid var(--border); padding: 10px 16px; font-weight: 600; }
+  .hero { display: grid; grid-template-columns: 1.2fr 1fr; gap: 48px; align-items: center; padding: 56px 0 72px; }
+  h1 { font-size: clamp(2rem, 5vw, 3.2rem); line-height: 1.1; letter-spacing: -0.03em; margin: 0 0 20px; }
+  .lead { color: var(--muted); font-size: 1.15rem; margin: 0 0 28px; }
+  .note { color: var(--muted); font-size: .9rem; margin-top: 12px; }
+  .phone { background: var(--surface); border: 1px solid var(--border); border-radius: 28px; padding: 24px 18px; max-width: 340px; justify-self: center; width: 100%; box-shadow: 0 20px 50px -30px rgba(0,0,0,.35); }
+  .phone small { display: block; text-align: center; color: var(--muted); margin-bottom: 16px; }
+  .bubble { background: var(--soft); border-radius: 16px 16px 16px 4px; padding: 12px 14px; font-size: .95rem; margin-bottom: 10px; }
+  .bubble.me { background: var(--accent); color: var(--accent-ink); border-radius: 16px 16px 4px 16px; margin-left: 40px; }
+  section { padding: 64px 0; border-top: 1px solid var(--border); }
+  h2 { font-size: clamp(1.5rem, 3.5vw, 2.1rem); letter-spacing: -0.02em; margin: 0 0 12px; }
+  .sub { color: var(--muted); margin: 0 0 36px; max-width: 620px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 24px; }
+  .card h3 { margin: 0 0 8px; font-size: 1.1rem; }
+  .card p { margin: 0; color: var(--muted); }
+  .num { font-size: 2.4rem; font-weight: 800; color: var(--accent); line-height: 1; margin-bottom: 8px; }
+  .pricing { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; max-width: 760px; }
+  .price { font-size: 2.4rem; font-weight: 800; margin: 8px 0; }
+  .price small { font-size: 1rem; color: var(--muted); font-weight: 500; }
+  .card ul { padding-left: 20px; margin: 16px 0 24px; color: var(--muted); }
+  .card.featured { border: 2px solid var(--accent); }
+  .guarantee { background: var(--soft); border-radius: 14px; padding: 24px; margin-top: 28px; max-width: 760px; }
+  details { border-bottom: 1px solid var(--border); padding: 16px 0; max-width: 760px; }
+  summary { font-weight: 600; cursor: pointer; }
+  details p { color: var(--muted); margin: 10px 0 0; }
+  footer { padding: 40px 0; color: var(--muted); font-size: .9rem; border-top: 1px solid var(--border); }
+  @media (max-width: 760px) {
+    .hero, .grid3, .pricing { grid-template-columns: 1fr; }
+    .hero { padding-top: 24px; gap: 36px; }
+    header .btn.ghost { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">Rappel<span>Pro</span></div>
+    <a class="btn ghost" href="#contact">Réserver une démo</a>
+  </header>
+
+  <div class="hero">
+    <div>
+      <h1>Chaque appel manqué, c'est un client qui appelle votre concurrent.</h1>
+      <p class="lead">RappelPro texte automatiquement chaque personne que vous n'avez pas pu prendre, en quelques secondes. Le client reste avec vous, même quand vous êtes sur un chantier.</p>
+      <a class="btn" href="#contact">Voir une démo de 15 minutes</a>
+      <p class="note">Installation en 30 minutes · Vous gardez votre numéro · Sans engagement</p>
+    </div>
+    <div class="phone" aria-label="Exemple de conversation par texto">
+      <small>Appel manqué · il y a 8 secondes</small>
+      <div class="bubble">Bonjour, ici Plomberie Tremblay. Désolé d'avoir manqué votre appel ! Répondez à ce texto avec votre besoin, on vous revient rapidement.</div>
+      <div class="bubble me">J'ai une fuite sous l'évier, pouvez-vous passer aujourd'hui ?</div>
+      <div class="bubble">Oui ! On peut être là vers 15 h. Quelle est votre adresse ?</div>
+    </div>
+  </div>
+</div>
+
+<section>
+  <div class="wrap">
+    <h2>Le problème coûte plus cher que vous pensez</h2>
+    <p class="sub">La plupart des gens qui tombent sur une boîte vocale ne laissent pas de message. Ils retournent sur Google et appellent le suivant.</p>
+    <div class="grid3">
+      <div class="card"><div class="num">5–15</div><p>appels manqués par semaine pour un commerce de services typique</p></div>
+      <div class="card"><div class="num">~80 %</div><p>des appelants ne laissent pas de message vocal</p></div>
+      <div class="card"><div class="num">1</div><p>client récupéré par mois suffit à payer le service</p></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Comment ça marche</h2>
+    <p class="sub">Aucune application à installer, aucun changement pour vos clients.</p>
+    <div class="grid3">
+      <div class="card"><h3>1. Vous manquez un appel</h3><p>L'appel est transféré automatiquement vers RappelPro quand vous ne répondez pas.</p></div>
+      <div class="card"><h3>2. Le client reçoit un texto</h3><p>En quelques secondes, avec le nom de votre commerce. Vous recevez son numéro en même temps.</p></div>
+      <div class="card"><h3>3. Vous reprenez la conversation</h3><p>Sa réponse vous arrive directement. Après le service, RappelPro lui demande un avis Google.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="tarifs">
+  <div class="wrap">
+    <h2>Tarifs simples</h2>
+    <p class="sub">Un seul client récupéré par mois rembourse l'abonnement.</p>
+    <div class="pricing">
+      <div class="card">
+        <h3>Essentiel</h3>
+        <div class="price">297 $<small> /mois</small></div>
+        <ul>
+          <li>Texto automatique à chaque appel manqué</li>
+          <li>Alerte instantanée sur votre cellulaire</li>
+          <li>Réponses des clients transférées</li>
+          <li>Installation gratuite</li>
+        </ul>
+        <a class="btn ghost" href="#contact">Commencer</a>
+      </div>
+      <div class="card featured">
+        <h3>Croissance</h3>
+        <div class="price">447 $<small> /mois</small></div>
+        <ul>
+          <li>Tout le forfait Essentiel</li>
+          <li>Demandes d'avis Google automatiques</li>
+          <li>Rapport mensuel des appels récupérés</li>
+          <li>Installation : 197 $</li>
+        </ul>
+        <a class="btn" href="#contact">Commencer</a>
+      </div>
+    </div>
+    <div class="guarantee"><strong>Garantie :</strong> si RappelPro ne vous ramène pas au moins un client dans les 30 premiers jours, votre 2e mois est gratuit.</div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Questions fréquentes</h2>
+    <details><summary>Est-ce que je dois changer de numéro ?</summary><p>Non. On active un simple transfert d'appel quand vous ne répondez pas. Vos clients composent toujours le même numéro.</p></details>
+    <details><summary>Combien de temps prend l'installation ?</summary><p>Environ 30 minutes, et on s'occupe de tout. Vous n'avez qu'à confirmer le texte du message.</p></details>
+    <details><summary>Est-ce que je peux annuler ?</summary><p>Oui, en tout temps, sans frais. L'abonnement est mensuel.</p></details>
+    <details><summary>Est-ce que c'est légal d'envoyer ces textos ?</summary><p>Oui. Les textos partent uniquement vers des personnes qui viennent de vous appeler ou qui sont vos clients, avec le nom de votre commerce et une option pour se désabonner.</p></details>
+  </div>
+</section>
+
+<section id="contact">
+  <div class="wrap">
+    <h2>Voyez-le fonctionner en 15 minutes</h2>
+    <p class="sub">Pendant la démo, vous appelez notre numéro, on ne répond pas, et vous recevez le texto devant vous.</p>
+    <!-- Remplace l'adresse ci-dessous par ton courriel ou ton lien Calendly. -->
+    <a class="btn" href="mailto:bonjour@rappelpro.ca?subject=D%C3%A9mo%20RappelPro">Réserver ma démo</a>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">© 2026 RappelPro · Service offert aux commerces locaux</div>
+</footer>
+</body>
+</html>

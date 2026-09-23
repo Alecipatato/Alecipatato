@@ -1,0 +1,9 @@
+{
+  "+15145550100": {
+    "name": "Plomberie Tremblay",
+    "ownerPhone": "+15145559999",
+    "missedCallMessage": "Bonjour, ici {business}. Désolé d'avoir manqué votre appel ! Répondez à ce texto avec votre besoin, on vous revient rapidement.",
+    "voiceMessage": "Merci d'avoir appelé Plomberie Tremblay. Nous vous envoyons un texto à l'instant.",
+    "reviewLink": "https://g.page/r/VOTRE-ID/review"
+  }
+}
