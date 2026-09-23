@@ -74,6 +74,31 @@ test('appel manqué : texte l\'appelant et prévient le propriétaire', async ()
   });
 });
 
+test('appelant sur ligne fixe : l\'appel se termine proprement et le propriétaire est prévenu', async () => {
+  const sent = [];
+  const server = createApp({
+    clients,
+    sendSms: async (m) => {
+      if (m.to === CALLER) throw new Error('Twilio 400: 21614 not a mobile number');
+      sent.push(m);
+    },
+  });
+  await new Promise((r) => server.listen(0, r));
+  try {
+    const res = await fetch(`http://127.0.0.1:${server.address().port}/voice`, {
+      method: 'POST',
+      body: new URLSearchParams({ From: CALLER, To: BIZ }),
+    });
+    assert.strictEqual(res.status, 200);
+    assert.match(await res.text(), /<Hangup\/>/);
+    assert.strictEqual(sent.length, 1);
+    assert.strictEqual(sent[0].to, OWNER);
+    assert.match(sent[0].body, /rappelez-le/);
+  } finally {
+    server.close();
+  }
+});
+
 test('appel sans numéro affiché : aucun texto', async () => {
   await withApp(async ({ base, sent }) => {
     const res = await twilioPost(base, '/voice', { From: 'anonymous', To: BIZ });

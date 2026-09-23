@@ -91,9 +91,21 @@ function createApp({ clients, sendSms, authToken, publicUrl, apiKey, eventsFile,
 
     const caller = p.From;
     if (caller && /^\+\d{8,15}$/.test(caller)) {
-      await sendSms({ from: p.To, to: caller, body: fill(client.missedCallMessage, { business: client.name }) });
-      await sendSms({ from: p.To, to: client.ownerPhone, body: `RappelPro : appel manqué de ${caller}. Un texto lui a été envoyé.` });
-      logEvent(p.To, 'missed_call', { caller });
+      // Un échec d'envoi (ligne fixe, numéro invalide) ne doit ni couper l'appel ni priver le propriétaire de l'alerte.
+      let texted = true;
+      try {
+        await sendSms({ from: p.To, to: caller, body: fill(client.missedCallMessage, { business: client.name }) });
+      } catch (err) {
+        texted = false;
+        console.error(`Texto à ${caller} impossible :`, err.message);
+      }
+      const note = texted ? 'Un texto lui a été envoyé.' : 'Texto impossible (ligne fixe ?), rappelez-le.';
+      try {
+        await sendSms({ from: p.To, to: client.ownerPhone, body: `RappelPro : appel manqué de ${caller}. ${note}` });
+      } catch (err) {
+        console.error('Alerte au propriétaire impossible :', err.message);
+      }
+      logEvent(p.To, 'missed_call', { caller, texted });
     }
     const voice = client.voiceMessage || `Merci d'avoir appelé ${client.name}. Nous vous envoyons un texto à l'instant.`;
     send(res, 200, 'text/xml', twiml(`<Say language="fr-CA">${escapeXml(voice)}</Say><Hangup/>`));
