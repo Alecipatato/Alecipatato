@@ -40,7 +40,9 @@
   .card h3 { margin: 0 0 8px; font-size: 1.1rem; }
   .card p { margin: 0; color: var(--muted); }
   .num { font-size: 2.4rem; font-weight: 800; color: var(--accent); line-height: 1; margin-bottom: 8px; }
-  .pricing { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; max-width: 760px; }
+  .pricing { display: grid; grid-template-columns: minmax(0, 440px); gap: 20px; }
+  .promo { display: inline-block; background: var(--soft); color: var(--accent); font-weight: 700; font-size: .8rem; letter-spacing: .04em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; margin-bottom: 12px; }
+  .then { margin: 0; color: var(--muted); }
   .price { font-size: 2.4rem; font-weight: 800; margin: 8px 0; }
   .price small { font-size: 1rem; color: var(--muted); font-weight: 500; }
   .card ul { padding-left: 20px; margin: 16px 0 24px; color: var(--muted); }
@@ -69,7 +71,7 @@
       <h1>Chaque appel manqué, c'est un client qui appelle votre concurrent.</h1>
       <p class="lead">RappelPro texte automatiquement chaque personne que vous n'avez pas pu prendre, en quelques secondes. Le client reste avec vous, même quand vous êtes sur un chantier.</p>
       <a class="btn" href="#contact">Voir une démo de 15 minutes</a>
-      <p class="note">Installation en 30 minutes · Vous gardez votre numéro · Sans engagement</p>
+      <p class="note">89,99 $/mois, premier mois à moitié prix · Vous gardez votre numéro · Sans engagement</p>
     </div>
     <div class="phone" aria-label="Exemple de conversation par texto">
       <small>Appel manqué · il y a 8 secondes</small>
@@ -106,30 +108,23 @@
 
 <section id="tarifs">
   <div class="wrap">
-    <h2>Tarifs simples</h2>
+    <h2>Un seul abonnement, tout compris</h2>
     <p class="sub">Un seul client récupéré par mois rembourse l'abonnement.</p>
     <div class="pricing">
-      <div class="card">
-        <h3>Essentiel</h3>
-        <div class="price">297 $<small> /mois</small></div>
+      <div class="card featured">
+        <span class="promo">Premier mois -50 %</span>
+        <h3>RappelPro</h3>
+        <div class="price">44,99 $<small> le premier mois</small></div>
+        <p class="then">puis 89,99 $/mois · sans engagement</p>
         <ul>
           <li>Texto automatique à chaque appel manqué</li>
           <li>Alerte instantanée sur votre cellulaire</li>
           <li>Réponses des clients transférées</li>
-          <li>Installation gratuite</li>
-        </ul>
-        <a class="btn ghost" href="#contact">Commencer</a>
-      </div>
-      <div class="card featured">
-        <h3>Croissance</h3>
-        <div class="price">447 $<small> /mois</small></div>
-        <ul>
-          <li>Tout le forfait Essentiel</li>
           <li>Demandes d'avis Google automatiques</li>
           <li>Rapport mensuel des appels récupérés</li>
-          <li>Installation : 197 $</li>
+          <li>Installation gratuite</li>
         </ul>
-        <a class="btn" href="#contact">Commencer</a>
+        <a class="btn" href="#contact">Commencer à 44,99 $</a>
       </div>
     </div>
     <div class="guarantee"><strong>Garantie :</strong> si RappelPro ne vous ramène pas au moins un client dans les 30 premiers jours, votre 2e mois est gratuit.</div>

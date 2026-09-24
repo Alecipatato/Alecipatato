@@ -22,7 +22,7 @@ Tu ne vends rien à l'aveugle : tu as la preuve que le problème existe chez lui
 >
 > J'installe un système qui texte automatiquement chaque appelant manqué en quelques secondes (« Désolé d'avoir manqué votre appel, comment peut-on vous aider ? »). Le client reste avec vous plutôt que d'aller voir ailleurs.
 >
-> Un seul appel récupéré par mois paie le service. Est-ce que 15 minutes cette semaine pour vous montrer comment ça marche, ça vous irait ?
+> C'est 89,99 $/mois, et le premier mois est à moitié prix. Un seul appel récupéré paie plusieurs mois. Est-ce que 15 minutes cette semaine pour vous montrer comment ça marche, ça vous irait ?
 >
 > [Ton prénom]
 > [Téléphone]
@@ -39,7 +39,7 @@ Tu ne vends rien à l'aveugle : tu as la preuve que le problème existe chez lui
 >
 > Je mets en place un texto automatique qui répond à chaque appel manqué, ainsi qu'une demande d'avis Google après chaque service. L'installation se fait en 30 minutes, sans changer de numéro.
 >
-> Garantie : si ça ne vous ramène pas au moins un client dans les 30 jours, le 2e mois est gratuit.
+> C'est 89,99 $/mois, le premier mois à 44,99 $. Et si ça ne vous ramène pas au moins un client dans les 30 jours, le 2e mois est gratuit.
 >
 > Est-ce que je vous envoie une démo de 2 minutes ?
 >
@@ -67,14 +67,14 @@ Si la réponse est oui : « Parfait. Je peux vous montrer en 15 minutes. Jeudi m
 1. **Question (3 min) :** « Combien d'appels manquez-vous par semaine ? Combien vaut un client en moyenne ? »
 2. **Calcul à voix haute (2 min) :** « 5 appels manqués par semaine, ça fait 20 par mois. Si vous en perdez seulement 3 à 400 $, c'est 1 200 $ par mois qui vont au concurrent. »
 3. **Démo live (5 min) :** Fais-lui appeler ton numéro de démo, ne réponds pas. Il reçoit le texto devant toi. C'est le moment qui fait signer.
-4. **Offre (3 min) :** Tarif, garantie, installation cette semaine.
+4. **Offre (3 min) :** 89,99 $/mois, premier mois à 44,99 $, garantie, installation cette semaine.
 5. **Conclusion (2 min) :** « On le met en place cette semaine ? »
 
 ## 7. Réponses aux objections
 
 | Objection | Réponse |
 |---|---|
-| « C'est trop cher. » | « Combien vaut un client pour vous ? [400 $] Donc un seul client récupéré par mois paie le service, et il y a la garantie. Le vrai coût, c'est les appels que vous perdez en ce moment. » |
+| « C'est trop cher. » | « Combien vaut un client pour vous ? [400 $] À 89,99 $/mois, un seul client récupéré paie plus de 4 mois. Et le premier mois est à 44,99 $. Le vrai coût, c'est les appels que vous perdez en ce moment. » |
 | « J'ai déjà une boîte vocale. » | « Combien de gens vous laissent vraiment un message ? La plupart raccrochent et appellent le suivant. Le texto, lui, arrive pendant qu'ils cherchent encore. » |
 | « Je vais y penser. » | « Bien sûr. Qu'est-ce qui vous ferait hésiter ? » (Puis : « On commence avec la garantie, vous ne risquez rien le premier mois. ») |
 | « Je n'ai pas le temps. » | « C'est justement pour ça. Je m'occupe de tout, ça prend 30 minutes de mon côté et zéro du vôtre. » |
