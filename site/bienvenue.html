@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bienvenue chez RappelPro</title>
+<meta name="robots" content="noindex">
+<style>
+  :root {
+    --bg: #fbfaf7; --surface: #ffffff; --text: #1c1f24; --muted: #5b626d;
+    --accent: #0f6b4f; --accent-ink: #ffffff; --border: #e4e1da; --soft: #eef5f1;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #121416; --surface: #1b1e21; --text: #eceae5; --muted: #a3a9b1;
+      --accent: #3fbf8f; --accent-ink: #0b1a14; --border: #2c3035; --soft: #17251f;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 17px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 0 16px 64px; }
+  header { padding: 20px 0 8px; }
+  .logo { font-weight: 800; font-size: 1.25rem; letter-spacing: -0.02em; color: var(--text); text-decoration: none; }
+  .logo span { color: var(--accent); }
+  h1 { font-size: clamp(1.8rem, 5vw, 2.6rem); line-height: 1.15; letter-spacing: -0.03em; margin: 32px 0 12px; text-wrap: balance; }
+  .lead { color: var(--muted); margin: 0 0 32px; }
+  ol { list-style: none; padding: 0; margin: 0; display: grid; gap: 16px; counter-reset: step; }
+  li { counter-increment: step; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px 20px 20px 64px; position: relative; }
+  li::before { content: counter(step); position: absolute; left: 20px; top: 20px; width: 30px; height: 30px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-weight: 700; display: grid; place-items: center; font-size: .95rem; }
+  h2 { font-size: 1.15rem; margin: 0 0 6px; }
+  p { margin: 0 0 10px; }
+  li p:last-child { margin-bottom: 0; }
+  .muted { color: var(--muted); }
+  code { font: 600 1.05rem/1.4 ui-monospace, "SF Mono", Menlo, monospace; background: var(--soft); padding: 2px 8px; border-radius: 6px; overflow-wrap: anywhere; }
+  .warn { background: var(--soft); border-radius: 10px; padding: 12px 14px; font-size: .95rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><a class="logo" href="/">Rappel<span>Pro</span></a></header>
+
+  <h1>Merci ! Votre abonnement est actif.</h1>
+  <p class="lead">Il reste 5 minutes pour que plus aucun appel manqué ne vous échappe.</p>
+
+  <ol>
+    <li>
+      <h2>Surveillez vos textos</h2>
+      <p>Dans la minute, vous recevez sur votre cellulaire votre <strong>numéro RappelPro</strong>. Gardez ce texto : il contient le code exact à composer.</p>
+    </li>
+    <li>
+      <h2>Activez le transfert des appels manqués</h2>
+      <p>Sur le cellulaire du commerce, composez ce code en remplaçant les X par votre numéro RappelPro, puis appuyez sur Appeler :</p>
+      <p><code>**004*+1XXXXXXXXXX#</code></p>
+      <p class="muted">Ça fonctionne chez la plupart des opérateurs (Bell, Telus, Rogers, Vidéotron, Fido, Koodo, Virgin, Freedom). Les appels sont transférés seulement quand vous ne répondez pas, êtes occupé ou hors réseau. Pour désactiver : <code>##004#</code></p>
+      <p class="warn"><strong>Ligne fixe ?</strong> Appelez votre fournisseur et demandez le « renvoi d'appel sur non-réponse et sur occupation » vers votre numéro RappelPro. N'utilisez pas le renvoi de <em>tous</em> les appels : votre téléphone ne sonnerait plus.</p>
+    </li>
+    <li>
+      <h2>Faites un test</h2>
+      <p>Depuis un autre téléphone, appelez votre commerce et ne répondez pas. Le téléphone de test reçoit le texto de RappelPro, et vous recevez une alerte avec son numéro.</p>
+    </li>
+    <li>
+      <h2>Demandez des avis Google</h2>
+      <p>Après un service, textez à votre numéro RappelPro :</p>
+      <p><code>AVIS 514-555-1234 Julie</code></p>
+      <p class="muted">Votre client reçoit aussitôt un texto avec le lien vers votre page d'avis.</p>
+    </li>
+  </ol>
+</div>
+</body>
+</html>

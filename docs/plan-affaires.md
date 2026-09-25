@@ -50,7 +50,7 @@ Le prix bas rend la vente plus facile, mais il faut beaucoup plus de clients.
 
 **Attention : ce rythme dépasse 10 h par semaine.** À 60 contacts par semaine (~6 clients par mois), le revenu plafonne autour de 5 000 à 6 000 $/mois. Pour aller jusqu'à 10 000 $, il faut une de ces options :
 
-1. **Inscription en libre-service** : un bouton « S'abonner » sur le site (paiement Stripe), avec un guide d'installation que le client suit seul. C'est la vraie solution à ce prix-là.
+1. **Inscription en libre-service** (déjà construite) : le formulaire du site mène au paiement Stripe, puis le numéro est créé et envoyé automatiquement. Tu n'as plus d'installation à faire : ton temps va entièrement à la prospection et à la pub.
 2. **Un assistant de prospection payé à la commission** (par exemple le premier mois complet de chaque client signé).
 3. **Plus de temps** : 15 à 20 h par semaine au lieu de 10.
 
@@ -73,7 +73,7 @@ Il faut être honnête : **aucun business ne garantit 10 000 $/mois.** Ce plan d
 
 ### Semaines 7–12 : régularité
 - [ ] 60 contacts par semaine, sans exception
-- [ ] Mettre en place l'inscription en libre-service (paiement Stripe + guide d'installation)
+- [ ] Ouvrir l'inscription en libre-service (déjà construite : `app/setup-stripe.js`, puis le formulaire du site). Chaque démo se termine par « Inscrivez-vous sur le site, ça prend 2 minutes ».
 - [ ] Demander à chaque client satisfait : « Connaissez-vous un autre propriétaire qui pourrait en profiter ? » (un mois gratuit par référence qui signe)
 - [ ] Objectif à la fin du 3e mois : 20 à 25 clients, **1 800 à 2 250 $/mois**
 

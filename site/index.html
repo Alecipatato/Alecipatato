@@ -40,7 +40,14 @@
   .card h3 { margin: 0 0 8px; font-size: 1.1rem; }
   .card p { margin: 0; color: var(--muted); }
   .num { font-size: 2.4rem; font-weight: 800; color: var(--accent); line-height: 1; margin-bottom: 8px; }
-  .pricing { display: grid; grid-template-columns: minmax(0, 440px); gap: 20px; }
+  .pricing { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 20px; max-width: 960px; align-items: start; }
+  form { display: grid; gap: 16px; }
+  label { display: grid; gap: 6px; font-weight: 600; font-size: .95rem; }
+  label small { font-weight: 400; color: var(--muted); }
+  input { font: inherit; font-weight: 400; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; width: 100%; }
+  input:focus-visible, .btn:focus-visible, summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  button.btn { border: 0; font: inherit; font-weight: 700; cursor: pointer; }
+  .fineprint { margin: 0; color: var(--muted); font-size: .85rem; }
   .promo { display: inline-block; background: var(--soft); color: var(--accent); font-weight: 700; font-size: .8rem; letter-spacing: .04em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; margin-bottom: 12px; }
   .then { margin: 0; color: var(--muted); }
   .price { font-size: 2.4rem; font-weight: 800; margin: 8px 0; }
@@ -70,7 +77,7 @@
     <div>
       <h1>Chaque appel manqué, c'est un client qui appelle votre concurrent.</h1>
       <p class="lead">RappelPro texte automatiquement chaque personne que vous n'avez pas pu prendre, en quelques secondes. Le client reste avec vous, même quand vous êtes sur un chantier.</p>
-      <a class="btn" href="#contact">Voir une démo de 15 minutes</a>
+      <a class="btn" href="#inscription">Commencer à 44,99 $</a>
       <p class="note">89,99 $/mois, premier mois à moitié prix · Vous gardez votre numéro · Sans engagement</p>
     </div>
     <div class="phone" aria-label="Exemple de conversation par texto">
@@ -122,9 +129,27 @@
           <li>Réponses des clients transférées</li>
           <li>Demandes d'avis Google automatiques</li>
           <li>Rapport mensuel des appels récupérés</li>
-          <li>Installation gratuite</li>
+          <li>Installation en 5 minutes, sans changer de numéro</li>
         </ul>
-        <a class="btn" href="#contact">Commencer à 44,99 $</a>
+      </div>
+      <div class="card" id="inscription">
+        <h3>Inscrivez votre commerce</h3>
+        <form action="/signup" method="post">
+          <label for="business">Nom du commerce
+            <input id="business" name="business" required maxlength="80" autocomplete="organization" placeholder="Plomberie Tremblay">
+          </label>
+          <label for="ownerPhone">Votre cellulaire <small>On vous y texte chaque appel manqué.</small>
+            <input id="ownerPhone" name="ownerPhone" type="tel" required autocomplete="tel" placeholder="514-555-1234">
+          </label>
+          <label for="email">Courriel <small>Pour vos reçus.</small>
+            <input id="email" name="email" type="email" required autocomplete="email" placeholder="vous@commerce.ca">
+          </label>
+          <label for="reviewLink">Lien d'avis Google <small>Facultatif. Dans Google, « Demander des avis ».</small>
+            <input id="reviewLink" name="reviewLink" type="url" placeholder="https://g.page/r/…/review">
+          </label>
+          <button class="btn" type="submit">Payer 44,99 $ et commencer</button>
+          <p class="fineprint">Paiement sécurisé par Stripe. Ensuite 89,99 $/mois, annulable en tout temps. Votre numéro RappelPro vous est texté dans la minute.</p>
+        </form>
       </div>
     </div>
     <div class="guarantee"><strong>Garantie :</strong> si RappelPro ne vous ramène pas au moins un client dans les 30 premiers jours, votre 2e mois est gratuit.</div>
@@ -135,7 +160,8 @@
   <div class="wrap">
     <h2>Questions fréquentes</h2>
     <details><summary>Est-ce que je dois changer de numéro ?</summary><p>Non. On active un simple transfert d'appel quand vous ne répondez pas. Vos clients composent toujours le même numéro.</p></details>
-    <details><summary>Combien de temps prend l'installation ?</summary><p>Environ 30 minutes, et on s'occupe de tout. Vous n'avez qu'à confirmer le texte du message.</p></details>
+    <details><summary>Combien de temps prend l'installation ?</summary><p>Environ 5 minutes. Après le paiement, vous recevez par texto votre numéro RappelPro et un code à composer sur votre cellulaire pour activer le transfert des appels manqués.</p></details>
+    <details><summary>Comment demander un avis Google à un client ?</summary><p>Textez à votre numéro RappelPro : AVIS, le cellulaire du client et son prénom. Par exemple : AVIS 514-555-1234 Julie. Il reçoit aussitôt un texto avec le lien vers votre page d'avis.</p></details>
     <details><summary>Est-ce que je peux annuler ?</summary><p>Oui, en tout temps, sans frais. L'abonnement est mensuel.</p></details>
     <details><summary>Est-ce que c'est légal d'envoyer ces textos ?</summary><p>Oui. Les textos partent uniquement vers des personnes qui viennent de vous appeler ou qui sont vos clients, avec le nom de votre commerce et une option pour se désabonner.</p></details>
   </div>
@@ -143,7 +169,7 @@
 
 <section id="contact">
   <div class="wrap">
-    <h2>Voyez-le fonctionner en 15 minutes</h2>
+    <h2>Vous préférez voir une démo d'abord ?</h2>
     <p class="sub">Pendant la démo, vous appelez notre numéro, on ne répond pas, et vous recevez le texto devant vous.</p>
     <!-- Remplace l'adresse ci-dessous par ton courriel ou ton lien Calendly. -->
     <a class="btn" href="mailto:bonjour@rappelpro.ca?subject=D%C3%A9mo%20RappelPro">Réserver ma démo</a>

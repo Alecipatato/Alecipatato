@@ -1,43 +1,59 @@
 # RappelPro : le produit
 
-Serveur Node.js sans dépendance, qui fait trois choses :
+Serveur Node.js sans dépendance. Il publie aussi le site (`../site`), donc un seul déploiement suffit.
 
-1. **Appel manqué → texto** : l'appelant reçoit un SMS en quelques secondes et le propriétaire est averti.
-2. **Réponses transférées** : quand l'appelant répond au texto, sa réponse est renvoyée au propriétaire.
-3. **Demande d'avis Google** : un SMS avec le lien d'avis, déclenché par une requête HTTP (Zapier, Make, formulaire, ou toi manuellement).
+1. **Inscription en libre-service** : le formulaire du site mène au paiement Stripe (89,99 $/mois, premier mois à -50 %). Dès que le paiement passe, le serveur achète un numéro Twilio dans l'indicatif du commerce et texte au propriétaire son numéro et le code d'activation.
+2. **Appel manqué → texto** : l'appelant reçoit un SMS en quelques secondes et le propriétaire est averti.
+3. **Réponses transférées** : quand l'appelant répond au texto, sa réponse arrive chez le propriétaire.
+4. **Demandes d'avis Google** : le propriétaire texte `AVIS 514-555-1234 Julie` à son numéro RappelPro, et le client reçoit le lien d'avis.
+5. **Annulation** : quand un abonnement Stripe se termine, le numéro Twilio est libéré (il ne te coûte plus rien) et le service s'arrête.
 
-Un rapport mensuel (`/report`) compte les appels récupérés, ce qui te sert à prouver la valeur au client.
+Un rapport mensuel (`/report`) compte les appels récupérés, pour prouver la valeur au client.
 
 ## Comment ça marche chez le client
 
-Le commerce **garde son numéro**. On active un **transfert d'appel sur non-réponse ou occupé** vers le numéro Twilio de RappelPro (avec la plupart des opérateurs, c'est un code du type `*92` ou `**61*`, à voir avec l'opérateur du client). Tout appel qui arrive chez RappelPro est donc un appel manqué.
+Le commerce **garde son numéro**. Il active un **transfert d'appel sur non-réponse ou occupé** vers son numéro RappelPro. Sur la plupart des cellulaires au Canada, c'est `**004*+1XXXXXXXXXX#`. La page `bienvenue.html` explique aussi le cas des lignes fixes. Tout appel qui arrive chez RappelPro est donc un appel manqué.
 
-## Installation (environ 1 h la première fois)
+## Installation (environ 1 h, une seule fois)
 
-1. **Twilio** : crée un compte sur twilio.com et achète un numéro local avec SMS et voix (~1,15 $/mois). Un numéro par client.
-2. **Hébergement** : déploie le dossier `app/` sur Render, Railway ou Fly.io (offres gratuites ou ~5 $/mois). Commande de démarrage : `npm start`.
-3. **Variables d'environnement** :
+1. **Twilio** : crée un compte sur twilio.com et ajoute du crédit (20 $ suffisent pour commencer). Chaque abonné coûte environ 1,15 $/mois pour son numéro, plus ~0,01 $ par texto.
+2. **Stripe** : crée un compte sur stripe.com et récupère ta clé secrète (commence par `sk_test_` en mode test, `sk_live_` en mode réel).
+3. **Hébergement** : déploie tout le dépôt sur Render, Railway ou Fly.io (~5 $/mois). Commande de démarrage : `cd app && npm start`. **Prends un disque persistant** : la liste des abonnés (`clients.json`) y est enregistrée.
+4. **Configurer Stripe** : une seule commande crée le produit, le prix, le coupon -50 % et le webhook :
+   ```bash
+   STRIPE_SECRET_KEY=sk_test_... PUBLIC_URL=https://ton-serveur.onrender.com node app/setup-stripe.js
+   ```
+   Elle affiche trois variables à copier à l'étape suivante.
+5. **Variables d'environnement** :
 
    | Variable | Rôle |
    |---|---|
+   | `PUBLIC_URL` | URL publique du serveur, par exemple `https://rappelpro.onrender.com` |
    | `TWILIO_ACCOUNT_SID` | Identifiant du compte Twilio |
    | `TWILIO_AUTH_TOKEN` | Jeton Twilio (sert aussi à vérifier que les requêtes viennent de Twilio) |
-   | `PUBLIC_URL` | URL publique du serveur, par exemple `https://rappelpro.onrender.com` |
+   | `STRIPE_SECRET_KEY` | Clé secrète Stripe |
+   | `STRIPE_PRICE_ID` | Donné par `setup-stripe.js` |
+   | `STRIPE_COUPON_ID` | Donné par `setup-stripe.js` (premier mois -50 %) |
+   | `STRIPE_WEBHOOK_SECRET` | Donné par `setup-stripe.js` |
    | `API_KEY` | Une longue chaîne aléatoire qui protège `/review-request` et `/report` |
-   | `CLIENTS_FILE` | *(facultatif)* chemin du fichier des clients, par défaut `app/clients.json` |
+   | `TWILIO_COUNTRY` | *(facultatif)* pays des numéros achetés, `CA` par défaut (`US` pour les États-Unis) |
+   | `CLIENTS_FILE` | *(facultatif)* fichier des abonnés, par défaut `app/clients.json` |
    | `EVENTS_FILE` | *(facultatif)* journal des événements, par défaut `app/events.jsonl` |
 
-   Sans identifiants Twilio, le serveur tourne en mode test et affiche les SMS dans la console au lieu de les envoyer.
+   Sans identifiants Twilio, le serveur tourne en mode test : les textos et les achats de numéros s'affichent dans la console au lieu d'être faits pour de vrai. Sans clé Stripe, le formulaire répond que l'inscription n'est pas encore ouverte.
 
-4. **Clients** : copie `clients.example.json` vers `clients.json` et ajoute un bloc par client, identifié par son numéro Twilio.
-5. **Webhooks Twilio** (dans la console, sur chaque numéro) :
-   - *A call comes in* → `POST https://TON-URL/voice`
-   - *A message comes in* → `POST https://TON-URL/sms`
-6. **Test** : appelle le numéro Twilio depuis ton cellulaire. Tu dois recevoir le texto.
+6. **Test complet en mode test Stripe** : remplis le formulaire du site avec ton propre cellulaire et la carte de test `4242 4242 4242 4242`. Tu dois recevoir le texto de bienvenue avec ton numéro RappelPro. Compose le code d'activation, puis fais-toi appeler sans répondre.
+7. **Passer en mode réel** : relance `setup-stripe.js` avec ta clé `sk_live_...` et remplace les quatre variables Stripe.
 
-> Sur un hébergement gratuit, le disque peut être effacé au redémarrage. Si tu veux garder l'historique des rapports, utilise un disque persistant (Render et Railway en offrent).
+## Ajouter un client à la main
 
-## Envoyer une demande d'avis
+Pour un client signé en personne, ajoute un bloc dans `clients.json` (voir `clients.example.json`), achète son numéro dans la console Twilio et règle ses webhooks :
+- *A call comes in* → `POST https://TON-URL/voice`
+- *A message comes in* → `POST https://TON-URL/sms`
+
+## Demandes d'avis par API
+
+Pour les brancher sur le logiciel du client (Zapier, Make : « facture payée », « rendez-vous terminé ») :
 
 ```bash
 curl -X POST https://TON-URL/review-request \
@@ -46,16 +62,12 @@ curl -X POST https://TON-URL/review-request \
   -d '{"client":"+15145550100","phone":"+14385551234","name":"Julie"}'
 ```
 
-Dans Zapier ou Make, branche la même requête sur « facture payée » ou « rendez-vous terminé » dans le logiciel du client : les demandes d'avis partent sans que personne n'ait à y penser.
-
 ## Rapport mensuel
 
 ```bash
 curl "https://TON-URL/report?client=%2B15145550100&month=2026-09" -H "Authorization: Bearer $API_KEY"
 # {"client":"+15145550100","month":"2026-09","missed_call":14,"sms_reply":6,"review_request":22}
 ```
-
-Envoie ces chiffres au client chaque mois : « 14 appels manqués récupérés, 6 clients ont répondu au texto ».
 
 ## Tests
 
@@ -67,4 +79,4 @@ npm test
 
 - Les textos partent uniquement vers des personnes qui viennent d'appeler ou qui sont clientes du commerce.
 - Twilio gère automatiquement les réponses ARRÊT/STOP.
-- Aux États-Unis, l'enregistrement **A2P 10DLC** est obligatoire pour les numéros locaux. Au Canada, respecte la LCAP (identification de l'expéditeur, option de désabonnement).
+- Au Canada, respecte la LCAP (identification de l'expéditeur, option de désabonnement). Aux États-Unis, l'enregistrement **A2P 10DLC** est obligatoire pour les numéros locaux : l'achat automatique de numéros américains demande d'abord cet enregistrement dans Twilio.
