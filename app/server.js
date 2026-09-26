@@ -16,7 +16,14 @@ const DEFAULT_MISSED_CALL_MESSAGE =
   "Bonjour, ici {business}. Désolé d'avoir manqué votre appel ! Répondez à ce texto avec votre besoin, on vous revient rapidement.";
 const DEFAULT_REVIEW_MESSAGE =
   "Bonjour {name}, merci d'avoir choisi {business} ! Votre avis nous aide beaucoup : {link} (Répondez ARRÊT pour ne plus recevoir de textos)";
-const SITE_PAGES = { '/': 'index.html', '/index.html': 'index.html', '/bienvenue.html': 'bienvenue.html' };
+const SITE_PAGES = {
+  '/': 'index.html',
+  '/index.html': 'index.html',
+  '/bienvenue.html': 'bienvenue.html',
+  '/conditions.html': 'conditions.html',
+  '/confidentialite.html': 'confidentialite.html',
+};
+const MONTHS_FR = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 
 function escapeXml(s) {
   return String(s).replace(/[<>&'"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' })[c]);
@@ -79,13 +86,16 @@ function createApp({
   stripeWebhookSecret,
   stripePriceId,
   stripeCouponId,
+  stripePortalConfigId,
   authToken,
   publicUrl = '',
   apiKey,
   eventsFile,
   siteDir,
+  business = {},
   now = () => new Date(),
 }) {
+  const contactEmail = business.email;
   function logEvent(clientNumber, type, extra = {}) {
     if (!eventsFile) return;
     const line = JSON.stringify({ at: now().toISOString(), client: clientNumber, type, ...extra });
@@ -151,10 +161,13 @@ function createApp({
     const client = store.get(p.To);
     const body = (p.Body || '').trim();
     if (client && p.From === client.ownerPhone) {
+      if (/^(compte|annuler|abonnement|facture)s?$/i.test(body)) {
+        return send(res, 200, 'text/xml', twiml(`<Message>${escapeXml(await accountReply(client))}</Message>`));
+      }
       const m = /^avis\s+([+\d][\d\s().-]{8,})(?:\s+(.+))?$/i.exec(body);
       const phone = m && normalizePhone(m[1]);
       let reply;
-      if (!m) reply = 'Pour demander un avis Google, textez : AVIS 514-555-1234 Prénom';
+      if (!m) reply = 'Pour demander un avis Google, textez : AVIS 514-555-1234 Prénom. Pour gérer ou annuler votre abonnement, textez : COMPTE';
       else if (!phone) reply = `Numéro non reconnu : « ${m[1].trim()} ». Exemple : AVIS 514-555-1234 Julie`;
       else if (!client.reviewLink) reply = "Aucun lien d'avis Google n'est configuré pour votre compte. Répondez avec votre lien pour qu'on l'ajoute.";
       else {
@@ -173,6 +186,24 @@ function createApp({
       logEvent(p.To, 'sms_reply', { caller: p.From });
     }
     send(res, 200, 'text/xml', twiml(''));
+  }
+
+  // Lien vers le portail Stripe : carte, factures, annulation (effective à la fin du mois payé).
+  async function accountReply(client) {
+    if (!stripe || !client.customerId) {
+      return `Pour gérer ou annuler votre abonnement, écrivez-nous à ${contactEmail || 'notre adresse de contact'}.`;
+    }
+    try {
+      const portal = await stripe.createPortalSession({
+        customer: client.customerId,
+        configuration: stripePortalConfigId,
+        return_url: `${publicUrl}/`,
+      });
+      return `Gérez votre abonnement RappelPro (carte, factures, annulation) ici : ${portal.url} Ce lien est personnel et expire bientôt.`;
+    } catch (err) {
+      console.error('Portail Stripe impossible :', err.message);
+      return `Le lien n'a pas pu être créé. Réessayez dans quelques minutes ou écrivez-nous à ${contactEmail || 'notre adresse de contact'}.`;
+    }
   }
 
   // POST { client: "+1514...", phone: "+1438...", name: "Julie" } avec Authorization: Bearer API_KEY
@@ -196,15 +227,57 @@ function createApp({
     if (!hasApiKey(req)) return send(res, 401, 'application/json', '{"error":"non autorisé"}');
     const client = url.searchParams.get('client');
     const month = url.searchParams.get('month') || now().toISOString().slice(0, 7);
-    const counts = { missed_call: 0, sms_reply: 0, review_request: 0 };
+    send(res, 200, 'application/json', JSON.stringify({ client, month, ...countEvents(month).get(client) }));
+  }
+
+  // Compteurs du mois (« 2026-09 ») pour chaque numéro RappelPro.
+  function countEvents(month) {
+    const byClient = new Map();
+    const countsFor = (c) => {
+      if (!byClient.has(c)) byClient.set(c, { missed_call: 0, sms_reply: 0, review_request: 0 });
+      return byClient.get(c);
+    };
     if (eventsFile && fs.existsSync(eventsFile)) {
       for (const line of fs.readFileSync(eventsFile, 'utf8').split('\n')) {
         if (!line) continue;
         const e = JSON.parse(line);
-        if (e.client === client && e.at.startsWith(month) && e.type in counts) counts[e.type]++;
+        if (e.at.startsWith(month) && ['missed_call', 'sms_reply', 'review_request'].includes(e.type)) countsFor(e.client)[e.type]++;
       }
     }
-    send(res, 200, 'application/json', JSON.stringify({ client, month, ...counts }));
+    return { get: countsFor };
+  }
+
+  // Bilan du mois précédent texté à chaque abonné, une seule fois, à partir du 1er du mois à 14 h UTC (10 h à Montréal).
+  // Appelée toutes les heures : si le serveur était arrêté le 1er, le bilan part au redémarrage.
+  async function sendMonthlyReports() {
+    const t = now();
+    const monthStart = new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), 1));
+    if (t < new Date(monthStart.getTime() + 14 * 3600 * 1000)) return 0;
+    const prev = new Date(monthStart.getTime() - 1);
+    const month = prev.toISOString().slice(0, 7);
+    const counts = countEvents(month);
+    let sent = 0;
+    for (const [number, client] of store.active()) {
+      if (client.lastReport === month) continue;
+      if (client.createdAt && new Date(client.createdAt) >= monthStart) continue;
+      const c = counts.get(number);
+      const label = `${MONTHS_FR[prev.getUTCMonth()]} ${prev.getUTCFullYear()}`;
+      const body =
+        c.missed_call > 0
+          ? `RappelPro, bilan de ${label} : ${c.missed_call} appel(s) manqué(s) ont reçu un texto automatique, ` +
+            `${c.sms_reply} client(s) ont répondu et ${c.review_request} demande(s) d'avis sont parties. Merci de votre confiance !`
+          : `RappelPro, bilan de ${label} : aucun appel manqué ce mois-ci, bravo ! ${c.review_request} demande(s) d'avis sont parties. ` +
+            'Rappel : textez AVIS 514-555-1234 Prénom après chaque service.';
+      try {
+        await sendSms({ from: number, to: client.ownerPhone, body });
+        store.set(number, { ...client, lastReport: month });
+        logEvent(number, 'monthly_report', { month });
+        sent++;
+      } catch (err) {
+        console.error(`Bilan de ${number} impossible :`, err.message);
+      }
+    }
+    return sent;
   }
 
   // Formulaire d'inscription du site → page de paiement Stripe (premier mois -50 % via le coupon).
@@ -222,6 +295,7 @@ function createApp({
     if (reviewLink && (!/^https:\/\/\S+$/.test(reviewLink) || reviewLink.length > 400)) {
       return sendError(res, 400, "Le lien d'avis Google doit commencer par https://. Vous pouvez aussi laisser ce champ vide.");
     }
+    if (f.accept !== 'oui') return sendError(res, 400, "Pour continuer, acceptez les conditions d'utilisation et la politique de confidentialité.");
 
     const metadata = { business, ownerPhone, reviewLink };
     const session = await stripe.createCheckout({
@@ -285,7 +359,8 @@ function createApp({
           `Bienvenue chez RappelPro, ${m.business} ! Votre numéro RappelPro : ${formatPhone(phoneNumber)}. ` +
           `Pour l'activer, composez **004*${phoneNumber}# sur le cellulaire du commerce, puis appuyez sur Appeler. ` +
           `Guide complet : ${publicUrl}/bienvenue.html. ` +
-          'Pour demander un avis Google à un client, textez à ce numéro : AVIS 514-555-1234 Prénom',
+          'Pour demander un avis Google à un client, textez à ce numéro : AVIS 514-555-1234 Prénom. ' +
+          'Pour gérer ou annuler votre abonnement : COMPTE',
       });
     } catch (err) {
       console.error('Texto de bienvenue impossible :', err.message);
@@ -306,9 +381,15 @@ function createApp({
     logEvent(number, 'cancel', { subscription: subscription.id });
   }
 
+  // Les pages du site contiennent des marqueurs {{CONTACT_EMAIL}}, {{LEGAL_NAME}} et {{LEGAL_ADDRESS}},
+  // remplacés par les variables d'environnement du même nom.
   function serveSite(res, file) {
     if (!siteDir) return send(res, 404, 'text/plain', 'introuvable');
-    send(res, 200, 'text/html', fs.readFileSync(path.join(siteDir, file)));
+    const values = { CONTACT_EMAIL: business.email, LEGAL_NAME: business.legalName, LEGAL_ADDRESS: business.address };
+    const html = fs
+      .readFileSync(path.join(siteDir, file), 'utf8')
+      .replace(/\{\{(CONTACT_EMAIL|LEGAL_NAME|LEGAL_ADDRESS)\}\}/g, (m, k) => escapeXml(values[k] || `[à configurer : ${k}]`));
+    send(res, 200, 'text/html', html);
   }
 
   function send(res, status, type, body) {
@@ -327,7 +408,7 @@ function createApp({
     );
   }
 
-  return http.createServer(async (req, res) => {
+  const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
     try {
       if (req.method === 'GET' && url.pathname === '/health') return send(res, 200, 'text/plain', 'ok');
@@ -346,6 +427,8 @@ function createApp({
       send(res, err.status || 500, 'text/plain', err.status ? err.message : 'erreur interne');
     }
   });
+  server.sendMonthlyReports = sendMonthlyReports;
+  return server;
 }
 
 module.exports = { createApp, isValidTwilioSignature, normalizePhone };
@@ -371,12 +454,17 @@ if (require.main === module) {
     stripeWebhookSecret: env.STRIPE_WEBHOOK_SECRET,
     stripePriceId: env.STRIPE_PRICE_ID,
     stripeCouponId: env.STRIPE_COUPON_ID,
+    stripePortalConfigId: env.STRIPE_PORTAL_CONFIG_ID,
     authToken: env.TWILIO_AUTH_TOKEN,
     publicUrl,
     apiKey: env.API_KEY,
     eventsFile: env.EVENTS_FILE || path.join(__dirname, 'events.jsonl'),
     siteDir: env.SITE_DIR || path.join(__dirname, '..', 'site'),
+    business: { email: env.CONTACT_EMAIL, legalName: env.LEGAL_NAME, address: env.LEGAL_ADDRESS },
   });
+  const reports = () => app.sendMonthlyReports().then((n) => n && console.log(`${n} bilan(s) mensuel(s) envoyé(s)`), console.error);
+  reports();
+  setInterval(reports, 3600 * 1000).unref();
   const port = Number(env.PORT) || 3000;
   app.listen(port, () => console.log(`RappelPro écoute sur le port ${port} (${store.count()} abonné(s) actif(s))`));
 }

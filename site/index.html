@@ -48,6 +48,12 @@
   input:focus-visible, .btn:focus-visible, summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
   button.btn { border: 0; font: inherit; font-weight: 700; cursor: pointer; }
   .fineprint { margin: 0; color: var(--muted); font-size: .85rem; }
+  .fineprint a, footer a { color: inherit; }
+  label.check { display: flex; gap: 10px; align-items: flex-start; font-weight: 400; font-size: .9rem; color: var(--muted); }
+  label.check input { width: auto; margin-top: 4px; accent-color: var(--accent); }
+  label.check a { color: var(--text); }
+  .contact-line { margin-top: 20px; color: var(--muted); }
+  .contact-line a { color: var(--text); font-weight: 700; }
   .promo { display: inline-block; background: var(--soft); color: var(--accent); font-weight: 700; font-size: .8rem; letter-spacing: .04em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; margin-bottom: 12px; }
   .then { margin: 0; color: var(--muted); }
   .price { font-size: 2.4rem; font-weight: 800; margin: 8px 0; }
@@ -147,6 +153,7 @@
           <label for="reviewLink">Lien d'avis Google <small>Facultatif. Dans Google, « Demander des avis ».</small>
             <input id="reviewLink" name="reviewLink" type="url" placeholder="https://g.page/r/…/review">
           </label>
+          <label class="check" for="accept"><input id="accept" name="accept" type="checkbox" value="oui" required> <span>J'accepte les <a href="/conditions.html">conditions d'utilisation</a> et la <a href="/confidentialite.html">politique de confidentialité</a>.</span></label>
           <button class="btn" type="submit">Payer 44,99 $ et commencer</button>
           <p class="fineprint">Paiement sécurisé par Stripe. Ensuite 89,99 $/mois, annulable en tout temps. Votre numéro RappelPro vous est texté dans la minute.</p>
         </form>
@@ -162,7 +169,7 @@
     <details><summary>Est-ce que je dois changer de numéro ?</summary><p>Non. On active un simple transfert d'appel quand vous ne répondez pas. Vos clients composent toujours le même numéro.</p></details>
     <details><summary>Combien de temps prend l'installation ?</summary><p>Environ 5 minutes. Après le paiement, vous recevez par texto votre numéro RappelPro et un code à composer sur votre cellulaire pour activer le transfert des appels manqués.</p></details>
     <details><summary>Comment demander un avis Google à un client ?</summary><p>Textez à votre numéro RappelPro : AVIS, le cellulaire du client et son prénom. Par exemple : AVIS 514-555-1234 Julie. Il reçoit aussitôt un texto avec le lien vers votre page d'avis.</p></details>
-    <details><summary>Est-ce que je peux annuler ?</summary><p>Oui, en tout temps, sans frais. L'abonnement est mensuel.</p></details>
+    <details><summary>Est-ce que je peux annuler ?</summary><p>Oui, en tout temps, sans frais. Textez COMPTE à votre numéro RappelPro : vous recevez un lien pour annuler, changer de carte ou voir vos factures. Le service reste actif jusqu'à la fin du mois déjà payé.</p></details>
     <details><summary>Est-ce que c'est légal d'envoyer ces textos ?</summary><p>Oui. Les textos partent uniquement vers des personnes qui viennent de vous appeler ou qui sont vos clients, avec le nom de votre commerce et une option pour se désabonner.</p></details>
   </div>
 </section>
@@ -171,13 +178,12 @@
   <div class="wrap">
     <h2>Vous préférez voir une démo d'abord ?</h2>
     <p class="sub">Pendant la démo, vous appelez notre numéro, on ne répond pas, et vous recevez le texto devant vous.</p>
-    <!-- Remplace l'adresse ci-dessous par ton courriel ou ton lien Calendly. -->
-    <a class="btn" href="mailto:bonjour@rappelpro.ca?subject=D%C3%A9mo%20RappelPro">Réserver ma démo</a>
+    <p class="contact-line">Écrivez-nous : <a href="mailto:{{CONTACT_EMAIL}}?subject=D%C3%A9mo%20RappelPro">{{CONTACT_EMAIL}}</a></p>
   </div>
 </section>
 
 <footer>
-  <div class="wrap">© 2026 RappelPro · Service offert aux commerces locaux</div>
+  <div class="wrap">© 2026 {{LEGAL_NAME}} · <a href="/conditions.html">Conditions d'utilisation</a> · <a href="/confidentialite.html">Confidentialité</a> · {{CONTACT_EMAIL}}</div>
 </footer>
 </body>
 </html>

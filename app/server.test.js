@@ -34,11 +34,15 @@ function stripeSignature(body, t = Math.floor(NOW.getTime() / 1000)) {
   return `t=${t},v1=${crypto.createHmac('sha256', WHSEC).update(`${t}.${body}`).digest('hex')}`;
 }
 
+let current;
+const server = () => current;
+
 async function withApp(fn, overrides = {}) {
   const sent = [];
   const bought = [];
   const released = [];
   const checkouts = [];
+  const portals = [];
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rappelpro-'));
   const storeFile = path.join(dir, 'clients.json');
   const store = createStore(storeFile, clients);
@@ -59,22 +63,29 @@ async function withApp(fn, overrides = {}) {
         checkouts.push(params);
         return { url: 'https://checkout.stripe.com/c/pay/cs_test_1' };
       },
+      async createPortalSession(params) {
+        portals.push(params);
+        return { url: 'https://billing.stripe.com/p/session/test_1' };
+      },
     },
     stripeWebhookSecret: WHSEC,
     stripePriceId: 'price_123',
     stripeCouponId: 'coupon_50',
+    stripePortalConfigId: 'bpc_1',
     authToken: TOKEN,
     publicUrl: 'https://exemple.com',
     apiKey: 'secret',
     eventsFile: path.join(dir, 'events.jsonl'),
     siteDir: path.join(__dirname, '..', 'site'),
+    business: { email: 'bonjour@exemple.ca', legalName: 'Services Exemple inc.' },
     now: () => NOW,
     ...overrides,
   });
+  current = server;
   await new Promise((r) => server.listen(0, r));
   const base = `http://127.0.0.1:${server.address().port}`;
   try {
-    await fn({ base, sent, bought, released, checkouts, store, storeFile });
+    await fn({ base, sent, bought, released, checkouts, portals, store, storeFile });
   } finally {
     server.close();
   }
@@ -245,7 +256,7 @@ test('inscription : redirige vers Stripe avec le prix, le coupon et les infos du
     const res = await fetch(base + '/signup', {
       method: 'POST',
       redirect: 'manual',
-      body: new URLSearchParams({ business: ' Garage Lavoie ', ownerPhone: '819 555-4321', email: 'marie@garagelavoie.ca', reviewLink: '' }),
+      body: new URLSearchParams({ business: ' Garage Lavoie ', ownerPhone: '819 555-4321', email: 'marie@garagelavoie.ca', reviewLink: '', accept: 'oui' }),
     });
     assert.strictEqual(res.status, 303);
     assert.strictEqual(res.headers.get('location'), 'https://checkout.stripe.com/c/pay/cs_test_1');
@@ -314,12 +325,71 @@ test('abonnement annulé : numéro libéré et appels ignorés', async () => {
   });
 });
 
-test('le serveur publie aussi le site', async () => {
+test('le serveur publie le site avec les coordonnées configurées', async () => {
   await withApp(async ({ base }) => {
-    const home = await fetch(base + '/');
-    assert.strictEqual(home.status, 200);
-    assert.match(await home.text(), /action="\/signup"/);
+    const home = await (await fetch(base + '/')).text();
+    assert.match(home, /action="\/signup"/);
+    assert.match(home, /bonjour@exemple\.ca/);
+    assert.match(home, /© 2026 Services Exemple inc\./);
+    assert.doesNotMatch(home, /\{\{/);
+    const privacy = await (await fetch(base + '/confidentialite.html')).text();
+    assert.match(privacy, /La personne responsable est Services Exemple inc\./);
+    assert.match(privacy, /\[à configurer : LEGAL_ADDRESS\]/, 'une valeur manquante reste visible');
+    assert.strictEqual((await fetch(base + '/conditions.html')).status, 200);
     assert.strictEqual((await fetch(base + '/bienvenue.html')).status, 200);
     assert.strictEqual((await fetch(base + '/../server.js')).status, 404);
   });
+});
+
+test('inscription sans accepter les conditions : refusée', async () => {
+  await withApp(async ({ base, checkouts }) => {
+    const res = await fetch(base + '/signup', {
+      method: 'POST',
+      body: new URLSearchParams({ business: 'Garage Lavoie', ownerPhone: '819 555-4321', email: 'marie@garagelavoie.ca' }),
+    });
+    assert.strictEqual(res.status, 400);
+    assert.match(await res.text(), /acceptez les conditions/);
+    assert.strictEqual(checkouts.length, 0);
+  });
+});
+
+test('commande COMPTE : le propriétaire reçoit un lien vers le portail Stripe', async () => {
+  await withApp(async ({ base, portals }) => {
+    await stripePost(base, checkoutCompleted);
+    const res = await twilioPost(base, '/sms', { From: '+18195554321', To: '+18195550200', Body: 'Compte' });
+    assert.match(await res.text(), /<Message>Gérez votre abonnement.*https:\/\/billing\.stripe\.com\/p\/session\/test_1/);
+    assert.deepStrictEqual(portals, [{ customer: 'cus_1', configuration: 'bpc_1', return_url: 'https://exemple.com/' }]);
+  });
+});
+
+test('commande COMPTE sans abonnement Stripe (client ajouté à la main) : renvoie au courriel', async () => {
+  await withApp(async ({ base, portals }) => {
+    const res = await twilioPost(base, '/sms', { From: OWNER, To: BIZ, Body: 'annuler' });
+    assert.match(await res.text(), /écrivez-nous à bonjour@exemple\.ca/);
+    assert.strictEqual(portals.length, 0);
+  });
+});
+
+test('bilan mensuel : envoyé une seule fois le 1er du mois, avec les chiffres du mois précédent', async () => {
+  let clock = new Date('2026-09-20T12:00:00Z');
+  await withApp(
+    async ({ base, sent, store }) => {
+      await twilioPost(base, '/voice', { From: CALLER, To: BIZ });
+      await twilioPost(base, '/sms', { From: CALLER, To: BIZ, Body: 'Allo' });
+      sent.length = 0;
+      store.set('+15145550111', { name: 'Nouveau client', ownerPhone: '+15145550112', createdAt: '2026-10-01T09:00:00Z' });
+
+      clock = new Date('2026-10-01T09:00:00Z');
+      assert.strictEqual(await server().sendMonthlyReports(), 0, 'trop tôt le matin');
+
+      clock = new Date('2026-10-01T15:00:00Z');
+      assert.strictEqual(await server().sendMonthlyReports(), 1, 'le client inscrit en octobre attend novembre');
+      assert.strictEqual(sent[0].to, OWNER);
+      assert.match(sent[0].body, /bilan de septembre 2026 : 1 appel\(s\) manqué\(s\).*1 client\(s\) ont répondu/);
+
+      clock = new Date('2026-10-02T15:00:00Z');
+      assert.strictEqual(await server().sendMonthlyReports(), 0, 'pas de doublon');
+    },
+    { now: () => clock }
+  );
 });

@@ -23,6 +23,7 @@ function createStore(file, initial = {}) {
       save();
     },
     count: () => Object.values(clients).filter((c) => c.active !== false).length,
+    active: () => Object.entries(clients).filter(([, c]) => c.active !== false),
   };
 }
 

@@ -91,6 +91,7 @@ function makeStripe({ secretKey }) {
   return {
     call,
     createCheckout: (params) => call('/checkout/sessions', params),
+    createPortalSession: (params) => call('/billing_portal/sessions', params),
   };
 }
 

@@ -6,9 +6,9 @@ Serveur Node.js sans dépendance. Il publie aussi le site (`../site`), donc un s
 2. **Appel manqué → texto** : l'appelant reçoit un SMS en quelques secondes et le propriétaire est averti.
 3. **Réponses transférées** : quand l'appelant répond au texto, sa réponse arrive chez le propriétaire.
 4. **Demandes d'avis Google** : le propriétaire texte `AVIS 514-555-1234 Julie` à son numéro RappelPro, et le client reçoit le lien d'avis.
-5. **Annulation** : quand un abonnement Stripe se termine, le numéro Twilio est libéré (il ne te coûte plus rien) et le service s'arrête.
-
-Un rapport mensuel (`/report`) compte les appels récupérés, pour prouver la valeur au client.
+5. **Gestion de l'abonnement** : le propriétaire texte `COMPTE` et reçoit un lien vers le portail Stripe pour changer de carte, voir ses factures ou annuler. L'annulation prend effet à la fin du mois payé ; le numéro Twilio est alors libéré (il ne te coûte plus rien) et le service s'arrête.
+6. **Bilan mensuel** : le 1er de chaque mois vers 10 h (heure de Montréal), chaque abonné reçoit par texto les chiffres du mois précédent : appels récupérés, réponses, demandes d'avis. C'est ce qui le convainc de rester.
+7. **Pages légales** : conditions d'utilisation et politique de confidentialité (Loi 25), avec une case à cocher obligatoire à l'inscription.
 
 ## Comment ça marche chez le client
 
@@ -23,7 +23,7 @@ Le commerce **garde son numéro**. Il active un **transfert d'appel sur non-rép
    ```bash
    STRIPE_SECRET_KEY=sk_test_... PUBLIC_URL=https://ton-serveur.onrender.com node app/setup-stripe.js
    ```
-   Elle affiche trois variables à copier à l'étape suivante.
+   Elle affiche quatre variables à copier à l'étape suivante.
 5. **Variables d'environnement** :
 
    | Variable | Rôle |
@@ -35,7 +35,11 @@ Le commerce **garde son numéro**. Il active un **transfert d'appel sur non-rép
    | `STRIPE_PRICE_ID` | Donné par `setup-stripe.js` |
    | `STRIPE_COUPON_ID` | Donné par `setup-stripe.js` (premier mois -50 %) |
    | `STRIPE_WEBHOOK_SECRET` | Donné par `setup-stripe.js` |
+   | `STRIPE_PORTAL_CONFIG_ID` | Donné par `setup-stripe.js` (portail d'annulation) |
    | `API_KEY` | Une longue chaîne aléatoire qui protège `/review-request` et `/report` |
+   | `CONTACT_EMAIL` | Ton courriel de contact, affiché sur le site, les pages légales et dans les textos |
+   | `LEGAL_NAME` | Ton nom ou le nom de ton entreprise enregistrée, pour les pages légales |
+   | `LEGAL_ADDRESS` | Ton adresse d'affaires, pour les pages légales |
    | `TWILIO_COUNTRY` | *(facultatif)* pays des numéros achetés, `CA` par défaut (`US` pour les États-Unis) |
    | `CLIENTS_FILE` | *(facultatif)* fichier des abonnés, par défaut `app/clients.json` |
    | `EVENTS_FILE` | *(facultatif)* journal des événements, par défaut `app/events.jsonl` |
@@ -43,7 +47,8 @@ Le commerce **garde son numéro**. Il active un **transfert d'appel sur non-rép
    Sans identifiants Twilio, le serveur tourne en mode test : les textos et les achats de numéros s'affichent dans la console au lieu d'être faits pour de vrai. Sans clé Stripe, le formulaire répond que l'inscription n'est pas encore ouverte.
 
 6. **Test complet en mode test Stripe** : remplis le formulaire du site avec ton propre cellulaire et la carte de test `4242 4242 4242 4242`. Tu dois recevoir le texto de bienvenue avec ton numéro RappelPro. Compose le code d'activation, puis fais-toi appeler sans répondre.
-7. **Passer en mode réel** : relance `setup-stripe.js` avec ta clé `sk_live_...` et remplace les quatre variables Stripe.
+7. **Passer en mode réel** : relance `setup-stripe.js` avec ta clé `sk_live_...` et remplace les cinq variables Stripe.
+8. **Pages légales** : `site/conditions.html` et `site/confidentialite.html` sont des modèles de départ. **Fais-les relire par un juriste** avant d'accepter de vrais clients. Tant qu'une variable `CONTACT_EMAIL`, `LEGAL_NAME` ou `LEGAL_ADDRESS` manque, le site affiche « [à configurer : …] » à sa place.
 
 ## Ajouter un client à la main
 

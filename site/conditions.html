@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Conditions d'utilisation | RappelPro</title>
+<!-- Modèle de départ, à faire relire par un juriste avant le lancement. -->
+<style>
+  :root { --bg: #fbfaf7; --text: #1c1f24; --muted: #5b626d; --accent: #0f6b4f; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg: #121416; --text: #eceae5; --muted: #a3a9b1; --accent: #3fbf8f; color-scheme: dark; }
+  }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 17px/1.65 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 0 16px 64px; }
+  header { padding: 20px 0; }
+  .logo { font-weight: 800; font-size: 1.25rem; color: var(--text); text-decoration: none; }
+  .logo span { color: var(--accent); }
+  h1 { font-size: clamp(1.7rem, 5vw, 2.3rem); line-height: 1.15; margin: 24px 0 8px; }
+  h2 { font-size: 1.15rem; margin: 36px 0 8px; }
+  .muted { color: var(--muted); }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><a class="logo" href="/">Rappel<span>Pro</span></a></header>
+
+  <h1>Conditions d'utilisation</h1>
+  <p class="muted">En vigueur le 1er octobre 2026</p>
+
+  <p>Ces conditions forment l'entente entre {{LEGAL_NAME}}, {{LEGAL_ADDRESS}} (« nous ») et le commerce qui s'abonne à RappelPro (« vous »). En vous inscrivant, vous les acceptez.</p>
+
+  <h2>1. Le service</h2>
+  <p>RappelPro vous attribue un numéro de téléphone. Lorsque vous transférez vers ce numéro les appels auxquels vous ne répondez pas, RappelPro envoie un texto à l'appelant, vous avertit par texto et vous transmet ses réponses. Le service permet aussi d'envoyer des demandes d'avis Google à vos clients et vous texte un bilan mensuel.</p>
+
+  <h2>2. Prix et facturation</h2>
+  <p>L'abonnement coûte 89,99 $ par mois, taxes en sus s'il y a lieu. Le premier mois est facturé 44,99 $ (rabais de 50 %, une seule fois par commerce). Le paiement est prélevé automatiquement chaque mois par Stripe, à la date anniversaire de l'inscription. Nous vous aviserons au moins 30 jours à l'avance de toute hausse de prix.</p>
+
+  <h2>3. Annulation</h2>
+  <p>Vous pouvez annuler en tout temps, sans frais, en textant COMPTE à votre numéro RappelPro ou en nous écrivant à <a href="mailto:{{CONTACT_EMAIL}}">{{CONTACT_EMAIL}}</a>. Le service reste actif jusqu'à la fin du mois déjà payé ; les mois entamés ne sont pas remboursés. À la fin de l'abonnement, votre numéro RappelPro est désactivé et ne peut pas être récupéré. Pensez à désactiver le transfert d'appel (<code>##004#</code> sur la plupart des cellulaires).</p>
+
+  <h2>4. Garantie du premier mois</h2>
+  <p>Si, pendant vos 30 premiers jours, RappelPro n'a envoyé aucun texto à un appelant qui vous a ensuite recontacté ou répondu, votre 2e mois est gratuit. Écrivez-nous dans les 45 jours suivant votre inscription pour en profiter.</p>
+
+  <h2>5. Vos engagements</h2>
+  <ul>
+    <li>Utiliser RappelPro uniquement pour répondre à des personnes qui vous ont appelé et pour demander un avis à vos propres clients.</li>
+    <li>Ne pas vous en servir pour envoyer de la publicité, des messages trompeurs ou des messages à des personnes qui ne vous ont pas contacté.</li>
+    <li>Respecter les lois applicables, dont la Loi canadienne anti-pourriel et les lois sur la protection des renseignements personnels.</li>
+    <li>Fournir des renseignements exacts et nous aviser si votre cellulaire change.</li>
+  </ul>
+  <p>Nous pouvons suspendre un compte qui ne respecte pas ces engagements.</p>
+
+  <h2>6. Disponibilité</h2>
+  <p>RappelPro dépend des réseaux des opérateurs téléphoniques et de fournisseurs comme Twilio. Nous faisons tout pour que le service fonctionne en continu, mais nous ne pouvons pas garantir que chaque texto sera livré, notamment vers les lignes fixes ou lors de pannes.</p>
+
+  <h2>7. Responsabilité</h2>
+  <p>Dans la mesure permise par la loi, notre responsabilité totale envers vous est limitée aux sommes que vous nous avez payées au cours des trois derniers mois. Nous ne sommes pas responsables des pertes indirectes, comme un contrat ou un client perdu.</p>
+
+  <h2>8. Renseignements personnels</h2>
+  <p>Notre traitement des renseignements personnels est décrit dans la <a href="/confidentialite.html">politique de confidentialité</a>.</p>
+
+  <h2>9. Modifications et droit applicable</h2>
+  <p>Nous pouvons modifier ces conditions en vous avisant au moins 30 jours à l'avance ; si vous n'êtes pas d'accord, vous pouvez annuler sans frais avant leur entrée en vigueur. Ces conditions sont régies par les lois du Québec et les lois fédérales du Canada qui s'y appliquent.</p>
+</div>
+</body>
+</html>

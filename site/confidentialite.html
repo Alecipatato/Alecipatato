@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Confidentialité | RappelPro</title>
+<!-- Modèle de départ, à faire relire par un juriste avant le lancement. -->
+<style>
+  :root { --bg: #fbfaf7; --text: #1c1f24; --muted: #5b626d; --accent: #0f6b4f; --border: #e4e1da; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg: #121416; --text: #eceae5; --muted: #a3a9b1; --accent: #3fbf8f; --border: #2c3035; color-scheme: dark; }
+  }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 17px/1.65 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 0 16px 64px; }
+  header { padding: 20px 0; }
+  .logo { font-weight: 800; font-size: 1.25rem; color: var(--text); text-decoration: none; }
+  .logo span { color: var(--accent); }
+  h1 { font-size: clamp(1.7rem, 5vw, 2.3rem); line-height: 1.15; margin: 24px 0 8px; }
+  h2 { font-size: 1.15rem; margin: 36px 0 8px; }
+  .muted { color: var(--muted); }
+  a { color: var(--accent); }
+  table { width: 100%; border-collapse: collapse; font-size: .95rem; }
+  th, td { text-align: left; vertical-align: top; padding: 10px 8px; border-bottom: 1px solid var(--border); }
+  .scroll { overflow-x: auto; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><a class="logo" href="/">Rappel<span>Pro</span></a></header>
+
+  <h1>Politique de confidentialité</h1>
+  <p class="muted">En vigueur le 1er octobre 2026</p>
+
+  <p>RappelPro est un service offert par {{LEGAL_NAME}}, {{LEGAL_ADDRESS}}. Cette politique explique quels renseignements personnels nous recueillons, pourquoi, avec qui nous les partageons et comment exercer vos droits, conformément à la Loi sur la protection des renseignements personnels dans le secteur privé du Québec et à la LPRPDE fédérale.</p>
+
+  <h2>Responsable de la protection des renseignements personnels</h2>
+  <p>La personne responsable est {{LEGAL_NAME}}. Pour toute question, demande d'accès ou plainte : <a href="mailto:{{CONTACT_EMAIL}}">{{CONTACT_EMAIL}}</a>.</p>
+
+  <h2>Renseignements recueillis</h2>
+  <div class="scroll">
+  <table>
+    <tr><th>De qui</th><th>Quels renseignements</th><th>Pourquoi</th></tr>
+    <tr><td>Commerces abonnés</td><td>Nom du commerce, cellulaire du propriétaire, courriel, lien d'avis Google</td><td>Fournir le service, envoyer les alertes, les bilans mensuels et les reçus</td></tr>
+    <tr><td>Commerces abonnés</td><td>Informations de paiement</td><td>Facturation. Elles sont traitées par Stripe ; nous ne voyons jamais votre numéro de carte complet.</td></tr>
+    <tr><td>Personnes qui appellent un commerce abonné</td><td>Numéro de téléphone, date de l'appel, messages texte envoyés en réponse</td><td>Leur envoyer un texto après un appel manqué et transmettre leur réponse au commerce appelé</td></tr>
+    <tr><td>Clients d'un commerce abonné</td><td>Numéro de téléphone et prénom fournis par le commerce</td><td>Leur envoyer une demande d'avis Google au nom du commerce</td></tr>
+  </table>
+  </div>
+  <p>Nous n'utilisons pas ces renseignements à d'autres fins, nous ne les vendons pas et nous n'envoyons aucune publicité aux appelants ni aux clients des commerces.</p>
+
+  <h2>Fournisseurs et hébergement hors Québec</h2>
+  <p>Pour fonctionner, RappelPro confie certains renseignements à des fournisseurs qui les traitent pour notre compte :</p>
+  <ul>
+    <li><strong>Twilio</strong> : acheminement des appels et des textos ;</li>
+    <li><strong>Stripe</strong> : paiement et facturation ;</li>
+    <li>notre hébergeur : stockage du serveur et de ses données.</li>
+  </ul>
+  <p>Ces fournisseurs peuvent conserver des renseignements à l'extérieur du Québec, notamment aux États-Unis. Nous avons évalué qu'ils offrent une protection adéquate et ils sont liés par contrat à des obligations de confidentialité et de sécurité.</p>
+
+  <h2>Conservation</h2>
+  <p>Les renseignements d'un commerce abonné sont conservés pendant l'abonnement, puis 12 mois après sa fin pour les besoins comptables et de preuve, sauf si la loi exige une durée plus longue. Le journal des appels et des textos est conservé 12 mois.</p>
+
+  <h2>Désabonnement des textos</h2>
+  <p>Toute personne qui reçoit un texto de RappelPro peut répondre ARRÊT ou STOP pour ne plus en recevoir de ce numéro.</p>
+
+  <h2>Sécurité</h2>
+  <p>Les échanges avec nos fournisseurs sont chiffrés, l'accès aux données est limité à la personne responsable et les requêtes reçues sont vérifiées par signature. En cas d'incident de confidentialité présentant un risque de préjudice sérieux, nous aviserons les personnes concernées et la Commission d'accès à l'information.</p>
+
+  <h2>Vos droits</h2>
+  <p>Vous pouvez demander d'accéder à vos renseignements, de les faire corriger ou supprimer, ou retirer votre consentement, en écrivant à <a href="mailto:{{CONTACT_EMAIL}}">{{CONTACT_EMAIL}}</a>. Nous répondons dans un délai de 30 jours. Si notre réponse ne vous satisfait pas, vous pouvez vous adresser à la Commission d'accès à l'information du Québec.</p>
+
+  <h2>Modifications</h2>
+  <p>Si cette politique change, la nouvelle version sera publiée sur cette page avec sa date d'entrée en vigueur. Les abonnés seront avisés par texto ou par courriel de tout changement important.</p>
+</div>
+</body>
+</html>
