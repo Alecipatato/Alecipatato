@@ -1,0 +1,33 @@
+# Déploiement sur Render : Dashboard → New → Blueprint → ce dépôt.
+# Render demandera les valeurs marquées « sync: false ».
+services:
+  - type: web
+    name: rappelpro
+    runtime: node
+    plan: starter # le disque persistant (liste des abonnés) demande un plan payant, ~7 $/mois
+    buildCommand: node --version
+    startCommand: node app/server.js
+    healthCheckPath: /health
+    disk:
+      name: donnees
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: DATA_DIR
+        value: /var/data
+      - key: TWILIO_COUNTRY
+        value: CA
+      - key: API_KEY
+        generateValue: true
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: CONTACT_EMAIL
+        sync: false
+      - key: LEGAL_NAME
+        sync: false
+      - key: LEGAL_ADDRESS
+        sync: false

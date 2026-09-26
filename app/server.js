@@ -9,6 +9,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { createStore } = require('./store');
 const { makeTwilioSender, makeTwilioNumbers, makeStripe, isValidStripeSignature } = require('./providers');
+const { ensureStripeSetup } = require('./stripe-setup');
 
 const MAX_BODY_BYTES = 64 * 1024;
 const PHONE_RE = /^\+\d{8,15}$/;
@@ -433,32 +434,63 @@ function createApp({
 
 module.exports = { createApp, isValidTwilioSignature, normalizePhone };
 
-if (require.main === module) {
+async function main() {
   const env = process.env;
-  const publicUrl = (env.PUBLIC_URL || '').replace(/\/$/, '');
+  // Sur Render, RENDER_EXTERNAL_URL est fourni automatiquement.
+  const publicUrl = (env.PUBLIC_URL || env.RENDER_EXTERNAL_URL || '').replace(/\/$/, '');
   if (env.TWILIO_AUTH_TOKEN && !publicUrl) {
     console.error('PUBLIC_URL est requis pour valider les signatures Twilio.');
     process.exit(1);
   }
-  if (env.STRIPE_SECRET_KEY && !(env.STRIPE_WEBHOOK_SECRET && env.STRIPE_PRICE_ID && publicUrl)) {
-    console.error('Avec STRIPE_SECRET_KEY, il faut aussi STRIPE_WEBHOOK_SECRET, STRIPE_PRICE_ID et PUBLIC_URL (voir setup-stripe.js).');
-    process.exit(1);
+  // Dossier des fichiers à conserver (abonnés, journal, configuration Stripe) : un disque persistant en production.
+  const dataDir = env.DATA_DIR || __dirname;
+  fs.mkdirSync(dataDir, { recursive: true });
+
+  let stripe = null;
+  let stripeConfig = {};
+  if (env.STRIPE_SECRET_KEY) {
+    if (!publicUrl) {
+      console.error('PUBLIC_URL est requis pour le paiement Stripe.');
+      process.exit(1);
+    }
+    const client = makeStripe({ secretKey: env.STRIPE_SECRET_KEY });
+    try {
+      stripeConfig = env.STRIPE_PRICE_ID
+        ? {
+            priceId: env.STRIPE_PRICE_ID,
+            couponId: env.STRIPE_COUPON_ID,
+            portalConfigId: env.STRIPE_PORTAL_CONFIG_ID,
+            webhookSecret: env.STRIPE_WEBHOOK_SECRET,
+          }
+        : await ensureStripeSetup({
+            call: client.call,
+            secretKey: env.STRIPE_SECRET_KEY,
+            publicUrl,
+            stateFile: path.join(dataDir, 'stripe.json'),
+            currency: env.CURRENCY || 'cad',
+          });
+      stripe = client;
+    } catch (err) {
+      // Le site et les appels continuent de fonctionner ; seul le formulaire d'inscription est fermé.
+      console.error(`ATTENTION : Stripe n'a pas pu être configuré, les inscriptions sont fermées. ${err.message}`);
+    }
   }
+
   const twilioCreds = { accountSid: env.TWILIO_ACCOUNT_SID, authToken: env.TWILIO_AUTH_TOKEN };
-  const store = createStore(env.CLIENTS_FILE || path.join(__dirname, 'clients.json'));
+  const store = createStore(env.CLIENTS_FILE || path.join(dataDir, 'clients.json'));
   const app = createApp({
     store,
     sendSms: makeTwilioSender(twilioCreds),
     numbers: makeTwilioNumbers({ ...twilioCreds, country: env.TWILIO_COUNTRY || 'CA' }),
-    stripe: env.STRIPE_SECRET_KEY ? makeStripe({ secretKey: env.STRIPE_SECRET_KEY }) : null,
-    stripeWebhookSecret: env.STRIPE_WEBHOOK_SECRET,
-    stripePriceId: env.STRIPE_PRICE_ID,
-    stripeCouponId: env.STRIPE_COUPON_ID,
-    stripePortalConfigId: env.STRIPE_PORTAL_CONFIG_ID,
+    stripe,
+    stripeWebhookSecret: stripeConfig.webhookSecret,
+    stripePriceId: stripeConfig.priceId,
+    stripeCouponId: stripeConfig.couponId,
+    stripePortalConfigId: stripeConfig.portalConfigId,
     authToken: env.TWILIO_AUTH_TOKEN,
     publicUrl,
     apiKey: env.API_KEY,
-    eventsFile: env.EVENTS_FILE || path.join(__dirname, 'events.jsonl'),
+    eventsFile: env.EVENTS_FILE || path.join(dataDir, 'events.jsonl'),
     siteDir: env.SITE_DIR || path.join(__dirname, '..', 'site'),
     business: { email: env.CONTACT_EMAIL, legalName: env.LEGAL_NAME, address: env.LEGAL_ADDRESS },
   });
@@ -466,5 +498,11 @@ if (require.main === module) {
   reports();
   setInterval(reports, 3600 * 1000).unref();
   const port = Number(env.PORT) || 3000;
-  app.listen(port, () => console.log(`RappelPro écoute sur le port ${port} (${store.count()} abonné(s) actif(s))`));
+  app.listen(port, () =>
+    console.log(
+      `RappelPro écoute sur le port ${port} (${store.count()} abonné(s) actif(s), paiement ${stripe ? 'activé' : 'désactivé'})`
+    )
+  );
 }
+
+if (require.main === module) main();

@@ -78,14 +78,21 @@ function flatten(obj, prefix = '', out = {}) {
 }
 
 function makeStripe({ secretKey }) {
-  const call = async (path, params) => {
+  // call('/products', {...}) fait un POST ; call('/webhook_endpoints', null, 'GET') une lecture.
+  const call = async (path, params, method = 'POST') => {
     const res = await fetch(`https://api.stripe.com/v1${path}`, {
-      method: 'POST',
+      method,
       headers: { Authorization: `Bearer ${secretKey}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams(flatten(params)),
+      body: params ? new URLSearchParams(flatten(params)) : undefined,
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(`Stripe ${res.status}: ${data.error && data.error.message}`);
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      throw new Error(`Stripe injoignable (${res.status}) : ${text.slice(0, 120)}`);
+    }
+    if (!res.ok) throw new Error(`Stripe ${res.status} : ${data.error && data.error.message}`);
     return data;
   };
   return {

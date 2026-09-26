@@ -393,3 +393,37 @@ test('bilan mensuel : envoyé une seule fois le 1er du mois, avec les chiffres d
     { now: () => clock }
   );
 });
+
+test('configuration Stripe automatique : une seule fois par mode, sans webhook en double', async () => {
+  const { ensureStripeSetup } = require('./stripe-setup');
+  const stateFile = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'rappelpro-')), 'stripe.json');
+  const calls = [];
+  const call = async (p, params, method = 'POST') => {
+    calls.push(`${method} ${p}`);
+    if (p.startsWith('/webhook_endpoints?')) {
+      return { data: [{ id: 'we_old', url: 'https://exemple.com/stripe/webhook' }, { id: 'we_autre', url: 'https://autre.com/stripe/webhook' }] };
+    }
+    if (p === '/prices') {
+      assert.strictEqual(params.unit_amount, 8999);
+      assert.deepStrictEqual(params.recurring, { interval: 'month' });
+    }
+    if (p === '/coupons') assert.deepStrictEqual(params, { name: 'Premier mois -50 %', percent_off: 50, duration: 'once' });
+    return { id: `${p.split('/')[1]}_${calls.length}`, secret: 'whsec_nouveau' };
+  };
+  const opts = { call, secretKey: 'sk_test_abc', publicUrl: 'https://exemple.com', stateFile, log: () => {} };
+
+  const config = await ensureStripeSetup(opts);
+  assert.strictEqual(config.webhookSecret, 'whsec_nouveau');
+  assert.ok(calls.includes('DELETE /webhook_endpoints/we_old'), 'ancien webhook remplacé');
+  assert.ok(!calls.includes('DELETE /webhook_endpoints/we_autre'), 'webhook d\'une autre adresse conservé');
+
+  const before = calls.length;
+  assert.deepStrictEqual(await ensureStripeSetup(opts), config, 'deuxième démarrage : rien de recréé');
+  assert.strictEqual(calls.length, before);
+
+  const live = await ensureStripeSetup({ ...opts, secretKey: 'sk_live_abc' });
+  assert.ok(calls.length > before, 'le mode réel a sa propre configuration');
+  const saved = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+  assert.deepStrictEqual(Object.keys(saved).sort(), ['live', 'test']);
+  assert.strictEqual(saved.live.priceId, live.priceId);
+});
