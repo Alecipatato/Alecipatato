@@ -4,73 +4,286 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Budget Facile — Reprends le contrôle de ton argent en 30 jours</title>
-<meta name="description" content="Le kit budget automatique : tableau, défi épargne et guide pour enfin savoir où passe ton argent.">
+<meta name="description" content="Le kit budget automatique : tableau, défi épargne et plan anti-dettes pour enfin savoir où passe ton argent.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-  :root { --bg:#fffaf3; --ink:#1d1b2f; --muted:#5b5872; --accent:#16a34a; --accent-ink:#fff; --card:#fff; --line:#ece6dc; }
-  * { box-sizing:border-box; margin:0; padding:0; }
-  body { font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--ink); line-height:1.55; }
-  .wrap { max-width:720px; margin:0 auto; padding:0 16px; }
-  header { padding:48px 0 32px; text-align:center; }
-  .badge { display:inline-block; background:#dcfce7; color:#166534; font-weight:600; font-size:14px; padding:6px 12px; border-radius:999px; margin-bottom:16px; }
-  h1 { font-size:clamp(28px,6vw,44px); line-height:1.15; margin-bottom:16px; }
-  h2 { font-size:26px; margin:40px 0 16px; text-align:center; }
-  p.lead { color:var(--muted); font-size:18px; margin-bottom:24px; }
-  .btn { display:inline-block; background:var(--accent); color:var(--accent-ink); text-decoration:none; font-weight:700; font-size:18px; padding:16px 28px; border-radius:12px; box-shadow:0 6px 18px rgba(22,163,74,.3); }
-  .btn:hover { filter:brightness(1.05); }
-  .small { font-size:14px; color:var(--muted); margin-top:10px; }
-  .grid { display:grid; gap:12px; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; }
-  .card strong { display:block; margin-bottom:4px; }
-  .price { text-align:center; padding:32px 18px; }
-  .price .old { text-decoration:line-through; color:var(--muted); font-size:20px; }
-  .price .now { font-size:48px; font-weight:800; color:var(--accent); }
-  details { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 18px; margin-bottom:10px; }
-  summary { font-weight:600; cursor:pointer; }
-  details p { margin-top:8px; color:var(--muted); }
-  footer { text-align:center; color:var(--muted); font-size:13px; padding:40px 0; }
+  :root{
+    --bg:#fbfaf7; --ink:#14132b; --muted:#5f5d78; --line:#ebe7df; --card:#fff;
+    --green:#16a34a; --green-d:#0f7a37; --green-l:#dcfce7; --mint:#ecfdf3;
+    --yellow:#fde68a; --shadow:0 20px 50px -20px rgba(20,19,43,.25);
+    --r:20px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  html,body{overflow-x:hidden}
+  body{font-family:"Plus Jakarta Sans",system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--ink);line-height:1.6;-webkit-font-smoothing:antialiased}
+  img{max-width:100%;display:block}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+  a{color:inherit}
+
+  /* Top bar */
+  .promo{background:var(--ink);color:#fff;text-align:center;font-size:14px;font-weight:500;padding:10px 16px}
+  .promo b{color:var(--yellow)}
+  nav{display:flex;align-items:center;justify-content:space-between;padding:18px 0}
+  .logo{font-weight:800;font-size:20px;display:flex;align-items:center;gap:8px;text-decoration:none}
+  .logo span{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;background:var(--green);color:#fff;font-size:18px}
+  .nav-cta{font-weight:700;font-size:14px;text-decoration:none;padding:10px 16px;border-radius:999px;border:2px solid var(--ink)}
+  .nav-cta:hover{background:var(--ink);color:#fff}
+
+  /* Buttons */
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;background:var(--green);color:#fff;text-decoration:none;font-weight:800;font-size:18px;padding:18px 30px;border-radius:14px;box-shadow:0 10px 24px -8px rgba(22,163,74,.6);transition:transform .15s,box-shadow .15s,background .15s}
+  .btn:hover{background:var(--green-d);transform:translateY(-2px);box-shadow:0 14px 28px -8px rgba(22,163,74,.7)}
+  .btn .arrow{transition:transform .15s}
+  .btn:hover .arrow{transform:translateX(4px)}
+
+  /* Hero */
+  .hero{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:48px;align-items:center;padding:40px 0 72px}
+  .pill{display:inline-flex;align-items:center;gap:8px;background:var(--green-l);color:var(--green-d);font-weight:700;font-size:13px;padding:7px 14px;border-radius:999px;margin-bottom:20px}
+  .pill i{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 4px rgba(22,163,74,.2)}
+  h1{font-size:clamp(34px,5.4vw,58px);line-height:1.05;letter-spacing:-.03em;font-weight:800;margin-bottom:20px}
+  h1 .hl{background:linear-gradient(transparent 60%,var(--yellow) 60%);padding:0 4px}
+  .lead{font-size:19px;color:var(--muted);margin-bottom:28px;max-width:34ch}
+  .trust{display:flex;flex-wrap:wrap;gap:18px;margin-top:20px;font-size:14px;color:var(--muted);font-weight:500}
+  .trust span{display:flex;align-items:center;gap:6px}
+
+  .mock{position:relative}
+  .mock::before{content:"";position:absolute;inset:-30px -20px;background:radial-gradient(circle at 60% 40%,#bbf7d0 0,transparent 60%),radial-gradient(circle at 20% 90%,#fef3c7 0,transparent 55%);z-index:-1;filter:blur(10px)}
+  .window{background:#fff;border-radius:16px;box-shadow:var(--shadow);border:1px solid var(--line);overflow:hidden;transform:rotate(1.5deg)}
+  .window .bar{display:flex;gap:6px;padding:12px 14px;background:#f5f4f0;border-bottom:1px solid var(--line)}
+  .window .bar i{width:11px;height:11px;border-radius:50%;background:#e2ded5}
+  .window .bar i:nth-child(1){background:#fda4af}.window .bar i:nth-child(2){background:#fde68a}.window .bar i:nth-child(3){background:#86efac}
+  .float{position:absolute;background:#fff;border-radius:14px;box-shadow:var(--shadow);padding:12px 16px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:10px;border:1px solid var(--line)}
+  .float b{display:block;font-size:20px;color:var(--green);font-weight:800;line-height:1.1}
+  .float .ic{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:var(--green-l);font-size:18px}
+  .f1{left:-24px;bottom:-22px;animation:bob 4s ease-in-out infinite}
+  .f2{right:-14px;top:-20px;animation:bob 4s ease-in-out infinite 2s}
+  @keyframes bob{50%{transform:translateY(-8px)}}
+
+  /* Sections */
+  section{padding:72px 0}
+  .eyebrow{color:var(--green);font-weight:800;text-transform:uppercase;letter-spacing:.12em;font-size:13px;text-align:center;margin-bottom:10px}
+  h2{font-size:clamp(28px,4vw,42px);line-height:1.15;letter-spacing:-.02em;text-align:center;font-weight:800;margin-bottom:14px}
+  .sub{text-align:center;color:var(--muted);max-width:56ch;margin:0 auto 44px;font-size:17px}
+
+  .pain{background:var(--ink);color:#fff;border-radius:32px;padding:56px 32px}
+  .pain h2{color:#fff}
+  .pain-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:36px}
+  .pain-card{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:22px;font-weight:500}
+  .pain-card .emo{font-size:28px;margin-bottom:8px}
+
+  .features{display:grid;grid-template-columns:repeat(2,1fr);gap:18px}
+  .feat{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:28px;transition:transform .2s,box-shadow .2s}
+  .feat:hover{transform:translateY(-4px);box-shadow:var(--shadow)}
+  .feat .ic{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;font-size:26px;background:var(--mint);margin-bottom:16px}
+  .feat h3{font-size:20px;margin-bottom:6px}
+  .feat p{color:var(--muted)}
+  .tag{display:inline-block;font-size:12px;font-weight:700;background:var(--yellow);border-radius:6px;padding:2px 8px;margin-left:6px;vertical-align:middle}
+
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;counter-reset:s}
+  .step{text-align:center;padding:12px}
+  .step .n{width:56px;height:56px;border-radius:50%;margin:0 auto 16px;display:grid;place-items:center;background:var(--green);color:#fff;font-weight:800;font-size:22px;box-shadow:0 0 0 8px var(--green-l)}
+  .step h3{font-size:19px;margin-bottom:6px}
+  .step p{color:var(--muted)}
+
+  /* Pricing */
+  .price-box{max-width:520px;margin:0 auto;background:#fff;border-radius:28px;box-shadow:var(--shadow);border:2px solid var(--green);overflow:hidden}
+  .price-top{background:linear-gradient(135deg,var(--green),#22c55e);color:#fff;text-align:center;padding:28px 24px}
+  .price-top .old{opacity:.8;text-decoration:line-through;font-size:20px;font-weight:600}
+  .price-top .now{font-size:72px;font-weight:800;line-height:1;letter-spacing:-.04em}
+  .price-top .now sup{font-size:32px;vertical-align:top;margin-right:2px}
+  .price-top small{display:block;margin-top:6px;font-weight:600;opacity:.95}
+  .price-body{padding:28px}
+  .check{list-style:none;margin-bottom:24px}
+  .check li{padding:9px 0 9px 34px;position:relative;border-bottom:1px dashed var(--line);font-weight:500}
+  .check li:last-child{border:0}
+  .check li::before{content:"✓";position:absolute;left:0;top:9px;width:22px;height:22px;border-radius:50%;background:var(--green-l);color:var(--green-d);display:grid;place-items:center;font-weight:800;font-size:13px}
+  .price-body .btn{width:100%}
+  .secure{text-align:center;font-size:13px;color:var(--muted);margin-top:14px}
+
+  .guarantee{display:flex;gap:20px;align-items:center;max-width:640px;margin:40px auto 0;background:var(--mint);border-radius:20px;padding:22px 26px}
+  .guarantee .seal{flex:none;width:72px;height:72px;border-radius:50%;background:#fff;border:3px dashed var(--green);display:grid;place-items:center;font-weight:800;color:var(--green);text-align:center;font-size:13px;line-height:1.1}
+  .guarantee p{color:var(--muted)}
+
+  /* FAQ */
+  .faq{max-width:720px;margin:0 auto}
+  details{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px 22px;margin-bottom:12px}
+  summary{font-weight:700;cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:12px}
+  summary::-webkit-details-marker{display:none}
+  summary::after{content:"+";font-size:22px;line-height:1;color:var(--green);transition:transform .2s}
+  details[open] summary::after{transform:rotate(45deg)}
+  details p{color:var(--muted);margin-top:10px}
+
+  .final{text-align:center;background:linear-gradient(135deg,#14132b,#25234a);color:#fff;border-radius:32px;padding:64px 24px}
+  .final h2{color:#fff}
+  .final p{color:#c9c7e0;margin-bottom:28px}
+
+  footer{text-align:center;color:var(--muted);font-size:13px;padding:40px 20px 110px}
+  footer a{margin:0 8px}
+
+  /* Sticky mobile CTA */
+  .sticky{display:none}
+
+  @media (max-width:860px){
+    .hero{grid-template-columns:minmax(0,1fr);gap:56px;padding-top:16px}
+    .lead{max-width:none}
+    .window{transform:none}
+    .pain-grid,.steps{grid-template-columns:1fr}
+    .features{grid-template-columns:1fr}
+    section{padding:56px 0}
+    .pain,.final{border-radius:24px;padding:44px 20px}
+    .f1{left:8px}.f2{right:8px}
+    .sticky{display:flex;position:fixed;left:12px;right:12px;bottom:12px;z-index:10;align-items:center;justify-content:space-between;gap:12px;background:#fff;border:1px solid var(--line);border-radius:16px;padding:10px 10px 10px 16px;box-shadow:var(--shadow)}
+    .sticky b{font-size:20px}.sticky s{color:var(--muted);font-size:14px;margin-left:4px}
+    .sticky .btn{font-size:15px;padding:12px 18px}
+    .nav-cta{display:none}
+  }
 </style>
 </head>
 <body>
+
+<div class="promo">🔥 Offre de lancement : <b>-60 %</b> sur le kit complet</div>
+
 <div class="wrap">
-  <header>
-    <!-- N'affiche un nombre d'utilisateurs que lorsqu'il est réel (ex. « +500 personnes l'utilisent déjà ») -->
-    <span class="badge">✨ Nouveau : kit 2026</span>
-    <h1>Arrête de te demander où passe ton argent.</h1>
-    <p class="lead">Le kit <strong>Budget Facile</strong> fait les calculs à ta place. 10 minutes par semaine pour enfin épargner, sans prise de tête.</p>
-    <a class="btn" href="#acheter">Je veux mon kit — 19 $</a>
-    <p class="small">Téléchargement immédiat · Garantie satisfait ou remboursé 14 jours</p>
-  </header>
+  <nav>
+    <a class="logo" href="#"><span>€</span>Budget Facile</a>
+    <a class="nav-cta" href="#acheter">Obtenir le kit</a>
+  </nav>
 
-  <h2>Ce que tu reçois</h2>
-  <div class="grid">
-    <div class="card"><strong>📊 Tableau de budget automatique</strong>Google Sheets + Excel. Tu entres tes dépenses, les graphiques se créent tout seuls.</div>
-    <div class="card"><strong>💳 Plan anti-dettes</strong>Vois exactement quand tu seras libéré(e) de tes crédits.</div>
-    <div class="card"><strong>📘 Guide « 30 jours pour reprendre le contrôle »</strong>Une action simple par jour. Aucune connaissance en finance nécessaire.</div>
-    <div class="card"><strong>📱 Fonctionne partout</strong>Téléphone, tablette, ordinateur.</div>
+  <!-- HERO -->
+  <div class="hero">
+    <div>
+      <!-- N'affiche un nombre d'utilisateurs que lorsqu'il est réel -->
+      <div class="pill"><i></i>Nouveau · Kit 2026</div>
+      <h1>Arrête de te demander <span class="hl">où passe ton argent.</span></h1>
+      <p class="lead">Le tableau qui fait tous les calculs à ta place. 10 minutes par semaine pour enfin épargner, sans prise de tête.</p>
+      <a class="btn" href="#acheter">Je veux mon kit — 19 $ <span class="arrow">→</span></a>
+      <div class="trust">
+        <span>⚡ Téléchargement immédiat</span>
+        <span>🛡️ Remboursé sous 14 jours</span>
+        <span>📱 Excel & Google Sheets</span>
+      </div>
+    </div>
+    <div class="mock">
+      <div class="window">
+        <div class="bar"><i></i><i></i><i></i></div>
+        <img src="produit/apercu-budget.png" alt="Aperçu du tableau Budget Facile avec graphiques automatiques" width="1090" height="610">
+      </div>
+      <div class="float f1"><div class="ic">💰</div><div>Reste à vivre<b>+680 €</b></div></div>
+      <div class="float f2"><div class="ic">🎯</div><div>Défi 52 semaines<b>1 378 €</b></div></div>
+    </div>
   </div>
-
-  <h2>C'est pour toi si…</h2>
-  <div class="grid">
-    <div class="card">✅ Tu es à découvert avant la fin du mois</div>
-    <div class="card">✅ Tu veux épargner mais tu n'y arrives jamais</div>
-    <div class="card">✅ Tu as essayé les applis de budget et tu as abandonné</div>
-  </div>
-
-  <div class="card price" id="acheter" style="margin-top:40px">
-    <p class="old">49 $</p>
-    <p class="now">19 $</p>
-    <p class="small" style="margin-bottom:20px">Paiement unique · Accès à vie · Mises à jour gratuites</p>
-    <!-- Remplace href par le lien de paiement (Stan Store, Payhip, Gumroad, Shopify…) -->
-    <a class="btn" href="#">Télécharger le kit maintenant</a>
-    <p class="small">🔒 Paiement sécurisé · Garantie 14 jours</p>
-  </div>
-
-  <h2>Questions fréquentes</h2>
-  <details><summary>Je suis nul(le) avec les chiffres, c'est pour moi ?</summary><p>Oui. Tout est automatique : tu entres un montant, le tableau fait le reste.</p></details>
-  <details><summary>Comment je reçois le kit ?</summary><p>Par email, immédiatement après le paiement.</p></details>
-  <details><summary>Et si ça ne me plaît pas ?</summary><p>Tu es remboursé(e) sous 14 jours, sans justification.</p></details>
-
-  <footer>© Budget Facile · Mentions légales · CGV · Contact<br>Ce produit est un outil d'organisation et ne constitue pas un conseil financier.</footer>
 </div>
+
+<!-- PAIN -->
+<div class="wrap">
+  <div class="pain">
+    <p class="eyebrow">Ça te parle ?</p>
+    <h2>Le problème, ce n'est pas ton salaire.</h2>
+    <div class="pain-grid">
+      <div class="pain-card"><div class="emo">😩</div>Tu es à découvert avant la fin du mois, sans savoir pourquoi.</div>
+      <div class="pain-card"><div class="emo">🐷</div>Tu veux épargner… mais il ne reste jamais rien.</div>
+      <div class="pain-card"><div class="emo">📲</div>Tu as testé des applis de budget et tu as abandonné au bout d'une semaine.</div>
+    </div>
+  </div>
+</div>
+
+<!-- FEATURES -->
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Ce que tu reçois</p>
+    <h2>Tout ce qu'il faut. Rien de compliqué.</h2>
+    <p class="sub">Tu remplis les cases jaunes, le reste se calcule tout seul.</p>
+    <div class="features">
+      <div class="feat"><div class="ic">📊</div><h3>Tableau de budget automatique</h3><p>Prévu vs réel par catégorie, reste à vivre, taux d'épargne et graphiques qui se mettent à jour seuls.</p></div>
+      <div class="feat"><div class="ic">🧾</div><h3>Journal des dépenses</h3><p>Note une dépense en 5 secondes, choisis la catégorie dans une liste. Les dépassements passent en rouge.</p></div>
+      <div class="feat"><div class="ic">💳</div><h3>Plan anti-dettes</h3><p>Découvre en combien de mois tu seras libéré(e) de tes crédits et combien d'intérêts tu paies.</p></div>
+      <div class="feat"><div class="ic">🎯</div><h3>Défi épargne 52 semaines <span class="tag">BONUS</span></h3><p>Coche une case par semaine et regarde ton épargne grimper jusqu'à 1 378 € en un an.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- STEPS -->
+<section style="padding-top:0">
+  <div class="wrap">
+    <p class="eyebrow">Comment ça marche</p>
+    <h2>Prêt en 3 minutes</h2>
+    <p class="sub">Aucune connaissance en finance ou en Excel nécessaire.</p>
+    <div class="steps">
+      <div class="step"><div class="n">1</div><h3>Télécharge</h3><p>Tu reçois le kit par email juste après le paiement.</p></div>
+      <div class="step"><div class="n">2</div><h3>Remplis</h3><p>Entre tes revenus et tes dépenses dans les cases jaunes.</p></div>
+      <div class="step"><div class="n">3</div><h3>Respire</h3><p>Tu vois enfin où va ton argent et combien tu peux mettre de côté.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section id="acheter" style="padding-top:0">
+  <div class="wrap">
+    <p class="eyebrow">Offre de lancement</p>
+    <h2>Moins cher qu'un resto.<br>Utile toute l'année.</h2>
+    <p class="sub">Paiement unique. Pas d'abonnement.</p>
+    <div class="price-box">
+      <div class="price-top">
+        <div class="old">49 $</div>
+        <div class="now"><sup>$</sup>19</div>
+        <small>Accès à vie · Mises à jour gratuites</small>
+      </div>
+      <div class="price-body">
+        <ul class="check">
+          <li>Tableau de budget automatique (Excel + Google Sheets)</li>
+          <li>Journal des dépenses avec catégories</li>
+          <li>Plan anti-dettes</li>
+          <li>Défi épargne 52 semaines (bonus)</li>
+          <li>Mode d'emploi pas à pas</li>
+        </ul>
+        <!-- Remplace href par ton lien de paiement (Stan Store, Payhip, Gumroad, Shopify…) -->
+        <a class="btn" href="#">Télécharger le kit maintenant <span class="arrow">→</span></a>
+        <p class="secure">🔒 Paiement sécurisé · Carte, Apple Pay, PayPal</p>
+      </div>
+    </div>
+    <div class="guarantee">
+      <div class="seal">14<br>JOURS</div>
+      <div><strong>Garantie satisfait ou remboursé</strong><p>Si le kit ne te plaît pas, écris-nous dans les 14 jours : tu es remboursé(e), sans justification.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section style="padding-top:0">
+  <div class="wrap">
+    <p class="eyebrow">FAQ</p>
+    <h2>Tes questions</h2>
+    <div class="faq" style="margin-top:32px">
+      <details><summary>Je suis nul(le) avec les chiffres, c'est pour moi ?</summary><p>Oui. Tout est automatique : tu entres un montant, le tableau fait le reste.</p></details>
+      <details><summary>J'ai besoin d'Excel ?</summary><p>Non. Le kit fonctionne aussi gratuitement dans Google Sheets, sur téléphone comme sur ordinateur.</p></details>
+      <details><summary>Comment je reçois le kit ?</summary><p>Par email, immédiatement après le paiement.</p></details>
+      <details><summary>C'est un abonnement ?</summary><p>Non, tu paies une seule fois et le kit est à toi pour toujours.</p></details>
+      <details><summary>Et si ça ne me plaît pas ?</summary><p>Tu es remboursé(e) sous 14 jours, sans justification.</p></details>
+    </div>
+  </div>
+</section>
+
+<!-- FINAL CTA -->
+<div class="wrap">
+  <div class="final">
+    <h2>Dans 30 jours, tu sauras exactement où va ton argent.</h2>
+    <p>Ou tu peux continuer à te poser la question chaque fin de mois.</p>
+    <a class="btn" href="#acheter">Je commence maintenant — 19 $ <span class="arrow">→</span></a>
+  </div>
+</div>
+
+<footer>
+  © 2026 Budget Facile<br>
+  <a href="#">Mentions légales</a>·<a href="#">CGV</a>·<a href="#">Contact</a><br><br>
+  Ce produit est un outil d'organisation et ne constitue pas un conseil financier.
+</footer>
+
+<div class="sticky">
+  <div><b>19 $</b><s>49 $</s></div>
+  <a class="btn" href="#acheter">Obtenir le kit →</a>
+</div>
+
 </body>
 </html>
