@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Budget Facile — Reprends le contrôle de ton argent en 30 jours</title>
+<meta name="description" content="Le kit budget automatique : tableau, défi épargne et guide pour enfin savoir où passe ton argent.">
+<style>
+  :root { --bg:#fffaf3; --ink:#1d1b2f; --muted:#5b5872; --accent:#16a34a; --accent-ink:#fff; --card:#fff; --line:#ece6dc; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--ink); line-height:1.55; }
+  .wrap { max-width:720px; margin:0 auto; padding:0 16px; }
+  header { padding:48px 0 32px; text-align:center; }
+  .badge { display:inline-block; background:#dcfce7; color:#166534; font-weight:600; font-size:14px; padding:6px 12px; border-radius:999px; margin-bottom:16px; }
+  h1 { font-size:clamp(28px,6vw,44px); line-height:1.15; margin-bottom:16px; }
+  h2 { font-size:26px; margin:40px 0 16px; text-align:center; }
+  p.lead { color:var(--muted); font-size:18px; margin-bottom:24px; }
+  .btn { display:inline-block; background:var(--accent); color:var(--accent-ink); text-decoration:none; font-weight:700; font-size:18px; padding:16px 28px; border-radius:12px; box-shadow:0 6px 18px rgba(22,163,74,.3); }
+  .btn:hover { filter:brightness(1.05); }
+  .small { font-size:14px; color:var(--muted); margin-top:10px; }
+  .grid { display:grid; gap:12px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; }
+  .card strong { display:block; margin-bottom:4px; }
+  .price { text-align:center; padding:32px 18px; }
+  .price .old { text-decoration:line-through; color:var(--muted); font-size:20px; }
+  .price .now { font-size:48px; font-weight:800; color:var(--accent); }
+  details { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 18px; margin-bottom:10px; }
+  summary { font-weight:600; cursor:pointer; }
+  details p { margin-top:8px; color:var(--muted); }
+  footer { text-align:center; color:var(--muted); font-size:13px; padding:40px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <!-- N'affiche un nombre d'utilisateurs que lorsqu'il est réel (ex. « +500 personnes l'utilisent déjà ») -->
+    <span class="badge">✨ Nouveau : kit 2026</span>
+    <h1>Arrête de te demander où passe ton argent.</h1>
+    <p class="lead">Le kit <strong>Budget Facile</strong> fait les calculs à ta place. 10 minutes par semaine pour enfin épargner, sans prise de tête.</p>
+    <a class="btn" href="#acheter">Je veux mon kit — 19 $</a>
+    <p class="small">Téléchargement immédiat · Garantie satisfait ou remboursé 14 jours</p>
+  </header>
+
+  <h2>Ce que tu reçois</h2>
+  <div class="grid">
+    <div class="card"><strong>📊 Tableau de budget automatique</strong>Google Sheets + Excel. Tu entres tes dépenses, les graphiques se créent tout seuls.</div>
+    <div class="card"><strong>💳 Plan anti-dettes</strong>Vois exactement quand tu seras libéré(e) de tes crédits.</div>
+    <div class="card"><strong>📘 Guide « 30 jours pour reprendre le contrôle »</strong>Une action simple par jour. Aucune connaissance en finance nécessaire.</div>
+    <div class="card"><strong>📱 Fonctionne partout</strong>Téléphone, tablette, ordinateur.</div>
+  </div>
+
+  <h2>C'est pour toi si…</h2>
+  <div class="grid">
+    <div class="card">✅ Tu es à découvert avant la fin du mois</div>
+    <div class="card">✅ Tu veux épargner mais tu n'y arrives jamais</div>
+    <div class="card">✅ Tu as essayé les applis de budget et tu as abandonné</div>
+  </div>
+
+  <div class="card price" id="acheter" style="margin-top:40px">
+    <p class="old">49 $</p>
+    <p class="now">19 $</p>
+    <p class="small" style="margin-bottom:20px">Paiement unique · Accès à vie · Mises à jour gratuites</p>
+    <!-- Remplace href par le lien de paiement (Stan Store, Payhip, Gumroad, Shopify…) -->
+    <a class="btn" href="#">Télécharger le kit maintenant</a>
+    <p class="small">🔒 Paiement sécurisé · Garantie 14 jours</p>
+  </div>
+
+  <h2>Questions fréquentes</h2>
+  <details><summary>Je suis nul(le) avec les chiffres, c'est pour moi ?</summary><p>Oui. Tout est automatique : tu entres un montant, le tableau fait le reste.</p></details>
+  <details><summary>Comment je reçois le kit ?</summary><p>Par email, immédiatement après le paiement.</p></details>
+  <details><summary>Et si ça ne me plaît pas ?</summary><p>Tu es remboursé(e) sous 14 jours, sans justification.</p></details>
+
+  <footer>© Budget Facile · Mentions légales · CGV · Contact<br>Ce produit est un outil d'organisation et ne constitue pas un conseil financier.</footer>
+</div>
+</body>
+</html>
