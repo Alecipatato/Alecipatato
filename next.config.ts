@@ -1,9 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
-  cacheComponents: true,
-  partialPrefetching: true,
+  // Rendu à la demande (modèle classique) : plus simple pour le multi-tenant
+  // et compatible avec @opennextjs/cloudflare. À réévaluer plus tard.
+  cacheComponents: false,
   turbopack: {
     rules: {
       "*.css": {

@@ -67,6 +67,28 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
 11. **Domaines personnalisés** via Cloudflare for SaaS, HTTPS automatique.
 12. **Tableau de bord admin** : toutes les boutiques, revenus plateforme, coûts IA, solde portefeuille CJ, boutiques signalées.
 
+## Notes techniques
+
+- **Next.js 16** : le fichier `middleware.ts` s'appelle désormais `src/proxy.ts`. Consulter la doc
+  embarquée dans `node_modules/next/dist/docs/` avant d'utiliser une API Next (voir `AGENTS.md`).
+- `cacheComponents` est **désactivé** (`next.config.ts`) : rendu à la demande, plus simple pour le
+  multi-tenant et compatible OpenNext Cloudflare. À réévaluer lors de l'optimisation.
+- Les types `PageProps` / `LayoutProps` sont générés par `next build` (ou `next typegen`).
+- **Routage** : `src/proxy.ts` + `src/lib/tenant.ts` → rewrite vers `/s/[site]` (`site` = sous-domaine
+  ou domaine personnalisé complet). L'accès direct à `/s/...` sur le domaine principal renvoie 404.
+- **Sous-domaines réservés** : `RESERVED_SUBDOMAINS` (`src/lib/tenant.ts`) + démos `demo`, `demo2`
+  (`src/lib/demo-stores.ts`). Le générateur (phase 2) devra refuser les deux listes.
+- **Données boutique** : `StoreConfig` (`src/lib/types.ts`), toujours lue via `parseStoreConfig`
+  (`src/lib/store-config.ts`), qui remplace toute valeur invalide par un défaut. Polices limitées à
+  `ALLOWED_FONTS`. Thèmes : `src/themes/` + registre `src/themes/index.ts` + `THEME_IDS`.
+- **Supabase** : schéma dans `supabase/migrations/`. RLS : les clients *lisent* leurs données ;
+  **toutes les écritures passent par le serveur** (clé secrète). Le rôle `anon` ne voit que les
+  boutiques/produits actifs et des colonnes non sensibles (jamais les coûts fournisseur).
+  Clients : `src/lib/supabase/public.ts` (vitrine, anonyme) et `server.ts` (utilisateur connecté).
+- Réglages modifiables sans code : table `platform_settings` (commission, réserve, règles de
+  remboursement, limites du plan gratuit, rate limit IA).
+
 ## État d'avancement
 
-- [ ] Phase 1 — en attente de validation du schéma de base de données
+- [x] Phase 1 — base du projet, schéma BD, routage multi-tenant, 2 boutiques démo (2 thèmes)
+- [ ] Phase 2 — en attente de validation
