@@ -6,9 +6,9 @@ Voir `CLAUDE.md` pour la vision complète, la stack et les phases.
 ## Démarrer en local
 
 ```bash
-git clone https://github.com/alecipatato/alecipatato.git
-cd alecipatato
-git checkout claude/youthful-planck-e95nl9   # la branche qui contient le code
+# Dans un dossier de travail (pas directement dans C:\Users\<vous>)
+git clone -b claude/youthful-planck-e95nl9 https://github.com/alecipatato/alecipatato.git ma-plateforme
+cd ma-plateforme
 npm install
 npm run dev
 ```
