@@ -1,0 +1,13 @@
+<!-- Courriel de confirmation d'inscription. À copier aussi dans Supabase :
+     Authentication > Email Templates > Confirm signup -->
+<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#1c2127">
+  <h2 style="margin:0 0 16px">Bienvenue !</h2>
+  <p>Merci pour votre inscription. Cliquez sur le bouton ci-dessous pour confirmer votre adresse courriel et activer votre compte.</p>
+  <p style="margin:28px 0">
+    <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email&next=/tableau-de-bord"
+       style="background:#1f6f5c;color:#ffffff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:bold">
+      Confirmer mon adresse
+    </a>
+  </p>
+  <p style="font-size:13px;color:#5d6670">Si vous n'êtes pas à l'origine de cette inscription, ignorez ce courriel.</p>
+</div>

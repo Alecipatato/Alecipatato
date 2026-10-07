@@ -1,0 +1,13 @@
+<!-- Courriel « mot de passe oublié ». À copier aussi dans Supabase :
+     Authentication > Email Templates > Reset password -->
+<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#1c2127">
+  <h2 style="margin:0 0 16px">Réinitialisation du mot de passe</h2>
+  <p>Vous avez demandé à changer votre mot de passe. Cliquez sur le bouton ci-dessous pour en choisir un nouveau. Ce lien expire dans une heure.</p>
+  <p style="margin:28px 0">
+    <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/reinitialiser-mot-de-passe"
+       style="background:#1f6f5c;color:#ffffff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:bold">
+      Choisir un nouveau mot de passe
+    </a>
+  </p>
+  <p style="font-size:13px;color:#5d6670">Si vous n'avez rien demandé, ignorez ce courriel : votre mot de passe ne change pas.</p>
+</div>
