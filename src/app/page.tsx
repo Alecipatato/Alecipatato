@@ -1,8 +1,16 @@
+import { headers } from "next/headers";
 import { DEMO_STORES } from "@/lib/demo-stores";
-import { getRootDomain, storeUrl } from "@/lib/tenant";
+import { getRootDomain, isLocalHostname, storeUrl } from "@/lib/tenant";
 
 /** Page d'accueil de la plateforme (domaine principal). */
-export default function Home() {
+export default async function Home() {
+  // En local, on reprend le port réellement utilisé (3000, 3001…) pour les liens.
+  const host = (await headers()).get("host") ?? getRootDomain();
+  const [hostname, port] = host.split(":");
+  const isLocal = isLocalHostname(hostname);
+  const baseDomain = isLocal ? `localhost${port ? `:${port}` : ""}` : getRootDomain();
+  const isDev = process.env.NODE_ENV === "development";
+
   return (
     <main className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center gap-10 px-6 py-20">
       <div>
@@ -18,19 +26,21 @@ export default function Home() {
         <h2 className="text-sm font-semibold uppercase tracking-wider opacity-60">Boutiques de démonstration</h2>
         <ul className="mt-4 grid gap-4 sm:grid-cols-2">
           {Object.values(DEMO_STORES).map(({ store }) => (
-            <li key={store.subdomain}>
-              <a
-                href={storeUrl(store.subdomain)}
-                className="block rounded-xl border border-black/10 p-5 transition hover:border-black/30 dark:border-white/15 dark:hover:border-white/40"
-              >
+            <li key={store.subdomain} className="rounded-xl border border-black/10 p-5 dark:border-white/15">
+              <a href={storeUrl(store.subdomain, baseDomain)} className="block hover:underline">
                 <span className="flex items-center gap-2 font-semibold">
                   <span className="h-3 w-3 rounded-full" style={{ background: store.config.colors.primary }} />
                   {store.name}
                 </span>
                 <span className="mt-1 block text-sm opacity-60">
-                  Thème « {store.theme} » · {store.subdomain}.{getRootDomain()}
+                  Thème « {store.theme} » · {store.subdomain}.{baseDomain}
                 </span>
               </a>
+              {isDev && (
+                <a href={`/s/${store.subdomain}`} className="mt-3 block text-xs underline opacity-60">
+                  Le lien ne s&apos;ouvre pas (Safari) ? Ouvrir via /s/{store.subdomain}
+                </a>
+              )}
             </li>
           ))}
         </ul>

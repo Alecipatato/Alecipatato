@@ -14,7 +14,10 @@ export function proxy(request: NextRequest) {
 
   if (tenant.kind === "platform") {
     // Les pages internes /s/... ne sont accessibles que via un hostname de boutique.
-    if (pathname === "/s" || pathname.startsWith("/s/")) {
+    // Exception en développement : localhost:3000/s/demo marche dans tous les
+    // navigateurs (Safari ne reconnaît pas demo.localhost).
+    const isDev = process.env.NODE_ENV === "development";
+    if (!isDev && (pathname === "/s" || pathname.startsWith("/s/"))) {
       return new NextResponse("Page introuvable", { status: 404 });
     }
     return NextResponse.next();

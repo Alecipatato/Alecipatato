@@ -6,19 +6,30 @@ Voir `CLAUDE.md` pour la vision complète, la stack et les phases.
 ## Démarrer en local
 
 ```bash
+git clone https://github.com/alecipatato/alecipatato.git
+cd alecipatato
+git checkout claude/youthful-planck-e95nl9   # la branche qui contient le code
 npm install
-cp .env.example .env.local   # puis remplir les valeurs (facultatif en phase 1)
 npm run dev
 ```
 
+Ouvrez ensuite **l'adresse affichée par `npm run dev`** (normalement http://localhost:3000) :
+
 - Plateforme : http://localhost:3000
-- Boutique démo « minimal » : http://demo.localhost:3000
-- Boutique démo « bold » : http://demo2.localhost:3000
+- Boutique démo « minimal » : http://demo.localhost:3000 — ou http://localhost:3000/s/demo
+- Boutique démo « bold » : http://demo2.localhost:3000 — ou http://localhost:3000/s/demo2
 
-> Chrome, Edge et Firefox résolvent automatiquement `*.localhost`. Avec Safari,
-> ajoutez `127.0.0.1 demo.localhost demo2.localhost` dans `/etc/hosts`.
+Sans Supabase configuré, seules les boutiques de démonstration existent
+(le fichier `.env.local` est facultatif en phase 1).
 
-Sans Supabase configuré, seules les boutiques de démonstration existent.
+### Ça ne marche pas ?
+
+| Symptôme | Solution |
+|---|---|
+| Le dossier ne contient qu'un README | Vous êtes sur la branche `main` : faites `git checkout claude/youthful-planck-e95nl9` |
+| `npm run dev` indique un autre port (3001…) | Utilisez ce port dans les adresses (`demo.localhost:3001`) |
+| `demo.localhost` ne s'ouvre pas (Safari) | Utilisez l'adresse de secours `localhost:3000/s/demo` (en dev uniquement) |
+| `npm` introuvable | Installez Node.js 20 ou plus récent : https://nodejs.org |
 
 ## Base de données (Supabase)
 

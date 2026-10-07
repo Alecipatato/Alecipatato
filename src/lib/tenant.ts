@@ -34,30 +34,43 @@ export function getRootDomain(): string {
   return (process.env.NEXT_PUBLIC_ROOT_DOMAIN || "localhost:3000").toLowerCase();
 }
 
+/** Retire le port : « demo.localhost:3001 » → « demo.localhost ». */
+function stripPort(host: string): string {
+  return host.replace(/:\d+$/, "");
+}
+
+const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
+export function isLocalHostname(hostname: string): boolean {
+  return LOCAL_HOSTNAMES.has(hostname);
+}
+
 export function resolveTenant(hostHeader: string | null, rootDomain: string): Tenant {
   if (!hostHeader) return { kind: "invalid" };
 
-  const host = hostHeader.trim().toLowerCase().replace(/\.$/, "");
-  const root = rootDomain.toLowerCase();
+  // Le port est ignoré : le serveur de dev peut tourner sur 3000, 3001…
+  const hostname = stripPort(hostHeader.trim().toLowerCase()).replace(/\.$/, "");
+  const root = stripPort(rootDomain.toLowerCase());
 
-  if (host === root || host === `www.${root}`) return { kind: "platform" };
+  if (hostname === root || hostname === `www.${root}`) return { kind: "platform" };
+  // En local, 127.0.0.1 est équivalent à localhost.
+  if (isLocalHostname(root) && isLocalHostname(hostname)) return { kind: "platform" };
 
-  if (host.endsWith(`.${root}`)) {
-    const subdomain = host.slice(0, -(root.length + 1));
+  if (hostname.endsWith(`.${root}`)) {
+    const subdomain = hostname.slice(0, -(root.length + 1));
     if (!SUBDOMAIN_PATTERN.test(subdomain) || RESERVED_SUBDOMAINS.has(subdomain)) {
       return { kind: "invalid" };
     }
     return { kind: "store", site: subdomain };
   }
 
-  // Domaine personnalisé : on ignore le port éventuel.
-  const hostname = host.split(":")[0];
+  // Domaine personnalisé.
   if (!hostname.includes(".")) return { kind: "invalid" };
   return { kind: "store", site: hostname };
 }
 
-/** URL publique d'une boutique sur son sous-domaine. */
-export function storeUrl(subdomain: string, rootDomain = getRootDomain()): string {
-  const protocol = rootDomain.startsWith("localhost") ? "http" : "https";
-  return `${protocol}://${subdomain}.${rootDomain}`;
+/** URL publique d'une boutique sur son sous-domaine (`baseDomain` peut inclure un port). */
+export function storeUrl(subdomain: string, baseDomain = getRootDomain()): string {
+  const protocol = isLocalHostname(stripPort(baseDomain)) ? "http" : "https";
+  return `${protocol}://${subdomain}.${baseDomain}`;
 }
