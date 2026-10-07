@@ -1,14 +1,14 @@
 /**
  * Format des données d'une boutique.
- * C'est ce JSON (colonne stores.config) que l'IA générera en phase 2.
+ * C'est ce JSON (colonne stores.config) que l'IA génère.
  */
 
-export type ThemeId = "minimal" | "bold";
+export type ThemeId = "minimal" | "bold" | "elegant";
 
 export interface StoreConfig {
   colors: {
     primary: string;    // boutons, accents forts
-    accent: string;     // touches secondaires
+    accent: string;     // touches secondaires (prix, badges)
     background: string;
     text: string;
   };
@@ -41,6 +41,8 @@ export interface StoreProduct {
   id: string;
   title: string;
   description: string | null;
+  category: string | null;
+  highlights: string[];
   images: string[];
   priceCents: number;
   stock: number | null;

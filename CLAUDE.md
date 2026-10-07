@@ -1,4 +1,4 @@
-# CLAUDE.md — [NOM DE TA PLATEFORME]
+# CLAUDE.md — Kreo (nom provisoire, `NEXT_PUBLIC_PLATFORM_NAME`)
 
 > Document de référence du projet. À relire au début de chaque session.
 > Le propriétaire n'est pas expert : expliquer brièvement chaque étape, en français.
@@ -76,11 +76,28 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
 - Les types `PageProps` / `LayoutProps` sont générés par `next build` (ou `next typegen`).
 - **Routage** : `src/proxy.ts` + `src/lib/tenant.ts` → rewrite vers `/s/[site]` (`site` = sous-domaine
   ou domaine personnalisé complet). L'accès direct à `/s/...` sur le domaine principal renvoie 404.
-- **Sous-domaines réservés** : `RESERVED_SUBDOMAINS` (`src/lib/tenant.ts`) + démos `demo`, `demo2`
-  (`src/lib/demo-stores.ts`). Le générateur (phase 2) devra refuser les deux listes.
+- **Sous-domaines réservés** : `RESERVED_SUBDOMAINS` (`src/lib/tenant.ts`) + démos `demo`, `demo2`, `demo3`
+  (`DEMO_SUBDOMAINS`, `src/lib/demo-stores.ts`). `allocateSubdomain` (`src/lib/subdomains.ts`) les refuse.
 - **Données boutique** : `StoreConfig` (`src/lib/types.ts`), toujours lue via `parseStoreConfig`
   (`src/lib/store-config.ts`), qui remplace toute valeur invalide par un défaut. Polices limitées à
-  `ALLOWED_FONTS`. Thèmes : `src/themes/` + registre `src/themes/index.ts` + `THEME_IDS`.
+  `ALLOWED_FONTS`. Contraste texte/fond corrigé automatiquement (`ensureReadableColors`).
+- **Vitrine « style Amazon »** (demande du propriétaire) : TOUTES les boutiques ont la même structure
+  (`src/storefront/` + `src/app/s/[site]/` : catalogue avec recherche/catégories/tri, fiche produit,
+  panier en localStorage). Le thème (`minimal`, `bold`, `elegant`) ne change que l'apparence via des
+  variables CSS (`src/storefront/theme.ts`, classes `.sf*` dans `globals.css`).
+- Liens internes de la vitrine : préfixe `getStoreBase()` (header `x-store-base` posé par le proxy).
+- **Auth** (Supabase) : courriel + mot de passe avec confirmation, mot de passe oublié, Google OAuth.
+  Actions : `src/app/(auth)/actions.ts` ; retours : `/auth/confirm` (token_hash, modèles de
+  `supabase/templates/`) et `/auth/callback` (code PKCE, Google). Session rafraîchie et
+  `/tableau-de-bord` protégé dans `src/lib/supabase/proxy-session.ts`.
+- **Générateur IA** : `src/lib/ai/store-generator.ts` (modèle `claude-opus-5-5`, JSON strict via
+  `output_config.format`, repli serveur `fallbacks: "default"`). Réponse toujours revalidée
+  (`parseGeneratedStore`). Produits d'exemple `supplier = 'sample'` jusqu'à la phase 3.
+  Rate limiting + journal des coûts : table `ai_generations`. Actions : `src/app/tableau-de-bord/actions.ts`.
+- Classes CSS partagées dans `src/components/styles.ts` (PAS dans un fichier "use client" : une
+  constante exportée d'un module client n'est pas lisible par un Server Component).
+- **Tests locaux** : `npx supabase start` (Docker) + boîte courriel http://127.0.0.1:54324.
+  Pour tester l'IA sans clé : un faux serveur via `ANTHROPIC_BASE_URL`.
 - **Supabase** : schéma dans `supabase/migrations/`. RLS : les clients *lisent* leurs données ;
   **toutes les écritures passent par le serveur** (clé secrète). Le rôle `anon` ne voit que les
   boutiques/produits actifs et des colonnes non sensibles (jamais les coûts fournisseur).
@@ -91,4 +108,6 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
 ## État d'avancement
 
 - [x] Phase 1 — base du projet, schéma BD, routage multi-tenant, 2 boutiques démo (2 thèmes)
-- [ ] Phase 2 — en attente de validation
+- [x] Phase 2 — site vitrine, connexion (courriel + Google), générateur IA avec limites, personnalisation,
+      vitrine style Amazon (3 styles, 3 boutiques démo)
+- [ ] Phase 3 (produits CJ) ou phase 5 (Stripe, 15 %) — selon le choix du propriétaire

@@ -6,7 +6,13 @@ import type { StoreConfig, ThemeId } from "./types";
  * pour qu'une boutique ne « casse » jamais à l'affichage.
  */
 
-export const THEME_IDS: ThemeId[] = ["minimal", "bold"];
+export const THEME_IDS: ThemeId[] = ["minimal", "bold", "elegant"];
+
+export const THEME_LABELS: Record<ThemeId, { name: string; description: string }> = {
+  minimal: { name: "Minimal", description: "Clair, aéré et moderne" },
+  bold: { name: "Audacieux", description: "Contrasté, gros titres, énergique" },
+  elegant: { name: "Élégant", description: "Raffiné, typographie classique" },
+};
 
 /** Polices Google Fonts autorisées (liste fermée : on ne charge rien d'arbitraire). */
 export const ALLOWED_FONTS = [
@@ -61,12 +67,12 @@ export function parseStoreConfig(raw: unknown): StoreConfig {
   const features = Array.isArray(content.features) ? content.features : [];
 
   return {
-    colors: {
+    colors: ensureReadableColors({
       primary: color(colors.primary, d.colors.primary),
       accent: color(colors.accent, d.colors.accent),
       background: color(colors.background, d.colors.background),
       text: color(colors.text, d.colors.text),
-    },
+    }),
     fonts: {
       heading: font(fonts.heading, d.fonts.heading),
       body: font(fonts.body, d.fonts.body),
@@ -97,6 +103,31 @@ export function googleFontsUrl(config: StoreConfig): string {
     .map((f) => `family=${f.replace(/ /g, "+")}:wght@400;600;700`)
     .join("&");
   return `https://fonts.googleapis.com/css2?${families}&display=swap`;
+}
+
+/** Luminance relative WCAG d'une couleur #rrggbb (0 = noir, 1 = blanc). */
+function luminance(hex: string): number {
+  const [r, g, b] = [1, 3, 5].map((i) => {
+    const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+export function contrastRatio(a: string, b: string): number {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+/** Couleur de texte lisible (noir ou blanc) sur un fond donné. */
+export function readableOn(background: string): string {
+  return contrastRatio(background, "#111111") >= contrastRatio(background, "#ffffff") ? "#111111" : "#ffffff";
+}
+
+/** Garantit un texte lisible : si le contraste texte/fond est trop faible, on corrige le texte. */
+export function ensureReadableColors(colors: StoreConfig["colors"]): StoreConfig["colors"] {
+  if (contrastRatio(colors.text, colors.background) >= 4.5) return colors;
+  return { ...colors, text: readableOn(colors.background) };
 }
 
 export function formatPrice(cents: number, currency: string): string {

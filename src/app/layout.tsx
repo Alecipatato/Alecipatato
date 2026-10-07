@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Bricolage_Grotesque, Geist } from "next/font/google";
+import { PLATFORM_NAME } from "@/lib/platform";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -7,22 +8,19 @@ const geistSans = Geist({
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const display = Bricolage_Grotesque({
+  variable: "--font-bricolage",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "[NOM DE TA PLATEFORME]",
-  description: "Des boutiques de dropshipping créées gratuitement par l'IA.",
+  title: { default: `${PLATFORM_NAME} — Votre boutique en ligne créée par l'IA`, template: `%s · ${PLATFORM_NAME}` },
+  description: "Créez gratuitement une boutique de dropshipping complète grâce à l'IA. Vous payez seulement une commission sur vos ventes.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html
-      lang="fr"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
+    <html lang="fr" className={`${geistSans.variable} ${display.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );

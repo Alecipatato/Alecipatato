@@ -5,7 +5,7 @@ import { createPublicClient } from "./supabase/public";
 import type { StoreWithProducts } from "./types";
 
 const STORE_COLUMNS = "id, subdomain, custom_domain, name, theme, config, contact_email, currency";
-const PRODUCT_COLUMNS = "id, title, description, images, price_cents, stock";
+const PRODUCT_COLUMNS = "id, title, description, category, highlights, images, price_cents, stock";
 
 /**
  * Charge une boutique active et ses produits actifs.
@@ -55,6 +55,8 @@ export const getStoreBySite = cache(async (site: string): Promise<StoreWithProdu
       id: p.id,
       title: p.title,
       description: p.description,
+      category: p.category,
+      highlights: Array.isArray(p.highlights) ? p.highlights.filter((h): h is string => typeof h === "string") : [],
       images: Array.isArray(p.images) ? p.images.filter((i): i is string => typeof i === "string") : [],
       priceCents: Number(p.price_cents),
       stock: p.stock,

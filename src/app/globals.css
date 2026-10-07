@@ -1,26 +1,106 @@
 @import "tailwindcss";
 
+/*
+ * Identité de la plateforme (les boutiques ont leurs propres couleurs, voir src/storefront).
+ * Vert profond = confiance / argent ; jaune souci = l'étincelle de l'IA.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --paper: #fafaf7;
+  --ink: #14171a;
+  --muted: #5b636b;
+  --line: #e3e5e0;
+  --brand: #1f6f5c;
+  --brand-strong: #17584a;
+  --brand-soft: #e6f1ec;
+  --marigold: #f2b33d;
+  --marigold-soft: #fdf3dc;
+  --danger: #b42318;
+  --danger-soft: #fdecea;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-paper: var(--paper);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-soft: var(--brand-soft);
+  --color-marigold: var(--marigold);
+  --color-marigold-soft: var(--marigold-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-bricolage), var(--font-geist-sans), ui-sans-serif, sans-serif;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
 }
+
+h1, h2, h3 {
+  text-wrap: balance;
+}
+
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Vitrines des boutiques (src/storefront). Les couleurs viennent du JSON de
+ * chaque boutique, via les variables posées par storeCssVars().
+ * ------------------------------------------------------------------------- */
+.sf {
+  --sf-surface: color-mix(in srgb, var(--store-text) 4%, var(--store-bg));
+  --sf-line: color-mix(in srgb, var(--store-text) 13%, var(--store-bg));
+  --sf-muted: color-mix(in srgb, var(--store-text) 64%, var(--store-bg));
+  background: var(--store-bg);
+  color: var(--store-text);
+  font-family: var(--store-font-body);
+}
+
+.sf-heading {
+  font-family: var(--store-font-heading);
+  font-weight: var(--sf-heading-weight);
+  letter-spacing: var(--sf-heading-tracking);
+  text-transform: var(--sf-heading-case);
+}
+
+.sf-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: var(--sf-radius);
+  background: var(--store-primary);
+  color: var(--store-on-primary);
+  font-weight: 600;
+  transition: filter 0.15s;
+}
+.sf-btn:hover { filter: brightness(1.08); }
+.sf-btn:disabled { cursor: not-allowed; opacity: 0.5; filter: none; }
+
+.sf-btn-outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: var(--sf-radius);
+  border: 1px solid var(--sf-line);
+  background: var(--store-bg);
+  color: var(--store-text);
+  font-weight: 600;
+}
+.sf-btn-outline:hover { border-color: var(--store-text); }
+
+.sf :focus-visible { outline-color: var(--store-primary); }

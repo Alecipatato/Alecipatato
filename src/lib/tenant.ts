@@ -74,3 +74,13 @@ export function storeUrl(subdomain: string, baseDomain = getRootDomain()): strin
   const protocol = isLocalHostname(stripPort(baseDomain)) ? "http" : "https";
   return `${protocol}://${subdomain}.${baseDomain}`;
 }
+
+/**
+ * Domaine à utiliser pour les liens vers les boutiques, selon l'adresse visitée :
+ * en local on garde le port réel (localhost:3001…), sinon le domaine principal.
+ */
+export function baseDomainForHost(host: string | null): string {
+  if (!host) return getRootDomain();
+  const [hostname, port] = host.split(":");
+  return isLocalHostname(hostname) ? `localhost${port ? `:${port}` : ""}` : getRootDomain();
+}
