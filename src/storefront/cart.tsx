@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore, useTransition } from "react";
 import { formatPrice } from "@/lib/store-config";
+import { startCheckout } from "./actions";
 
 /**
  * Panier enregistré dans le navigateur de l'acheteur (un panier par boutique).
@@ -159,8 +160,31 @@ export function BuyBox({ storeId, product }: { storeId: string; product: Product
   );
 }
 
-export function CartView({ storeId, currency, base }: { storeId: string; currency: string; base: string }) {
+export function CartView({
+  storeId,
+  site,
+  currency,
+  base,
+  checkoutEnabled,
+}: {
+  storeId: string;
+  site: string;
+  currency: string;
+  base: string;
+  checkoutEnabled: boolean;
+}) {
   const { items, subtotalCents, setQuantity } = useCart(storeId);
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  const checkout = () => {
+    setError(null);
+    startTransition(async () => {
+      const result = await startCheckout(site, items.map((i) => ({ productId: i.id, quantity: i.quantity })));
+      if (result.url) window.location.assign(result.url);
+      else setError(result.error ?? "Le paiement n'a pas pu démarrer.");
+    });
+  };
 
   if (items.length === 0) {
     return (
@@ -203,10 +227,21 @@ export function CartView({ storeId, currency, base }: { storeId: string; currenc
           <span>Sous-total</span>
           <span className="font-semibold tabular-nums">{formatPrice(subtotalCents, currency)}</span>
         </div>
-        <p className="mt-1 text-xs text-[var(--sf-muted)]">Livraison et taxes calculées à l&apos;étape du paiement.</p>
-        <button type="button" disabled className="sf-btn mt-5 w-full px-6 py-3 text-sm">Passer à la caisse</button>
-        <p className="mt-3 text-center text-xs text-[var(--sf-muted)]">Le paiement en ligne sera bientôt disponible.</p>
+        <p className="mt-1 text-xs text-[var(--sf-muted)]">Livraison gratuite. Taxes calculées à l&apos;étape du paiement.</p>
+        <button type="button" onClick={checkout} disabled={!checkoutEnabled || pending} className="sf-btn mt-5 w-full px-6 py-3 text-sm">
+          {pending ? "Redirection vers le paiement…" : "Passer à la caisse"}
+        </button>
+        {error && <p role="alert" className="mt-3 text-center text-sm text-red-600">{error}</p>}
+        <p className="mt-3 text-center text-xs text-[var(--sf-muted)]">
+          {checkoutEnabled ? "Paiement sécurisé par Stripe." : "Cette boutique n'accepte pas encore les paiements en ligne."}
+        </p>
       </aside>
     </div>
   );
+}
+
+/** Vide le panier après un paiement réussi. */
+export function ClearCart({ storeId }: { storeId: string }) {
+  useEffect(() => save(storeId, []), [storeId]);
+  return null;
 }

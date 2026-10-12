@@ -7,6 +7,7 @@ import {
   parseRefundRules,
   rateToBasisPoints,
   rateToMicros,
+  splitMargin,
   splitRefund,
 } from "./money.ts";
 
@@ -99,6 +100,14 @@ describe("partage d'une vente", () => {
     const ok = { supplierShippingUsdCents: 0, fxRateUsdCad: "1", commissionRate: "0.15" };
     assert.throws(() => computeOrderFinancials({ ...ok, lines: [{ unitPriceCents: 100, quantity: 0, unitSupplierCostUsdCents: 0 }] }));
     assert.throws(() => computeOrderFinancials({ ...ok, lines: [{ unitPriceCents: 10.5, quantity: 1, unitSupplierCostUsdCents: 0 }] }));
+  });
+});
+
+describe("partage d'une marge connue", () => {
+  it("donne le même résultat que le calcul complet", () => {
+    assert.deepEqual(splitMargin({ grossMarginCents: 2500, commissionRate: "0.15" }), { commissionCents: 375, storePayoutCents: 2125 });
+    assert.deepEqual(splitMargin({ grossMarginCents: -100, commissionRate: "0.15" }), { commissionCents: 0, storePayoutCents: 0 });
+    assert.deepEqual(splitMargin({ grossMarginCents: 2500, commissionRate: "0.15", stripeFeeCents: 175, stripeFeesPaidBy: "store" }), { commissionCents: 375, storePayoutCents: 1950 });
   });
 });
 

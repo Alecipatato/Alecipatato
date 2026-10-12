@@ -103,11 +103,26 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
   boutiques/produits actifs et des colonnes non sensibles (jamais les coûts fournisseur).
   Clients : `src/lib/supabase/public.ts` (vitrine, anonyme) et `server.ts` (utilisateur connecté).
 - Réglages modifiables sans code : table `platform_settings` (commission, réserve, règles de
-  remboursement, limites du plan gratuit, rate limit IA).
+  remboursement, limites du plan gratuit, rate limit IA, taux USD/CAD de secours, payeur des frais
+  Stripe, frais de litige).
+- **Argent** : `src/lib/money.ts` (fonctions pures, entiers uniquement, testées par `npm test`) —
+  `computeOrderFinancials`, `splitMargin`, `splitRefund`. Ne jamais calculer l'argent ailleurs.
+- **Paiements** (`src/lib/payments/`) : `connect.ts` (Express, capacité `transfers`), `checkout.ts`
+  (commande + Checkout Session, prix relus en base, Stripe Tax, `transfer_group` = id commande),
+  `events.ts` (webhook idempotent via `stripe_events` ; `finalizePaidSession` aussi appelée par la page
+  /commande/merci), `payouts.ts` (transferts après réserve avec `source_transaction`, reprise via
+  réduction du versement ou `transfers.createReversal`). Webhook : `/api/stripe/webhook` ;
+  tâche planifiée : `/api/cron/payouts` (Bearer `CRON_SECRET`).
+- Client Stripe : `src/lib/stripe.ts` (client fetch, compatible Workers ; refuse `sk_live_` sans
+  `STRIPE_ALLOW_LIVE=true` ; `STRIPE_API_BASE` = simulateur local pour les tests).
+- Le client Supabase admin désactive la mémorisation des GET de Next (signal par requête) : une relecture
+  après écriture dans le même rendu doit voir la nouvelle valeur.
 
 ## État d'avancement
 
 - [x] Phase 1 — base du projet, schéma BD, routage multi-tenant, 2 boutiques démo (2 thèmes)
 - [x] Phase 2 — site vitrine, connexion (courriel + Google), générateur IA avec limites, personnalisation,
       vitrine style Amazon (3 styles, 3 boutiques démo)
-- [ ] Phase 3 (produits CJ) ou phase 5 (Stripe, 15 %) — selon le choix du propriétaire
+- [x] Phase 5 — Stripe Connect Express, checkout + Stripe Tax, commission 15 %, réserve 7 jours,
+      versements, remboursements et rétrofacturations selon règles configurables
+- [ ] Prochaine phase — selon le choix du propriétaire (3 : produits CJ recommandée)

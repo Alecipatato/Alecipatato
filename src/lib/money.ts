@@ -77,7 +77,6 @@ export interface OrderFinancials {
  */
 export function computeOrderFinancials(input: FinancialsInput): OrderFinancials {
   const fx = rateToMicros(input.fxRateUsdCad);
-  const bps = rateToBasisPoints(input.commissionRate);
 
   let subtotalCents = 0;
   let supplierUsdCents = 0;
@@ -92,11 +91,32 @@ export function computeOrderFinancials(input: FinancialsInput): OrderFinancials 
   const supplierCostCents = mulDivRound(supplierUsdCents, fx, 1_000_000);
   const supplierShippingCents = mulDivRound(input.supplierShippingUsdCents, fx, 1_000_000);
   const grossMarginCents = subtotalCents - supplierCostCents - supplierShippingCents;
-  const commissionCents = grossMarginCents > 0 ? mulDivRound(grossMarginCents, bps, 10_000) : 0;
-  const storeFees = input.stripeFeesPaidBy === "store" ? (input.stripeFeeCents ?? 0) : 0;
-  const storePayoutCents = Math.max(grossMarginCents - commissionCents - storeFees, 0);
+  const { commissionCents, storePayoutCents } = splitMargin({
+    grossMarginCents,
+    commissionRate: input.commissionRate,
+    stripeFeeCents: input.stripeFeeCents,
+    stripeFeesPaidBy: input.stripeFeesPaidBy,
+  });
 
   return { subtotalCents, supplierCostCents, supplierShippingCents, grossMarginCents, commissionCents, storePayoutCents };
+}
+
+/**
+ * Partage une marge brute déjà connue entre la plateforme et le client :
+ *   commission = taux × marge (0 si la marge est négative)
+ *   part client = marge − commission (− frais Stripe s'ils sont à sa charge), jamais négative
+ */
+export function splitMargin(input: {
+  grossMarginCents: number;
+  commissionRate: string;
+  stripeFeeCents?: number;
+  stripeFeesPaidBy?: "platform" | "store";
+}): { commissionCents: number; storePayoutCents: number } {
+  const { grossMarginCents } = input;
+  if (!Number.isSafeInteger(grossMarginCents)) throw new Error("Marge invalide");
+  const commissionCents = grossMarginCents > 0 ? mulDivRound(grossMarginCents, rateToBasisPoints(input.commissionRate), 10_000) : 0;
+  const storeFees = input.stripeFeesPaidBy === "store" ? (input.stripeFeeCents ?? 0) : 0;
+  return { commissionCents, storePayoutCents: Math.max(grossMarginCents - commissionCents - storeFees, 0) };
 }
 
 export interface RefundRule {

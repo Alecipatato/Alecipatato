@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { DEMO_STORES } from "@/lib/demo-stores";
+import { storeAcceptsPayments } from "@/lib/payments/checkout";
 import { getStoreBySite } from "@/lib/stores";
+import { isStripeConfigured } from "@/lib/stripe";
 import { CartView } from "@/storefront/cart";
 import { getStoreBase } from "@/storefront/components";
 
@@ -19,7 +22,13 @@ export default async function CartPage({ params }: PageProps<"/s/[site]/panier">
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
       <h1 className="sf-heading mb-8 text-3xl">Votre panier</h1>
-      <CartView storeId={data.store.id} currency={data.store.currency} base={await getStoreBase(decoded)} />
+      <CartView
+        storeId={data.store.id}
+        site={decoded}
+        currency={data.store.currency}
+        base={await getStoreBase(decoded)}
+        checkoutEnabled={!DEMO_STORES[decoded] && isStripeConfigured() && (await storeAcceptsPayments(data.store.id))}
+      />
     </div>
   );
 }

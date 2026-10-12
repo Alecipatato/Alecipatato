@@ -13,8 +13,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <div className="flex items-center gap-8">
             <Logo />
-            <nav aria-label="Tableau de bord" className="text-sm font-medium">
+            <nav aria-label="Tableau de bord" className="flex gap-5 text-sm font-medium">
               <Link href="/tableau-de-bord" className="text-muted hover:text-ink">Mes boutiques</Link>
+              <Link href="/tableau-de-bord/paiements" className="text-muted hover:text-ink">Paiements</Link>
             </nav>
           </div>
           <div className="flex items-center gap-4 text-sm">

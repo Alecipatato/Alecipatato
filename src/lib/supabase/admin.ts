@@ -12,5 +12,13 @@ export function createAdminClient() {
   if (!url || !key) {
     throw new Error("Supabase n'est pas configuré : NEXT_PUBLIC_SUPABASE_URL et SUPABASE_SECRET_KEY sont requis.");
   }
-  return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+  return createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: {
+      // Next.js mémorise les requêtes GET identiques pendant l'affichage d'une page : une relecture
+      // juste après une écriture renverrait l'ancienne valeur. Un signal propre à chaque requête
+      // désactive cette mémorisation (données d'argent : toujours fraîches).
+      fetch: (input, init) => fetch(input, { ...init, signal: init?.signal ?? new AbortController().signal }),
+    },
+  });
 }

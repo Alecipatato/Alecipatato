@@ -74,6 +74,40 @@ Ajoutez votre clé dans `.env.local` : `ANTHROPIC_API_KEY=...` (https://platform
 Limites du compte gratuit et nombre d'appels par heure : table `platform_settings`
 (`free_plan_limits`, `ai_rate_limit`), modifiables sans toucher au code.
 
+## Paiements (Stripe Connect) — mode TEST uniquement
+
+Fonctionnement : l'acheteur paie la plateforme (Stripe Checkout, taxes par Stripe Tax). La
+plateforme garde 15 % de la marge brute et transfère le reste au compte Stripe Express du client
+7 jours après la vente. Remboursements et rétrofacturations sont répartis selon `refund_rules`.
+
+1. Créez un compte sur https://dashboard.stripe.com et restez en **mode test**.
+2. **Connect** (menu Paramètres > Connect) : activez Connect, modèle « Plateforme / place de marché »,
+   comptes **Express**. Ajoutez le nom et le logo de la plateforme (affichés aux clients pendant leur inscription).
+3. **Clés API** (Développeurs > Clés API) : copiez la clé secrète `sk_test_…` dans `STRIPE_SECRET_KEY`.
+4. **Stripe Tax** (Paramètres > Taxes) : indiquez l'adresse de l'entreprise et ajoutez vos inscriptions
+   (TPS/TVH, TVQ). En attendant, mettez `STRIPE_AUTOMATIC_TAX=false`.
+5. **Webhooks** (Développeurs > Webhooks) : ajoutez l'adresse `https://votre-domaine.com/api/stripe/webhook`
+   avec les événements `checkout.session.completed`, `checkout.session.async_payment_succeeded`,
+   `checkout.session.async_payment_failed`, `checkout.session.expired`, `refund.created`, `refund.updated`,
+   `refund.failed`, `charge.dispute.created`, `charge.dispute.closed`. Ajoutez un second endpoint, même
+   adresse, pour les **comptes connectés** avec `account.updated`. Mettez les deux secrets `whsec_…`
+   dans `STRIPE_WEBHOOK_SECRET`, séparés par une virgule.
+   En local : `stripe listen --forward-to localhost:3000/api/stripe/webhook` (Stripe CLI).
+6. **Versements automatiques** : appelez `GET /api/cron/payouts` toutes les heures avec l'en-tête
+   `Authorization: Bearer <CRON_SECRET>` (tâche planifiée Cloudflare au déploiement).
+7. Pour payer en test : carte `4242 4242 4242 4242`, date future, n'importe quel code.
+
+> ⚠️ Avec ce modèle (« separate charges and transfers »), c'est la **plateforme** qui encaisse les
+> ventes : elle est responsable de percevoir et reverser les taxes, et elle supporte les frais
+> Stripe (sauf si `stripe_fees_paid_by` = `"store"`). Faites valider ce point par un comptable
+> avant de passer en mode réel.
+
+## Tests
+
+```bash
+npm test        # calculs d'argent (marge, commission, remboursements)
+```
+
 ## Comment ça marche
 
 1. `src/proxy.ts` lit le hostname : sur le domaine principal il gère la session de connexion,

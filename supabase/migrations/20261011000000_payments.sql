@@ -5,6 +5,9 @@
 -- Versement retenu pendant un litige (rétrofacturation) en cours.
 alter type public.payout_status add value if not exists 'held';
 
+-- Commandes : le courriel de l'acheteur n'est connu qu'après le paiement (saisi sur Stripe Checkout).
+alter table public.orders alter column customer_email drop not null;
+
 -- Commandes : références Stripe et suivi des remboursements.
 alter table public.orders
   add column stripe_charge_id  text,

@@ -53,6 +53,7 @@ export default async function StoreAdminPage({ params, searchParams }: PageProps
           </div>
           <div className="flex flex-wrap gap-2">
             <a href={url} target="_blank" rel="noreferrer" className={buttonClasses.primary}>Voir ma boutique</a>
+            <Link href={`/tableau-de-bord/boutiques/${store.id}/commandes`} className={buttonClasses.secondary}>Commandes</Link>
             {!suspended && (
               <form action={setStoreOnline}>
                 <input type="hidden" name="store_id" value={store.id} />

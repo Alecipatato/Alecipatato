@@ -24,6 +24,8 @@ export async function proxy(request: NextRequest) {
     if (!isDev && (pathname === "/s" || pathname.startsWith("/s/"))) {
       return new NextResponse("Page introuvable", { status: 404 });
     }
+    // Routes techniques (webhook Stripe, tâches planifiées) : pas de session utilisateur.
+    if (pathname.startsWith("/api/")) return NextResponse.next();
     return updateSession(request);
   }
 
