@@ -1,11 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
-import { CjError, CjNotConfiguredError } from "@/lib/cj/client";
 import { getUsdCadRate } from "@/lib/fx";
 import { minimumPriceCents, usdToCadCents } from "@/lib/money";
-import { addReplacement, advanceSourcing, type SourcingState, startSourcingJob } from "@/lib/products/sourcing";
+import { addReplacement, startSourcingJob } from "@/lib/products/sourcing";
 import { getPlatformSettings } from "@/lib/settings";
 import { formatPrice } from "@/lib/store-config";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -30,18 +30,6 @@ async function ownedProduct(productId: string, userId: string) {
   return data && store?.owner_id === userId && store.status !== "suspended" ? data : null;
 }
 
-/** Fait avancer la recherche de produits d'une étape (appelée en boucle par l'écran). */
-export async function advanceSourcingAction(storeId: string, jobId: string): Promise<SourcingState | { error: string }> {
-  const user = await requireUser();
-  if (!(await ownedStore(storeId, user.id))) return { error: "Boutique introuvable." };
-  const { data: job } = await createAdminClient().from("sourcing_jobs").select("id").eq("id", jobId).eq("store_id", storeId).maybeSingle();
-  if (!job) return { error: "Recherche introuvable." };
-  try {
-    return await advanceSourcing(jobId);
-  } catch (err) {
-    return { error: err instanceof Error ? err.message : "La recherche a échoué." };
-  }
-}
 
 /** Relance une recherche de produits (mots-clés en anglais, séparés par des virgules). */
 export async function startNewSearch(_prev: ProductActionState, formData: FormData): Promise<ProductActionState> {
@@ -86,26 +74,27 @@ export async function unpublishProduct(formData: FormData) {
   revalidatePath(pagePath(product.store_id));
 }
 
-/** Refuse un produit et, si demandé, le remplace par le prochain choix de l'IA. */
-export async function rejectProduct(_prev: ProductActionState, formData: FormData): Promise<ProductActionState> {
+/**
+ * Refuse un produit et, si demandé, le remplace par le prochain choix de l'IA.
+ * Le résultat s'affiche en haut de la page (le formulaire du produit refusé disparaît).
+ */
+export async function rejectProduct(formData: FormData) {
   const user = await requireUser();
   const product = await ownedProduct(String(formData.get("product_id") ?? ""), user.id);
-  if (!product) return { error: "Produit introuvable." };
+  if (!product) return;
   await createAdminClient().from("products").update({ status: "rejected" }).eq("id", product.id);
 
-  let message = "Produit refusé.";
+  let result = "refuse";
   if (formData.get("replace") === "1" && product.supplier === "cj") {
     try {
-      message = (await addReplacement(product.store_id))
-        ? "Produit remplacé : le nouveau produit vous attend dans « À valider »."
-        : "Produit refusé. Plus de remplaçant disponible : lancez une nouvelle recherche.";
+      result = (await addReplacement(product.store_id)) ? "remplace" : "plus-de-remplacant";
     } catch (err) {
-      const reason = err instanceof CjNotConfiguredError || err instanceof CjError ? err.message : "le fournisseur ne répond pas";
-      message = `Produit refusé, mais le remplacement a échoué (${reason}).`;
+      console.error("Remplacement de produit :", err);
+      result = "echec-remplacement";
     }
   }
   revalidatePath(pagePath(product.store_id));
-  return { message };
+  redirect(`${pagePath(product.store_id)}?resultat=${result}`);
 }
 
 /** Modifie le prix de vente, sans jamais descendre sous la marge minimale. */

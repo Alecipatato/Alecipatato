@@ -5,7 +5,7 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { inputClasses } from "@/components/styles";
 import { Alert, Spinner, SubmitButton } from "@/components/ui";
 import type { SourcingState } from "@/lib/products/sourcing";
-import { advanceSourcingAction, rejectProduct, startNewSearch, updateProductPrice } from "../../../products-actions";
+import { rejectProduct, startNewSearch, updateProductPrice } from "../../../products-actions";
 
 const STEP_LABELS: Record<SourcingState["status"], string> = {
   searching: "Recherche dans le catalogue du fournisseur…",
@@ -28,16 +28,27 @@ export function SourcingRunner({ storeId, initial }: { storeId: string; initial:
     (async () => {
       let current = state;
       while (current.status !== "done" && current.status !== "failed") {
-        const next = await advanceSourcingAction(storeId, current.id);
-        if ("error" in next) {
+        let next: SourcingState | { error: string };
+        try {
+          const response = await fetch("/api/sourcing/advance", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ storeId, jobId: current.id }),
+          });
+          next = (await response.json()) as SourcingState | { error: string };
+        } catch {
+          next = { error: "Connexion perdue. Rechargez la page pour reprendre la recherche." };
+        }
+        // Une réponse normale contient aussi « error » (null) : on teste « status ».
+        if (!("status" in next)) {
           setError(next.error);
           break;
         }
         current = next;
         setState(next);
-        router.refresh(); // affiche les produits au fur et à mesure
       }
       running.current = false;
+      router.refresh(); // affiche les produits trouvés
     })();
   }, [state, storeId, router]);
 
@@ -47,7 +58,7 @@ export function SourcingRunner({ storeId, initial }: { storeId: string; initial:
   if (state.status === "done") return null;
 
   return (
-    <div className="rounded-2xl border border-line bg-white p-6" role="status" aria-live="polite">
+    <div className="rounded-2xl border border-line bg-white p-6" role="status" aria-live="polite" data-sourcing-progress>
       <div className="flex items-center gap-3 font-medium">
         <Spinner />
         {STEP_LABELS[state.status]}
@@ -85,9 +96,8 @@ export function PriceForm({ productId, priceCents }: { productId: string; priceC
 }
 
 export function RejectForm({ productId, canReplace }: { productId: string; canReplace: boolean }) {
-  const [state, action] = useActionState(rejectProduct, {});
   return (
-    <form action={action} className="flex flex-wrap gap-2">
+    <form action={rejectProduct} className="flex flex-wrap gap-2">
       <input type="hidden" name="product_id" value={productId} />
       {canReplace && (
         <SubmitButton name="replace" value="1" variant="secondary" className="px-3 py-1.5 text-xs" pendingLabel="Recherche d'un remplaçant…">
@@ -95,8 +105,6 @@ export function RejectForm({ productId, canReplace }: { productId: string; canRe
         </SubmitButton>
       )}
       <SubmitButton variant="secondary" className="px-3 py-1.5 text-xs" pendingLabel="…">Refuser</SubmitButton>
-      {state.message && <p role="status" className="w-full text-xs text-muted">{state.message}</p>}
-      {state.error && <p role="alert" className="w-full text-xs text-danger">{state.error}</p>}
     </form>
   );
 }

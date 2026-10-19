@@ -74,6 +74,20 @@ Ajoutez votre clé dans `.env.local` : `ANTHROPIC_API_KEY=...` (https://platform
 Limites du compte gratuit et nombre d'appels par heure : table `platform_settings`
 (`free_plan_limits`, `ai_rate_limit`), modifiables sans toucher au code.
 
+## Fournisseur CJ Dropshipping (produits)
+
+1. Créez un compte sur https://cjdropshipping.com, puis **My CJ > Authorization > API** : générez une
+   clé API et mettez-la dans `CJ_API_KEY`.
+2. À la création d'une boutique, l'IA cherche les produits chez CJ (écran **Produits**) : recherche,
+   sélection par l'IA, livraison Canada ≤ 15 jours, fiches en français, prix avec ≥ 40 % de marge
+   (`min_margin_percent`). Le client accepte, remplace ou refuse chaque produit.
+3. **Synchronisation** : appelez `GET /api/cron/sync-products` toutes les heures avec
+   `Authorization: Bearer <CRON_SECRET>` (prix, stock, produits retirés).
+
+> Cette phase ne fait que **lire** le catalogue CJ (aucune commande, aucun paiement) : les commandes
+> vers CJ arrivent en phase 6. Sans `CJ_API_KEY`, l'IA crée des produits d'exemple.
+> L'adaptateur `src/lib/cj/` a été écrit sans accès à la documentation CJ : à valider avec une vraie clé.
+
 ## Paiements (Stripe Connect) — mode TEST uniquement
 
 Fonctionnement : l'acheteur paie la plateforme (Stripe Checkout, taxes par Stripe Tax). La
@@ -105,7 +119,7 @@ plateforme garde 15 % de la marge brute et transfère le reste au compte Stripe 
 ## Tests
 
 ```bash
-npm test        # calculs d'argent (marge, commission, remboursements)
+npm test        # calculs d'argent, prix (marge minimale), lecture des réponses CJ
 ```
 
 ## Comment ça marche

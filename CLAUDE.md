@@ -115,6 +115,22 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
   tâche planifiée : `/api/cron/payouts` (Bearer `CRON_SECRET`).
 - Client Stripe : `src/lib/stripe.ts` (client fetch, compatible Workers ; refuse `sk_live_` sans
   `STRIPE_ALLOW_LIVE=true` ; `STRIPE_API_BASE` = simulateur local pour les tests).
+- **Produits CJ** (phase 3) : adaptateur `src/lib/cj/` — `normalize.ts` (lecture TOLÉRANTE des réponses,
+  testée ; seul endroit à corriger si un champ CJ diffère), `client.ts` (jeton en table
+  `integration_tokens`, ~1 appel/s, nouvel essai sur code 1600200/429), `catalog.ts` (`/product/list`,
+  `/product/query`, `/logistic/freightCalculate`, `/product/stock/queryByVid`). ⚠️ Écrit SANS accès à
+  la doc CJ (domaine bloqué dans l'environnement) : à valider avec une vraie clé.
+- **Recherche de produits** : `src/lib/products/sourcing.ts`, table `sourcing_jobs`, en petites étapes
+  (searching → selecting → processing → done) appelées en boucle par l'écran Produits via
+  `POST /api/sourcing/advance`. IA : `src/lib/ai/product-curator.ts` (sélection + rédaction FR, appels
+  journalisés `select_products` / `rewrite_products`, hors limite horaire). Prix : `suggestRetailPriceCents`
+  (≥ `min_margin_percent`, arrondi x,99). Livraison max 15 jours (`MAX_DELIVERY_DAYS`).
+- **Synchro** : `src/lib/products/sync.ts` + `/api/cron/sync-products` (prix relevé si marge < min,
+  rupture, produit retiré → `rejected` + `sync_status`).
+- Boutique créée avec CJ : `draft` jusqu'à acceptation des produits ; sans `CJ_API_KEY` : produits
+  d'exemple (`supplier = 'sample'`).
+- Écran avec formulaire qui disparaît après l'action (produit refusé, commande remboursée) : afficher
+  la confirmation en haut de page via un paramètre d'URL, pas dans le formulaire.
 - Le client Supabase admin désactive la mémorisation des GET de Next (signal par requête) : une relecture
   après écriture dans le même rendu doit voir la nouvelle valeur.
 
@@ -125,4 +141,6 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
       vitrine style Amazon (3 styles, 3 boutiques démo)
 - [x] Phase 5 — Stripe Connect Express, checkout + Stripe Tax, commission 15 %, réserve 7 jours,
       versements, remboursements et rétrofacturations selon règles configurables
-- [ ] Prochaine phase — selon le choix du propriétaire (3 : produits CJ recommandée)
+- [x] Phase 3 — produits CJ : recherche, sélection et rédaction par l'IA, livraison ≤ 15 jours,
+      prix ≥ 40 % de marge, écran de validation, synchro horaire (adaptateur CJ à valider avec une vraie clé)
+- [ ] Prochaine phase — selon le choix du propriétaire (4 modération ou 6 commandes CJ)

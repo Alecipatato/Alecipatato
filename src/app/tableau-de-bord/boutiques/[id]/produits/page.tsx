@@ -17,6 +17,13 @@ import { NewSearchForm, PriceForm, RejectForm, SourcingRunner } from "./client";
 
 export const metadata: Metadata = { title: "Produits" };
 
+const RESULTS: Record<string, { kind: "success" | "info" | "error"; text: string }> = {
+  remplace: { kind: "success", text: "Produit remplacé : le nouveau produit vous attend dans « À valider »." },
+  refuse: { kind: "info", text: "Produit refusé." },
+  "plus-de-remplacant": { kind: "info", text: "Produit refusé. Plus de remplaçant disponible : lancez une nouvelle recherche en bas de page." },
+  "echec-remplacement": { kind: "error", text: "Produit refusé, mais le fournisseur n'a pas répondu pour le remplacement. Réessayez plus tard." },
+};
+
 type ProductRow = {
   id: string;
   title: string;
@@ -142,6 +149,7 @@ export default async function ProductsPage({ params, searchParams }: PageProps<"
         </div>
       </div>
 
+      {typeof sp.resultat === "string" && RESULTS[sp.resultat] && <Alert kind={RESULTS[sp.resultat].kind}>{RESULTS[sp.resultat].text}</Alert>}
       {sp.nouvelle && <Alert kind="success">Votre boutique est créée ! L&apos;IA cherche maintenant les produits chez notre fournisseur.</Alert>}
       {!isCjConfigured() && <Alert kind="info">Le fournisseur n&apos;est pas encore connecté : les produits affichés sont des exemples générés par l&apos;IA.</Alert>}
       {store.status === "draft" && !suspended && <Alert kind="info">Votre boutique est hors ligne. Acceptez des produits, puis mettez-la en ligne.</Alert>}
