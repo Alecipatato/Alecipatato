@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { generateStore, type GenerationResult, AI_MODEL, StoreGenerationError, type StoreBrief } from "@/lib/ai/store-generator";
 import { requireUser } from "@/lib/auth";
+import { isCjConfigured } from "@/lib/cj/client";
+import { startSourcingJob } from "@/lib/products/sourcing";
 import { PALETTES } from "@/lib/palettes";
 import { getPlatformSettings } from "@/lib/settings";
 import { parseStoreConfig, THEME_IDS } from "@/lib/store-config";
@@ -54,6 +56,7 @@ async function runGeneration(
     .from("ai_generations")
     .select("id", { count: "exact", head: true })
     .eq("user_id", userId)
+    .in("kind", ["create_store", "regenerate_store"]) // la recherche de produits ne compte pas dans la limite
     .gte("created_at", since);
   if ((count ?? 0) >= settings.aiRateLimit.maxRequestsPerHour) {
     return "Vous avez atteint la limite de générations pour cette heure. Réessayez un peu plus tard.";
@@ -132,6 +135,7 @@ export async function createStore(_prev: ActionState, formData: FormData): Promi
   const generated = result.store;
 
   const subdomain = await allocateSubdomain(generated.subdomainSuggestion, generated.name);
+  const withSupplier = isCjConfigured();
   const { data: store, error } = await admin
     .from("stores")
     .insert({
@@ -141,7 +145,8 @@ export async function createStore(_prev: ActionState, formData: FormData): Promi
       niche_description: brief.niche,
       theme: generated.theme,
       config: generated.config,
-      status: "active",
+      // Avec le fournisseur CJ : hors ligne le temps de choisir les produits.
+      status: withSupplier ? "draft" : "active",
       contact_email: user.email,
       generation_brief: brief,
     })
@@ -152,10 +157,18 @@ export async function createStore(_prev: ActionState, formData: FormData): Promi
     return { error: "La boutique n'a pas pu être enregistrée. Réessayez." };
   }
 
-  const { error: productsError } = await admin.from("products").insert(productRows(store.id, generated.products));
-  if (productsError) console.error("Insertion des produits :", productsError);
   await admin.from("ai_generations").update({ store_id: store.id }).eq("id", result.logId);
 
+  if (withSupplier) {
+    // Vrais produits : la recherche chez CJ se fait ensuite, étape par étape, sur l'écran « Produits ».
+    const keywords = generated.searchKeywords.length ? generated.searchKeywords : [brief.productTypes || brief.niche].map((k) => k.slice(0, 40));
+    await startSourcingJob(store.id, keywords);
+    redirect(`/tableau-de-bord/boutiques/${store.id}/produits?nouvelle=1`);
+  }
+
+  // Sans fournisseur configuré : produits d'exemple générés par l'IA.
+  const { error: productsError } = await admin.from("products").insert(productRows(store.id, generated.products));
+  if (productsError) console.error("Insertion des produits :", productsError);
   redirect(`/tableau-de-bord/boutiques/${store.id}?nouvelle=1`);
 }
 
@@ -192,8 +205,9 @@ export async function regenerateStore(_prev: ActionState, formData: FormData): P
     .eq("id", store.id);
   if (error) return { error: "La boutique n'a pas pu être mise à jour. Réessayez." };
 
+  // Les produits du fournisseur sont conservés ; seuls les produits d'exemple sont regénérés.
   await admin.from("products").delete().eq("store_id", store.id).eq("supplier", "sample");
-  await admin.from("products").insert(productRows(store.id, generated.products));
+  if (!isCjConfigured()) await admin.from("products").insert(productRows(store.id, generated.products));
 
   revalidatePath(`/tableau-de-bord/boutiques/${store.id}`);
   return { message: "Votre boutique a été régénérée." };
@@ -245,18 +259,6 @@ export async function updateStoreDesign(_prev: ActionState, formData: FormData):
   return { message: "Modifications enregistrées. Elles sont déjà visibles sur votre boutique." };
 }
 
-export async function setProductVisibility(formData: FormData) {
-  const user = await requireUser();
-  const store = await getOwnedStore(String(formData.get("store_id") ?? ""), user.id);
-  if (!store || store.status === "suspended") return;
-  const visible = formData.get("visible") === "1";
-  await createAdminClient()
-    .from("products")
-    .update({ status: visible ? "active" : "rejected" })
-    .eq("id", String(formData.get("product_id") ?? ""))
-    .eq("store_id", store.id);
-  revalidatePath(`/tableau-de-bord/boutiques/${store.id}`);
-}
 
 export async function setStoreOnline(formData: FormData) {
   const user = await requireUser();

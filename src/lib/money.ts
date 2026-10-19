@@ -206,3 +206,34 @@ export function parseRefundRules(raw: unknown): RefundRules {
   const r = (typeof raw === "object" && raw !== null ? raw : {}) as Record<string, unknown>;
   return { refund: read(r.refund, DEFAULT_REFUND_RULES.refund), chargeback: read(r.chargeback, DEFAULT_REFUND_RULES.chargeback) };
 }
+
+/** Convertit un montant USD (cents) en CAD (cents) au taux donné ("1.38"). */
+export function usdToCadCents(usdCents: number, fxRateUsdCad: string): number {
+  if (!Number.isSafeInteger(usdCents) || usdCents < 0) throw new Error("Montant USD invalide");
+  return mulDivRound(usdCents, rateToMicros(fxRateUsdCad), 1_000_000);
+}
+
+/**
+ * Prix minimal (cents) pour que la marge brute atteigne au moins `minMarginRate` du prix :
+ *   (prix − coût) / prix ≥ marge  ⇔  prix ≥ coût / (1 − marge), arrondi au cent supérieur.
+ */
+export function minimumPriceCents(costCents: number, minMarginRate: string): number {
+  if (!Number.isSafeInteger(costCents) || costCents < 0) throw new Error("Coût invalide");
+  const bps = rateToBasisPoints(minMarginRate);
+  if (bps >= 10_000) throw new Error("Marge minimale invalide");
+  const keep = 10_000 - bps;
+  return Math.floor((costCents * 10_000 + keep - 1) / keep); // division entière arrondie vers le haut
+}
+
+/** Prix de vente suggéré : au moins le prix minimal, arrondi à « x,99 $ ». */
+export function suggestRetailPriceCents(costCents: number, minMarginRate: string): number {
+  const min = Math.max(minimumPriceCents(costCents, minMarginRate), 99);
+  const candidate = Math.floor(min / 100) * 100 + 99;
+  return candidate >= min ? candidate : candidate + 100;
+}
+
+/** Marge brute en points de base (4000 = 40 %) pour un prix et un coût donnés. */
+export function marginBasisPoints(priceCents: number, costCents: number): number {
+  if (priceCents <= 0) return 0;
+  return Math.floor(((priceCents - costCents) * 10_000) / priceCents);
+}

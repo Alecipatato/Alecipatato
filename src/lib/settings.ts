@@ -15,6 +15,8 @@ export interface PlatformSettings {
   usdCadFallbackRate: string;
   stripeFeesPaidBy: "platform" | "store";
   disputeFeeCents: number;
+  /** Marge brute minimale des produits, ex. "0.40" pour 40 %. */
+  minMarginRate: string;
 }
 
 const DEFAULTS: PlatformSettings = {
@@ -26,6 +28,7 @@ const DEFAULTS: PlatformSettings = {
   usdCadFallbackRate: "1.38",
   stripeFeesPaidBy: "platform",
   disputeFeeCents: 1500,
+  minMarginRate: "0.40",
 };
 
 const KEYS = [
@@ -37,6 +40,7 @@ const KEYS = [
   "usd_cad_fallback_rate",
   "stripe_fees_paid_by",
   "dispute_fee_cents",
+  "min_margin_percent",
 ];
 
 const nonNegativeInt = (v: unknown, fallback: number) => (Number.isInteger(v) && (v as number) >= 0 ? (v as number) : fallback);
@@ -45,6 +49,11 @@ const nonNegativeInt = (v: unknown, fallback: number) => (Number.isInteger(v) &&
 function decimalString(v: unknown, fallback: string, min: number, max: number): string {
   const text = typeof v === "number" ? String(v) : typeof v === "string" ? v.trim() : "";
   return /^\d+(\.\d+)?$/.test(text) && Number(text) >= min && Number(text) <= max ? text : fallback;
+}
+
+/** 40 → "0.40" (pourcentage entier entre 0 et 90). */
+function marginRate(v: unknown, fallback: string): string {
+  return Number.isInteger(v) && (v as number) >= 0 && (v as number) <= 90 ? ((v as number) / 100).toFixed(2) : fallback;
 }
 
 export async function getPlatformSettings(): Promise<PlatformSettings> {
@@ -67,5 +76,6 @@ export async function getPlatformSettings(): Promise<PlatformSettings> {
     usdCadFallbackRate: decimalString(byKey.usd_cad_fallback_rate, DEFAULTS.usdCadFallbackRate, 0.5, 3),
     stripeFeesPaidBy: byKey.stripe_fees_paid_by === "store" ? "store" : "platform",
     disputeFeeCents: nonNegativeInt(byKey.dispute_fee_cents, DEFAULTS.disputeFeeCents),
+    minMarginRate: marginRate(byKey.min_margin_percent, DEFAULTS.minMarginRate),
   };
 }

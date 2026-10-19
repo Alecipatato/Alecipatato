@@ -46,6 +46,9 @@ export interface StoreProduct {
   images: string[];
   priceCents: number;
   stock: number | null;
+  /** Délai de livraison au Canada (jours), quand le fournisseur le fournit. */
+  deliveryDaysMin: number | null;
+  deliveryDaysMax: number | null;
 }
 
 export interface StoreWithProducts {

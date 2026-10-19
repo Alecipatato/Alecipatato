@@ -32,6 +32,8 @@ export interface GeneratedProduct {
 export interface GeneratedStore {
   name: string;
   subdomainSuggestion: string;
+  /** Mots-clés (anglais) pour chercher des produits dans le catalogue CJ. */
+  searchKeywords: string[];
   theme: ThemeId;
   config: StoreConfig;
   products: GeneratedProduct[];
@@ -43,7 +45,7 @@ const str = { type: "string" } as const;
 const OUTPUT_SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["refusal_reason", "name", "subdomain", "tagline", "theme", "colors", "fonts", "hero", "features", "about", "footer_text", "products"],
+  required: ["refusal_reason", "name", "subdomain", "tagline", "theme", "colors", "fonts", "hero", "features", "about", "footer_text", "search_keywords", "products"],
   properties: {
     refusal_reason: { anyOf: [{ type: "string" }, { type: "null" }] },
     name: str,
@@ -74,6 +76,7 @@ const OUTPUT_SCHEMA = {
     },
     about: { type: "object", additionalProperties: false, required: ["title", "body"], properties: { title: str, body: str } },
     footer_text: str,
+    search_keywords: { type: "array", items: str },
     products: {
       type: "array",
       items: {
@@ -104,6 +107,7 @@ What to produce:
 - features: exactly 3 short reassurance points (delivery in Canada within 15 days with tracking, quality, service...). Do not promise a specific return or refund policy duration.
 - about: a short paragraph about the store's point of view.
 - footer_text: a short signature line.
+- search_keywords: 4 to 6 short ENGLISH search phrases (1-3 words each) to find matching products in a dropshipping supplier catalogue, e.g. "coffee grinder", "milk frother". Generic product words only, no brand names.
 - products: 12 products spread over 3 to 5 categories with short category names (1-3 words). Each product has a clear descriptive title, a 1-2 sentence description, 3 to 5 factual highlights (materials, dimensions, capacity, compatibility...), and a realistic retail price in CAD cents for a dropshipped item (typically 1500 to 15000).
 - colors: hex values (#rrggbb). Text must be clearly readable on the background (contrast ratio of at least 4.5:1). The primary color is used for buttons.
 - fonts: pick a heading and body pairing that fits the style from the allowed list.
@@ -179,6 +183,10 @@ export function parseGeneratedStore(raw: unknown, brief: StoreBrief): GeneratedS
   return {
     name,
     subdomainSuggestion: text(r.subdomain, 40),
+    searchKeywords: (Array.isArray(r.search_keywords) ? r.search_keywords : [])
+      .map((k) => text(k, 40).toLowerCase())
+      .filter((k) => /^[a-z0-9 \-]{2,40}$/.test(k))
+      .slice(0, 6),
     theme: brief.theme === "auto" ? parseTheme(r.theme) : brief.theme,
     config,
     products,

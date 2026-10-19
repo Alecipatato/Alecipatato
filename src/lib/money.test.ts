@@ -7,8 +7,12 @@ import {
   parseRefundRules,
   rateToBasisPoints,
   rateToMicros,
+  marginBasisPoints,
+  minimumPriceCents,
   splitMargin,
   splitRefund,
+  suggestRetailPriceCents,
+  usdToCadCents,
 } from "./money.ts";
 
 describe("conversions de taux", () => {
@@ -154,5 +158,30 @@ describe("remboursements et rétrofacturations", () => {
   it("règles en base invalides → valeurs par défaut", () => {
     assert.deepEqual(parseRefundRules({ refund: { store_share_percent: 250 } }), DEFAULT_REFUND_RULES);
     assert.deepEqual(parseRefundRules(null), DEFAULT_REFUND_RULES);
+  });
+});
+
+describe("prix des produits (marge minimale)", () => {
+  it("prix minimal pour 40 % de marge", () => {
+    assert.equal(minimumPriceCents(1200, "0.40"), 2000); // 12 $ de coût → 20 $
+    assert.equal(minimumPriceCents(1000, "0.40"), 1667); // 16,666… → arrondi au cent supérieur
+    assert.ok(marginBasisPoints(minimumPriceCents(1000, "0.40"), 1000) >= 4000);
+  });
+
+  it("prix suggéré arrondi à x,99 $ sans jamais passer sous la marge minimale", () => {
+    assert.equal(suggestRetailPriceCents(1200, "0.40"), 2099);
+    assert.equal(suggestRetailPriceCents(1000, "0.40"), 1699);
+    assert.equal(suggestRetailPriceCents(1194, "0.40"), 1999); // minimum 19,90 $ → 19,99 $
+    assert.equal(suggestRetailPriceCents(0, "0.40"), 99);
+    for (const cost of [1, 99, 517, 2345, 9999, 45678]) {
+      const price = suggestRetailPriceCents(cost, "0.40");
+      assert.equal(price % 100, 99);
+      assert.ok(marginBasisPoints(price, cost) >= 4000, `coût ${cost} → prix ${price}`);
+    }
+  });
+
+  it("conversion USD → CAD", () => {
+    assert.equal(usdToCadCents(1000, "1.38"), 1380);
+    assert.equal(usdToCadCents(333, "1.3725"), 457);
   });
 });

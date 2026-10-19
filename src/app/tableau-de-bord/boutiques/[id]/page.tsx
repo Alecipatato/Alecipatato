@@ -7,10 +7,10 @@ import { buttonClasses } from "@/components/styles";
 import type { StoreBrief } from "@/lib/ai/store-generator";
 import { requireUser } from "@/lib/auth";
 import { getPlatformSettings } from "@/lib/settings";
-import { formatPrice, parseStoreConfig, parseTheme } from "@/lib/store-config";
+import { parseStoreConfig, parseTheme } from "@/lib/store-config";
 import { createUserClient } from "@/lib/supabase/server";
 import { baseDomainForHost, storeUrl } from "@/lib/tenant";
-import { regenerateStore, setProductVisibility, setStoreOnline } from "../../actions";
+import { regenerateStore, setStoreOnline } from "../../actions";
 import { BriefForm } from "../../brief-form";
 import { DesignForm } from "./design-form";
 
@@ -41,6 +41,8 @@ export default async function StoreAdminPage({ params, searchParams }: PageProps
   const suspended = store.status === "suspended";
   const online = store.status === "active";
   const hasSamples = (products ?? []).some((p) => p.supplier === "sample");
+  const activeCount = (products ?? []).filter((p) => p.status === "active").length;
+  const proposedCount = (products ?? []).filter((p) => p.status === "proposed").length;
 
   return (
     <div className="flex flex-col gap-8">
@@ -81,34 +83,17 @@ export default async function StoreAdminPage({ params, searchParams }: PageProps
         <div className="flex flex-col gap-8">
           <section className="rounded-2xl border border-line bg-white p-6">
             <h2 className="font-display text-xl font-bold">Produits</h2>
+            <p className="mt-2 text-sm text-muted">
+              {activeCount} en vente{proposedCount > 0 && <> · <strong className="text-ink">{proposedCount} à valider</strong></>}
+            </p>
             {hasSamples && (
               <p className="mt-2 rounded-lg bg-marigold-soft px-3 py-2 text-xs text-ink">
-                Produits d&apos;exemple proposés par l&apos;IA. Ils seront remplacés par de vrais produits du fournisseur, avec photos.
+                Produits d&apos;exemple proposés par l&apos;IA, en attendant la connexion au fournisseur.
               </p>
             )}
-            <ul className="mt-4 divide-y divide-line">
-              {(products ?? []).map((p) => {
-                const visible = p.status === "active";
-                return (
-                  <li key={p.id} className="flex items-center gap-3 py-3">
-                    <div className={`min-w-0 flex-1 ${visible ? "" : "opacity-50"}`}>
-                      <p className="truncate text-sm font-medium">{p.title}</p>
-                      <p className="text-xs text-muted">{p.category} · {formatPrice(Number(p.price_cents), "CAD")}</p>
-                    </div>
-                    {!suspended && (
-                      <form action={setProductVisibility}>
-                        <input type="hidden" name="store_id" value={store.id} />
-                        <input type="hidden" name="product_id" value={p.id} />
-                        <input type="hidden" name="visible" value={visible ? "0" : "1"} />
-                        <button type="submit" className="rounded-lg border border-line px-2.5 py-1 text-xs font-medium hover:border-ink/30">
-                          {visible ? "Masquer" : "Afficher"}
-                        </button>
-                      </form>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
+            <Link href={`/tableau-de-bord/boutiques/${store.id}/produits`} className={`${buttonClasses.secondary} mt-4 w-full`}>
+              Gérer les produits
+            </Link>
           </section>
 
           <section className="rounded-2xl border border-line bg-white p-6">

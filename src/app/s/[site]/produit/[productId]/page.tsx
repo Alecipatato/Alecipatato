@@ -91,7 +91,11 @@ export default async function ProductPage({ params }: PageProps<"/s/[site]/produ
             <span aria-hidden className={`h-2.5 w-2.5 rounded-full ${inStock ? "bg-emerald-500" : "bg-red-500"}`} />
             {inStock ? "En stock" : "Temporairement en rupture de stock"}
           </p>
-          <p className="mt-1 text-sm text-[var(--sf-muted)]">Livraison au Canada avec numéro de suivi.</p>
+          <p className="mt-1 text-sm text-[var(--sf-muted)]">
+            {product.deliveryDaysMax
+              ? `Livraison gratuite au Canada en ${product.deliveryDaysMin}${product.deliveryDaysMin !== product.deliveryDaysMax ? ` à ${product.deliveryDaysMax}` : ""} jours, avec numéro de suivi.`
+              : "Livraison gratuite au Canada avec numéro de suivi."}
+          </p>
           <div className="mt-5">
             {inStock && <BuyBox storeId={store.id} product={{ id: product.id, title: product.title, priceCents: product.priceCents }} />}
           </div>

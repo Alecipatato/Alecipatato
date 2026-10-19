@@ -16,7 +16,7 @@ const p = (
   priceCents: number,
   description: string,
   highlights: string[],
-): StoreProduct => ({ id, title, category, priceCents, description, highlights, images: [], stock: 20 });
+): StoreProduct => ({ id, title, category, priceCents, description, highlights, images: [], stock: 20, deliveryDaysMin: 7, deliveryDaysMax: 14 });
 
 export const DEMO_STORES: Record<string, StoreWithProducts> = {
   demo: {

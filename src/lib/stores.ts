@@ -5,7 +5,7 @@ import { createPublicClient } from "./supabase/public";
 import type { StoreWithProducts } from "./types";
 
 const STORE_COLUMNS = "id, subdomain, custom_domain, name, theme, config, contact_email, currency";
-const PRODUCT_COLUMNS = "id, title, description, category, highlights, images, price_cents, stock";
+const PRODUCT_COLUMNS = "id, title, description, category, highlights, images, price_cents, stock, delivery_days_min, delivery_days_max";
 
 /**
  * Charge une boutique active et ses produits actifs.
@@ -60,6 +60,8 @@ export const getStoreBySite = cache(async (site: string): Promise<StoreWithProdu
       images: Array.isArray(p.images) ? p.images.filter((i): i is string => typeof i === "string") : [],
       priceCents: Number(p.price_cents),
       stock: p.stock,
+      deliveryDaysMin: p.delivery_days_min,
+      deliveryDaysMax: p.delivery_days_max,
     })),
   };
 });
