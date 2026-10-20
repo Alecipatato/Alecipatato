@@ -203,3 +203,63 @@ export function normalizeStock(data: unknown): number | null {
   }
   return found ? total : null;
 }
+
+// ---------------------------------------------------------------------------
+// Commandes (phase 6)
+// ---------------------------------------------------------------------------
+
+export interface CjCreatedOrder {
+  orderId: string;
+  /** Montant total facturé par CJ (produits + livraison), si renvoyé. */
+  amountUsdCents: number | null;
+}
+
+export type CjOrderStage = "unpaid" | "processing" | "shipped" | "delivered" | "cancelled" | "unknown";
+
+export interface CjOrderDetail {
+  orderId: string;
+  stage: CjOrderStage;
+  rawStatus: string | null;
+  trackingNumber: string | null;
+  carrier: string | null;
+}
+
+/** Réponse de createOrderV2 : l'identifiant CJ de la commande. */
+export function normalizeCreatedOrder(data: unknown): CjCreatedOrder | null {
+  const d = isObject(data) ? data : typeof data === "string" ? { orderId: data } : null;
+  if (!d) return null;
+  const orderId = firstString(d, "orderId", "id", "cjOrderId", "orderNum");
+  if (!orderId) return null;
+  return { orderId, amountUsdCents: parseUsdCents(d.orderAmount ?? d.productAmount ?? d.totalAmount ?? null) };
+}
+
+/** Statuts CJ (CREATED, IN_CART, UNPAID, UNSHIPPED, SHIPPED, DELIVERED, CANCELLED…) → étape simplifiée. */
+export function orderStage(status: string | null): CjOrderStage {
+  const s = (status ?? "").toUpperCase().replace(/[\s-]+/g, "_");
+  if (!s) return "unknown";
+  if (/CANCEL|CLOSE|REFUND/.test(s)) return "cancelled";
+  if (/DELIVER|RECEIV|COMPLETE|FINISH/.test(s)) return "delivered";
+  if (/SHIP|TRANSIT|DISPATCH/.test(s) && !/UNSHIP/.test(s)) return "shipped";
+  if (/UNPAID|CREATED|IN_CART|WAIT_PAY/.test(s)) return "unpaid";
+  if (/UNSHIP|PENDING|PROCESS|PAID|DISPATCHING/.test(s)) return "processing";
+  return "unknown";
+}
+
+/** Réponse de getOrderDetail : statut et numéro de suivi. */
+export function normalizeOrderDetail(data: unknown): CjOrderDetail | null {
+  const d = isObject(data) ? data : null;
+  if (!d) return null;
+  const orderId = firstString(d, "orderId", "id");
+  if (!orderId) return null;
+  const rawStatus = firstString(d, "orderStatus", "status");
+  const trackingNumber = firstString(d, "trackNumber", "trackingNumber", "logisticsNumber");
+  let stage = orderStage(rawStatus);
+  // Un numéro de suivi sans statut « expédié » explicite : le colis est parti.
+  if (trackingNumber && (stage === "processing" || stage === "unknown")) stage = "shipped";
+  return { orderId, stage, rawStatus, trackingNumber, carrier: firstString(d, "logisticName", "logisticsName", "shippingMethod") };
+}
+
+/** Lien public de suivi (multi-transporteurs). */
+export function trackingUrl(trackingNumber: string): string {
+  return `https://t.17track.net/en#nums=${encodeURIComponent(trackingNumber)}`;
+}

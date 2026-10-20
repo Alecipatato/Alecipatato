@@ -166,11 +166,13 @@ export async function createCheckoutSession(params: {
       })),
       automatic_tax: { enabled: automaticTaxEnabled() },
       shipping_address_collection: { allowed_countries: ["CA"] },
+      // Le transporteur du fournisseur exige un numéro de téléphone.
+      phone_number_collection: { enabled: true },
       shipping_options: [
         {
           shipping_rate_data: {
             type: "fixed_amount",
-            display_name: "Livraison standard avec suivi",
+            display_name: store.language === "fr" ? "Livraison standard avec suivi" : "Standard shipping with tracking",
             fixed_amount: { amount: 0, currency },
             tax_behavior: "exclusive",
             delivery_estimate: {

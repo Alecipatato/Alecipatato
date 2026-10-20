@@ -1,5 +1,7 @@
+import { after } from "next/server";
 import type Stripe from "stripe";
 import { splitMargin, splitRefund } from "../money";
+import { transmitOrder } from "../orders/fulfillment";
 import { getPlatformSettings } from "../settings";
 import { createAdminClient } from "../supabase/admin";
 import { getStripe } from "../stripe";
@@ -65,6 +67,7 @@ export async function finalizePaidSession(session: Stripe.Checkout.Session): Pro
       paid_at: new Date().toISOString(),
       customer_email: session.customer_details?.email ?? null,
       customer_name: shipping?.name ?? session.customer_details?.name ?? null,
+      customer_phone: session.customer_details?.phone ?? null,
       shipping_address: shipping?.address ?? null,
       subtotal_cents: subtotalCents,
       shipping_cents: session.total_details?.amount_shipping ?? 0,
@@ -94,6 +97,13 @@ export async function finalizePaidSession(session: Stripe.Checkout.Session): Pro
     available_at: new Date(Date.now() + settings.payoutReserveDays * DAY_MS).toISOString(),
     status: "pending",
   });
+
+  // Transmission au fournisseur juste après la réponse (la tâche planifiée rattrape les échecs).
+  try {
+    after(() => transmitOrder(order.id).catch((err) => console.error("Transmission CJ :", err)));
+  } catch {
+    // Appel hors d'une requête (tâche de fond) : la tâche planifiée s'en chargera.
+  }
 }
 
 async function findOrderByPayment(paymentIntentId: string | null, chargeId: string | null) {

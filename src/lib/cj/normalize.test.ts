@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   bestShippingOption,
+  normalizeCreatedOrder,
+  normalizeOrderDetail,
+  orderStage,
+  trackingUrl,
   normalizeListResponse,
   normalizeProductDetail,
   normalizeShippingOptions,
@@ -97,5 +101,37 @@ describe("réponses CJ", () => {
   it("stock : somme des entrepôts", () => {
     assert.equal(normalizeStock([{ areaEn: "China", storageNum: 120 }, { areaEn: "US", storageNum: 30 }]), 150);
     assert.equal(normalizeStock([]), null);
+  });
+});
+
+describe("commandes CJ", () => {
+  it("lit l'identifiant de la commande créée (plusieurs formes)", () => {
+    assert.deepEqual(normalizeCreatedOrder({ orderId: "2103221234567", orderAmount: "12.30" }), { orderId: "2103221234567", amountUsdCents: 1230 });
+    assert.equal(normalizeCreatedOrder("2103221234567")?.orderId, "2103221234567");
+    assert.equal(normalizeCreatedOrder({ id: 42 })?.orderId, "42");
+    assert.equal(normalizeCreatedOrder({}), null);
+    assert.equal(normalizeCreatedOrder(null), null);
+  });
+
+  it("traduit les statuts CJ", () => {
+    assert.equal(orderStage("UNPAID"), "unpaid");
+    assert.equal(orderStage("CREATED"), "unpaid");
+    assert.equal(orderStage("UNSHIPPED"), "processing");
+    assert.equal(orderStage("SHIPPED"), "shipped");
+    assert.equal(orderStage("DELIVERED"), "delivered");
+    assert.equal(orderStage("CANCELLED"), "cancelled");
+    assert.equal(orderStage(null), "unknown");
+  });
+
+  it("détail : statut, suivi et transporteur", () => {
+    const d = normalizeOrderDetail({ orderId: "1", orderStatus: "SHIPPED", trackNumber: "YT123", logisticName: "CJPacket" });
+    assert.deepEqual(d, { orderId: "1", stage: "shipped", rawStatus: "SHIPPED", trackingNumber: "YT123", carrier: "CJPacket" });
+    assert.equal(normalizeOrderDetail({ orderId: "1", orderStatus: "UNSHIPPED", trackNumber: "YT1" })?.stage, "shipped");
+    assert.equal(normalizeOrderDetail({ orderId: "1", orderStatus: "UNSHIPPED" })?.stage, "processing");
+    assert.equal(normalizeOrderDetail("x"), null);
+  });
+
+  it("lien de suivi", () => {
+    assert.equal(trackingUrl("YT 1"), "https://t.17track.net/en#nums=YT%201");
   });
 });

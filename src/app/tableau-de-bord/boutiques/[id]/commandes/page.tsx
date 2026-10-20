@@ -31,7 +31,7 @@ export default async function OrdersPage({ params, searchParams }: PageProps<"/t
 
   const { data: orders } = await supabase
     .from("orders")
-    .select("id, order_number, status, paid_at, customer_name, customer_email, currency, subtotal_cents, tax_cents, total_cents, gross_margin_cents, commission_cents, store_payout_cents, refunded_cents, disputed, order_items(title, quantity), payouts(status, amount_cents, reversed_cents, available_at, paid_at)")
+    .select("id, order_number, status, paid_at, customer_name, customer_email, currency, subtotal_cents, tax_cents, total_cents, gross_margin_cents, commission_cents, store_payout_cents, refunded_cents, disputed, cj_status, cj_error, tracking_number, tracking_url, order_items(title, quantity), payouts(status, amount_cents, reversed_cents, available_at, paid_at)")
     .eq("store_id", store.id)
     .not("status", "in", "(pending,cancelled)")
     .order("paid_at", { ascending: false })
@@ -56,6 +56,8 @@ export default async function OrdersPage({ params, searchParams }: PageProps<"/t
             const items = (order.order_items ?? []) as { title: string; quantity: number }[];
             const remaining = Number(order.total_cents) - Number(order.refunded_cents);
             const payoutDate = payout?.paid_at ?? payout?.available_at;
+            // État de la transmission au fournisseur (« sending » = en cours : affiché comme « en attente »).
+            const supplier = (order.cj_status === "sending" || (!order.cj_status && order.status === "paid") ? "pending" : order.cj_status) as keyof typeof t.supplierStatus | null;
             return (
               <li key={order.id} className="rounded-2xl border border-line bg-white p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -65,6 +67,20 @@ export default async function OrdersPage({ params, searchParams }: PageProps<"/t
                       {order.paid_at && dateFormat.format(new Date(order.paid_at))} · {order.customer_name ?? order.customer_email ?? t.buyer}
                     </p>
                     <p className="mt-1 text-sm">{items.map((i) => `${i.title} × ${i.quantity}`).join(", ")}</p>
+                    {supplier && (
+                      <p className={`mt-1 text-xs ${supplier === "failed" ? "text-danger" : "text-muted"}`}>
+                        {fmt(t.supplierStatus[supplier], { error: order.cj_error ?? "" })}
+                      </p>
+                    )}
+                    {order.tracking_number && (
+                      <p className="mt-1 text-xs">
+                        {order.tracking_url ? (
+                          <a href={order.tracking_url} target="_blank" rel="noreferrer" className="font-medium text-brand hover:underline">{fmt(t.tracking, { number: order.tracking_number })} ↗</a>
+                        ) : (
+                          fmt(t.tracking, { number: order.tracking_number })
+                        )}
+                      </p>
+                    )}
                   </div>
                   <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${order.disputed ? "bg-danger-soft text-danger" : "bg-brand-soft text-brand-strong"}`}>
                     {order.disputed ? t.dispute : label(t.status, order.status)}

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import type { ModerationKind } from "@/lib/moderation/match";
 import { rescanProducts } from "@/lib/moderation/rescan";
+import { retryOrder } from "@/lib/orders/fulfillment";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /** Toutes les actions de cette page exigent le rôle administrateur. */
@@ -61,4 +62,11 @@ export async function runRescan() {
   await requireAdmin();
   const { checked, blocked } = await rescanProducts();
   redirect(`/admin/moderation?verifies=${checked}&bloques=${blocked}`);
+}
+
+export async function retrySupplierOrder(formData: FormData) {
+  await requireAdmin();
+  const result = await retryOrder(String(formData.get("order_id") ?? ""));
+  revalidatePath("/admin/commandes");
+  redirect(`/admin/commandes?relance=${result}`);
 }

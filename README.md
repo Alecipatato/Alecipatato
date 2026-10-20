@@ -84,9 +84,23 @@ Limites du compte gratuit et nombre d'appels par heure : table `platform_setting
 3. **Synchronisation** : appelez `GET /api/cron/sync-products` toutes les heures avec
    `Authorization: Bearer <CRON_SECRET>` (prix, stock, produits retirés).
 
-> Cette phase ne fait que **lire** le catalogue CJ (aucune commande, aucun paiement) : les commandes
-> vers CJ arrivent en phase 6. Sans `CJ_API_KEY`, l'IA crée des produits d'exemple.
-> L'adaptateur `src/lib/cj/` a été écrit sans accès à la documentation CJ : à valider avec une vraie clé.
+4. **Commandes** (phase 6) : chaque commande payée est transmise à CJ (adresse, téléphone, produits,
+   transporteur choisi) puis payée avec votre **portefeuille CJ** si `CJ_AUTO_PAY=true`. En cas d'échec :
+   nouveaux essais automatiques et courriel d'alerte à `ADMIN_ALERT_EMAIL` ; relance manuelle dans
+   **Administration > Commandes fournisseur**. Le numéro de suivi apparaît dans le tableau de bord du client et
+   sur la page publique **/suivi** de chaque boutique.
+5. **Tâche planifiée** : appelez `GET /api/cron/orders` toutes les 15 minutes avec
+   `Authorization: Bearer <CRON_SECRET>` (transmission, nouveaux essais, suivi).
+
+> ⚠️ `CJ_ORDERS_ENABLED=false` par défaut : avec `true`, de **vraies** commandes sont créées chez CJ. L'adaptateur
+> `src/lib/cj/` a été écrit sans accès à la documentation CJ : testez d'abord avec une commande que vous
+> annulerez chez CJ. Sans `CJ_API_KEY`, l'IA crée des produits d'exemple (jamais transmis).
+
+## Courriels (Resend)
+
+1. Créez un compte sur https://resend.com, vérifiez votre domaine, puis copiez la clé dans `RESEND_API_KEY`.
+2. `EMAIL_FROM` : l'expéditeur (ex. `Kreo <noreply@mondomaine.com>`). `ADMIN_ALERT_EMAIL` : votre adresse,
+   qui reçoit les alertes (commande CJ en échec, portefeuille CJ insuffisant, commande annulée chez CJ).
 
 ## Paiements (Stripe Connect) — mode TEST uniquement
 

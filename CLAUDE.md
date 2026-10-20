@@ -136,6 +136,15 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
   (`moderation/rescan.ts` → `products.moderation_reason` = « kind:terme », produit refusé et non modifiable).
 - **Admin** : `profiles.role = 'admin'` (`requireAdmin`, sinon 404). `/admin` : boutiques, suspension avec motif
   (hors ligne, checkout refusé, versements en attente ; réactivation → `draft`).
+- **Commandes CJ** (phase 6) : `src/lib/orders/fulfillment.ts` + adaptateur `src/lib/cj/orders.ts`
+  (`createOrderV2`, `payBalance`, `getOrderDetail` ; réponses lues par `normalize.ts`). Transmission juste après
+  le paiement (`after()` dans `finalizePaidSession`) et par `/api/cron/orders` (nouveaux essais : 15 min, 1 h, 3 h,
+  6 h ; `MAX_CJ_ATTEMPTS` = 5). Verrou `orders.cj_status = 'sending'`, `orderNumber` CJ = id de la commande.
+  Activée seulement si `CJ_ORDERS_ENABLED=true` ; paiement portefeuille si `CJ_AUTO_PAY=true`. Produits
+  d'exemple jamais transmis (`skipped`). Alertes admin : `src/lib/email/resend.ts` (`ADMIN_ALERT_EMAIL`). Suivi
+  relu toutes les 4 h (expédiée/livrée, `tracking_url` 17track). Page publique `/suivi` (n° + courriel).
+  Limites : une commande remboursée avant l'envoi n'est pas transmise ; un remboursement après l'envoi n'annule
+  pas la commande chez CJ (à faire à la main). Téléphone demandé au paiement (`phone_number_collection`).
 - **Langues (EN/FR)** : `src/lib/i18n/`. Anglais par défaut. Plateforme : cookie `lang` (sélecteur) > région
   (`cf-ipcountry` + `cf-region-code` : Québec et pays francophones → fr) > navigateur > anglais. Textes dans
   `messages/*.ts` (anglais et français côte à côte, clés vérifiées par TypeScript) ; serveur : `getMessages()`,
@@ -159,4 +168,6 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
       prix ≥ 40 % de marge, écran de validation, synchro horaire (adaptateur CJ à valider avec une vraie clé)
 - [x] Langues — anglais par défaut, français selon la région, sélecteur ; langue propre à chaque boutique
 - [x] Phase 4 — modération (règles configurables, filtrage produits/textes, vérification, suspension admin)
-- [ ] Phase 6 — commandes CJ
+- [x] Phase 6 — commandes CJ : transmission auto, paiement portefeuille, nouveaux essais, alertes admin,
+      suivi de livraison, page publique de suivi (adaptateur CJ à valider avec une vraie clé)
+- [ ] Prochaine phase — selon le choix du propriétaire (7 courriels, 8 pages légales, 9 tableau de bord…)
