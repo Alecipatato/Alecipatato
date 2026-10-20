@@ -25,11 +25,12 @@ async function ownedStore(storeId: string, userId: string) {
 async function ownedProduct(productId: string, userId: string) {
   const { data } = await createAdminClient()
     .from("products")
-    .select("id, store_id, status, supplier, supplier_cost_usd_cents, shipping_cost_usd_cents, stores!inner(owner_id, status)")
+    .select("id, store_id, status, supplier, supplier_cost_usd_cents, shipping_cost_usd_cents, moderation_reason, stores!inner(owner_id, status)")
     .eq("id", productId)
     .maybeSingle();
   const store = data?.stores as unknown as { owner_id: string; status: string } | undefined;
-  return data && store?.owner_id === userId && store.status !== "suspended" ? data : null;
+  // Un produit bloqué par la modération ne peut plus être remis en vente ni modifié.
+  return data && store?.owner_id === userId && store.status !== "suspended" && !data.moderation_reason ? data : null;
 }
 
 
@@ -64,7 +65,7 @@ export async function acceptAllProducts(formData: FormData) {
   const user = await requireUser();
   const storeId = String(formData.get("store_id") ?? "");
   if (!(await ownedStore(storeId, user.id))) return;
-  await createAdminClient().from("products").update({ status: "active" }).eq("store_id", storeId).eq("status", "proposed");
+  await createAdminClient().from("products").update({ status: "active" }).eq("store_id", storeId).eq("status", "proposed").is("moderation_reason", null);
   revalidatePath(pagePath(storeId));
 }
 

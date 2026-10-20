@@ -11,6 +11,7 @@ import type { SourcingState } from "@/lib/products/sourcing";
 import { getPlatformSettings } from "@/lib/settings";
 import { fmt } from "@/lib/i18n/config";
 import { getLocale, getMessages } from "@/lib/i18n/server";
+import { describeViolation } from "@/lib/moderation/rules";
 import { formatPrice } from "@/lib/store-config";
 import { createUserClient } from "@/lib/supabase/server";
 import { acceptAllProducts, acceptProduct, unpublishProduct } from "../../../products-actions";
@@ -39,6 +40,7 @@ type ProductRow = {
   stock: number | null;
   sync_status: string;
   sync_note: string | null;
+  moderation_reason: string | null;
 };
 
 export default async function ProductsPage({ params, searchParams }: PageProps<"/tableau-de-bord/boutiques/[id]/produits">) {
@@ -53,7 +55,7 @@ export default async function ProductsPage({ params, searchParams }: PageProps<"
   const [{ data: products }, { data: job }, settings] = await Promise.all([
     supabase
       .from("products")
-      .select("id, title, category, images, status, supplier, price_cents, supplier_cost_usd_cents, shipping_cost_usd_cents, delivery_days_min, delivery_days_max, stock, sync_status, sync_note")
+      .select("id, title, category, images, status, supplier, price_cents, supplier_cost_usd_cents, shipping_cost_usd_cents, delivery_days_min, delivery_days_max, stock, sync_status, sync_note, moderation_reason")
       .eq("store_id", store.id)
       .order("position"),
     supabase.from("sourcing_jobs").select("id, status, target, error, keywords, picks, cursor").eq("store_id", store.id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
@@ -61,7 +63,8 @@ export default async function ProductsPage({ params, searchParams }: PageProps<"
   ]);
   const fx = await getUsdCadRate(settings.usdCadFallbackRate);
   const locale = await getLocale();
-  const t = (await getMessages(locale)).sales.products;
+  const m = await getMessages(locale);
+  const t = m.sales.products;
   const price = (cents: number) => formatPrice(cents, "CAD", locale);
   const result = typeof sp.resultat === "string" && sp.resultat in RESULT_KINDS ? (sp.resultat as ResultKey) : null;
   const rows = (products ?? []) as ProductRow[];
@@ -107,12 +110,17 @@ export default async function ProductsPage({ params, searchParams }: PageProps<"
               {p.stock !== null && <div><dt className="inline">{t.stock}</dt><dd className="inline text-ink">{p.stock}</dd></div>}
             </dl>
           )}
+          {p.moderation_reason && (
+            <p className="mt-2 rounded-lg bg-danger-soft px-2.5 py-1.5 text-xs text-danger">
+              {fmt(t.moderated, { reason: describeViolation(p.moderation_reason, m) })}
+            </p>
+          )}
           {p.sync_status !== "ok" && p.sync_status in t.syncNotes && (
             <p className={`mt-2 rounded-lg px-2.5 py-1.5 text-xs ${p.sync_status === "unavailable" ? "bg-danger-soft text-danger" : "bg-marigold-soft"}`}>
               {fmt(t.syncNotes[p.sync_status as keyof typeof t.syncNotes], { old: price(Number(p.sync_note) || 0), new: price(Number(p.price_cents)) })}
             </p>
           )}
-          {!suspended && (
+          {!suspended && !p.moderation_reason && (
             <div className="mt-3 flex flex-wrap items-start gap-x-4 gap-y-2">
               {p.status === "proposed" && (
                 <form action={acceptProduct}>

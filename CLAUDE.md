@@ -129,6 +129,13 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
   rupture, produit retiré → `rejected` + `sync_status`).
 - Boutique créée avec CJ : `draft` jusqu'à acceptation des produits ; sans `CJ_API_KEY` : produits
   d'exemple (`supplier = 'sample'`).
+- **Modération** (phase 4) : règles en table `moderation_rules` (brand, counterfeit, prohibited, category ;
+  modifiables dans `/admin/moderation`). Comparaison pure et testée : `src/lib/moderation/match.ts` (mots entiers,
+  sans casse ni accents). Appliquée : niche + textes générés + personnalisation (`tableau-de-bord/actions.ts`),
+  candidats CJ et fiches rédigées (`products/sourcing.ts`), produits d'exemple, nouvelle vérification
+  (`moderation/rescan.ts` → `products.moderation_reason` = « kind:terme », produit refusé et non modifiable).
+- **Admin** : `profiles.role = 'admin'` (`requireAdmin`, sinon 404). `/admin` : boutiques, suspension avec motif
+  (hors ligne, checkout refusé, versements en attente ; réactivation → `draft`).
 - **Langues (EN/FR)** : `src/lib/i18n/`. Anglais par défaut. Plateforme : cookie `lang` (sélecteur) > région
   (`cf-ipcountry` + `cf-region-code` : Québec et pays francophones → fr) > navigateur > anglais. Textes dans
   `messages/*.ts` (anglais et français côte à côte, clés vérifiées par TypeScript) ; serveur : `getMessages()`,
@@ -150,4 +157,6 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
       versements, remboursements et rétrofacturations selon règles configurables
 - [x] Phase 3 — produits CJ : recherche, sélection et rédaction par l'IA, livraison ≤ 15 jours,
       prix ≥ 40 % de marge, écran de validation, synchro horaire (adaptateur CJ à valider avec une vraie clé)
-- [ ] Prochaine phase — selon le choix du propriétaire (4 modération ou 6 commandes CJ)
+- [x] Langues — anglais par défaut, français selon la région, sélecteur ; langue propre à chaque boutique
+- [x] Phase 4 — modération (règles configurables, filtrage produits/textes, vérification, suspension admin)
+- [ ] Phase 6 — commandes CJ

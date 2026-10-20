@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getSupabasePublicEnv } from "./env";
 
 /** Pages réservées aux utilisateurs connectés. */
-const PROTECTED_PREFIXES = ["/tableau-de-bord"];
+const PROTECTED_PREFIXES = ["/tableau-de-bord", "/admin"];
 /** Pages inutiles une fois connecté (on renvoie vers le tableau de bord). */
 const GUEST_ONLY = ["/connexion", "/inscription"];
 

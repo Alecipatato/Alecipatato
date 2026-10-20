@@ -14,6 +14,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { GeneratedProduct } from "@/lib/ai/store-generator";
 import { fmt, isLocale, plural } from "@/lib/i18n/config";
 import { getLocale, getMessages } from "@/lib/i18n/server";
+import { describeViolation, moderate } from "@/lib/moderation/rules";
 import type { ThemeId } from "@/lib/types";
 
 export type ActionState = { error?: string; message?: string };
@@ -32,6 +33,8 @@ async function readBrief(formData: FormData): Promise<StoreBrief | string> {
 
   if (niche.length < 10) return t.nicheTooShort;
   if (niche.length > 1000 || productTypes.length > 500 || storeName.length > 60) return t.fieldTooLong;
+  const violation = await moderate([niche, productTypes, storeName]);
+  if (violation) return fmt(t.nicheBlocked, { term: describeViolation(violation, await getMessages()) });
   const theme = themeRaw === "auto" || THEME_IDS.includes(themeRaw as ThemeId) ? (themeRaw as StoreBrief["theme"]) : "auto";
   const validPalette = palette === "auto" || palette === "custom" || palette in PALETTES ? palette : "auto";
 
@@ -86,6 +89,10 @@ async function runGeneration(
         finished_at: new Date().toISOString(),
       })
       .eq("id", log.id);
+    // Les textes générés passent aussi par la modération (nom de marque inventé par l'IA, etc.).
+    const c = result.store.config.content;
+    const violation = await moderate([result.store.name, c.tagline, c.hero.title, c.hero.subtitle, c.about.title, c.about.body, c.footerText]);
+    if (violation) return fmt(m.moderation.textBlocked, { reason: describeViolation(violation, m) });
     return { ...result, logId: log.id };
   } catch (error) {
     const message =
@@ -101,9 +108,11 @@ async function runGeneration(
   }
 }
 
-function productRows(storeId: string, products: GeneratedProduct[]) {
-  // Produits d'exemple : remplacés par de vrais produits CJ en phase 3.
-  return products.map((p, i) => ({
+async function productRows(storeId: string, products: GeneratedProduct[]) {
+  // Produits d'exemple (sans fournisseur configuré) ; ceux qui enfreignent la modération sont écartés.
+  const allowed = [];
+  for (const p of products) if (!(await moderate([p.title, p.description, ...p.highlights], [p.category]))) allowed.push(p);
+  return allowed.map((p, i) => ({
     store_id: storeId,
     supplier: "sample",
     supplier_product_id: `sample-${i + 1}`,
@@ -177,7 +186,7 @@ export async function createStore(_prev: ActionState, formData: FormData): Promi
   }
 
   // Sans fournisseur configuré : produits d'exemple générés par l'IA.
-  const { error: productsError } = await admin.from("products").insert(productRows(store.id, generated.products));
+  const { error: productsError } = await admin.from("products").insert(await productRows(store.id, generated.products));
   if (productsError) console.error("Insertion des produits :", productsError);
   redirect(`/tableau-de-bord/boutiques/${store.id}?nouvelle=1`);
 }
@@ -219,7 +228,7 @@ export async function regenerateStore(_prev: ActionState, formData: FormData): P
 
   // Les produits du fournisseur sont conservés ; seuls les produits d'exemple sont regénérés.
   await admin.from("products").delete().eq("store_id", store.id).eq("supplier", "sample");
-  if (!isCjConfigured()) await admin.from("products").insert(productRows(store.id, generated.products));
+  if (!isCjConfigured()) await admin.from("products").insert(await productRows(store.id, generated.products));
 
   revalidatePath(`/tableau-de-bord/boutiques/${store.id}`);
   return { message: t.regenerated };
@@ -256,6 +265,13 @@ export async function updateStoreDesign(_prev: ActionState, formData: FormData):
       footerText: get("footer_text"),
     },
   });
+
+  const c = config.content;
+  const violation = await moderate([name, c.tagline, c.hero.title, c.hero.subtitle, c.hero.ctaLabel, c.about.title, c.about.body, c.footerText]);
+  if (violation) {
+    const m = await getMessages();
+    return { error: fmt(m.moderation.textBlocked, { reason: describeViolation(violation, m) }) };
+  }
 
   const { error } = await createAdminClient()
     .from("stores")

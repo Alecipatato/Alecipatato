@@ -125,10 +125,22 @@ plateforme garde 15 % de la marge brute et transfère le reste au compte Stripe 
 - Chaque boutique a sa langue (choisie à la création) : vitrine, fiches produits générées par l'IA, page de paiement.
 - Les modèles de courriel (`supabase/templates/`) contiennent les deux langues : recopiez-les tels quels dans Supabase.
 
+## Administration et modération
+
+1. Devenez administrateur (une seule fois), dans **Supabase > SQL Editor** :
+   ```sql
+   update profiles set role = 'admin' where email = 'votre@courriel.com';
+   ```
+2. Un lien **Administration** apparaît dans le tableau de bord (`/admin`) :
+   - **Boutiques** : liste, recherche, produits bloqués, textes à vérifier, **suspendre** (avec motif) / réactiver.
+     Une boutique suspendue est hors ligne, ne peut plus encaisser et ses versements attendent.
+   - **Modération** : marques, mentions de contrefaçon, produits et catégories interdits (liste de départ
+     fournie). Ajoutez ou retirez des mots, puis « Lancer la vérification » pour l'appliquer aux produits existants.
+
 ## Tests
 
 ```bash
-npm test        # calculs d'argent, prix (marge minimale), lecture des réponses CJ
+npm test        # calculs d'argent, prix (marge minimale), lecture des réponses CJ, langues, modération
 ```
 
 ## Comment ça marche

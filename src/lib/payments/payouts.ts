@@ -70,7 +70,7 @@ export async function releaseDuePayouts(now = new Date()): Promise<ReleaseReport
 
   const { data: due, error } = await admin
     .from("payouts")
-    .select("id, amount_cents, currency, order_id, store_id, orders(order_number, disputed, stripe_charge_id), stores(name, owner_id)")
+    .select("id, amount_cents, currency, order_id, store_id, orders(order_number, disputed, stripe_charge_id), stores(name, owner_id, status)")
     .eq("status", "pending")
     .lte("available_at", now.toISOString())
     .limit(100);
@@ -78,8 +78,14 @@ export async function releaseDuePayouts(now = new Date()): Promise<ReleaseReport
 
   for (const payout of due ?? []) {
     const order = payout.orders as unknown as { order_number: string; disputed: boolean; stripe_charge_id: string | null } | null;
-    const store = payout.stores as unknown as { name: string; owner_id: string } | null;
+    const store = payout.stores as unknown as { name: string; owner_id: string; status: string } | null;
     if (!order || !store) continue;
+
+    // Boutique suspendue par l'administrateur : le versement attend (il repartira à la réactivation).
+    if (store.status === "suspended") {
+      report.skipped.push({ payoutId: payout.id, reason: "Boutique suspendue." });
+      continue;
+    }
 
     if (order.disputed) {
       await admin.from("payouts").update({ status: "held" }).eq("id", payout.id);

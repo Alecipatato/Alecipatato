@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { signOut } from "@/app/(auth)/actions";
 import { Logo } from "@/components/ui";
-import { requireUser } from "@/lib/auth";
+import { isAdmin, requireUser } from "@/lib/auth";
 import { LanguageSwitcher } from "@/lib/i18n/client";
 import { getMessages } from "@/lib/i18n/server";
 
@@ -9,6 +9,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const user = await requireUser();
   const name = (user.user_metadata?.full_name as string | undefined) || user.email;
   const t = (await getMessages()).dashboard.nav;
+  const admin = await isAdmin(user.id);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -19,6 +20,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
             <nav aria-label={t.label} className="flex gap-5 text-sm font-medium">
               <Link href="/tableau-de-bord" className="text-muted hover:text-ink">{t.stores}</Link>
               <Link href="/tableau-de-bord/paiements" className="text-muted hover:text-ink">{t.payments}</Link>
+              {admin && <Link href="/admin" className="text-muted hover:text-ink">{t.admin}</Link>}
             </nav>
           </div>
           <div className="flex items-center gap-4 text-sm">

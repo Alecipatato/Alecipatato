@@ -1,6 +1,8 @@
 import { type AiUsage, rewriteProducts, selectProducts } from "../ai/product-curator";
 import { AI_MODEL, StoreGenerationError } from "../ai/store-generator";
 import { isLocale } from "../i18n/config";
+import { findViolation } from "../moderation/match";
+import { getModerationRules } from "../moderation/rules";
 import { getProductDetail, getShippingOptions, searchProducts } from "../cj/catalog";
 import { bestShippingOption, type CjProductDetail, type CjProductSummary, type CjShippingOption, type CjVariant } from "../cj/normalize";
 import { getUsdCadRate } from "../fx";
@@ -114,7 +116,9 @@ export async function advanceSourcing(jobId: string): Promise<SourcingState> {
           console.warn(`Recherche CJ « ${keyword} » :`, err);
         }
       }
-      const candidates = [...found.values()].slice(0, MAX_CANDIDATES);
+      // Modération : marques, contrefaçons, produits et catégories interdits sont écartés d'emblée.
+      const rules = await getModerationRules();
+      const candidates = [...found.values()].filter((p) => !findViolation(rules, [p.name], [p.category])).slice(0, MAX_CANDIDATES);
       if (candidates.length === 0) {
         await updateJob(job.id, { status: "failed", error: "no_products_found" });
       } else {
@@ -195,8 +199,22 @@ export async function processPicks(storeId: string, pids: string[]): Promise<num
   await logAi(storeId, "rewrite_products", usage);
   const copyByPid = new Map(copies.map((c) => [c.pid, c]));
   const fx = await getUsdCadRate(settings.usdCadFallbackRate);
+  const rules = await getModerationRules();
 
-  const rows = prepared.map((p) => {
+  // Seconde vérification sur la fiche complète du fournisseur et sur le texte rédigé par l'IA.
+  const allowed = prepared.filter((p) => {
+    const copy = copyByPid.get(p.detail.pid);
+    const violation = findViolation(
+      rules,
+      [p.detail.name, p.detail.description, p.variant.name, copy?.title, copy?.description, ...(copy?.highlights ?? [])],
+      [p.detail.category, copy?.category],
+    );
+    if (violation) console.warn(`Produit CJ ${p.detail.pid} écarté par la modération (${violation.kind} : ${violation.term})`);
+    return !violation;
+  });
+  if (allowed.length === 0) return 0;
+
+  const rows = allowed.map((p) => {
     const copy = copyByPid.get(p.detail.pid);
     const costCadCents = usdToCadCents(p.variant.priceUsdCents + p.shipping.priceUsdCents, fx.rate);
     const price = suggestRetailPriceCents(costCadCents, settings.minMarginRate);
