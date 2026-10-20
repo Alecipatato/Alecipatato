@@ -20,7 +20,7 @@ export default async function MarketingPage({ params }: PageProps<"/tableau-de-b
   const user = await requireUser();
   const { id } = await params;
   const supabase = await createUserClient();
-  const { data: store } = await supabase.from("stores").select("id, name, subdomain, custom_domain, status, config, seo, pixels").eq("id", id).eq("owner_id", user.id).maybeSingle();
+  const { data: store } = await supabase.from("stores").select("id, name, subdomain, custom_domain, domain_status, status, config, seo, pixels").eq("id", id).eq("owner_id", user.id).maybeSingle();
   if (!store) notFound();
   const [{ data: products }, { data: assets }] = await Promise.all([
     supabase.from("products").select("id, title").eq("store_id", store.id).eq("status", "active").order("position"),
@@ -30,7 +30,7 @@ export default async function MarketingPage({ params }: PageProps<"/tableau-de-b
   const m = await getMessages(locale);
   const t = m.marketingTools;
   const config = parseStoreConfig(store.config);
-  const url = publicStoreUrl({ subdomain: store.subdomain, customDomain: store.custom_domain });
+  const url = publicStoreUrl({ subdomain: store.subdomain, customDomain: store.domain_status === "active" ? store.custom_domain : null });
   const defaults = {
     title: [store.name, config.content.tagline].filter(Boolean).join(" — "),
     description: truncate(config.content.hero.subtitle || config.content.tagline || store.name, SEO_DESCRIPTION_MAX),

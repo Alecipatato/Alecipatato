@@ -182,6 +182,16 @@ Bouton **Marketing** sur la page de chaque boutique :
   les pixels ne se chargent qu'après « Accepter ».
 - **Contenus IA** : scripts de vidéos TikTok, textes publicitaires et suggestion SEO, à relire avant publication.
 
+## Domaines personnalisés (Cloudflare for SaaS)
+
+1. Votre domaine principal doit être géré par Cloudflare. Dans **SSL/TLS > Custom Hostnames**, activez
+   Cloudflare for SaaS et créez la **fallback origin** (ex. `stores.mondomaine.com`, enregistrement DNS proxifié
+   qui pointe vers l'application).
+2. Remplissez `CLOUDFLARE_API_TOKEN` (permission « SSL and Certificates: Edit »), `CLOUDFLARE_ZONE_ID` et
+   `CLOUDFLARE_CNAME_TARGET` (= la fallback origin).
+3. Le client entre son domaine sur la page de sa boutique et reçoit les enregistrements DNS à créer (CNAME + TXT).
+   La vérification et le certificat HTTPS sont automatiques ; appelez `GET /api/cron/domains` toutes les 10 minutes.
+
 ## Tests
 
 ```bash

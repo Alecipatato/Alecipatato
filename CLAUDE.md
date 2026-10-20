@@ -171,6 +171,11 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
   commande) ; la politique de confidentialité les mentionne automatiquement. Contenus IA (2 scripts TikTok, 3 publicités,
   suggestion SEO) : `src/lib/ai/marketing.ts` → table `marketing_assets` (journal `ai_generations.kind = 'marketing'`,
   limite horaire, modération). Écran `/tableau-de-bord/boutiques/[id]/marketing`.
+- **Domaines personnalisés** (phase 11) : `src/lib/domains/` — `normalize.ts` (saisie + réponses Cloudflare, testé),
+  `cloudflare.ts` (custom hostnames, certificat DV par TXT), `service.ts` (connecter / vérifier / retirer, tâche
+  `/api/cron/domains`). Colonnes `stores.domain_*` ; la vitrine n'est servie sur `custom_domain` que si
+  `domain_status = 'active'` (`getStoreBySite`) ; `publicStoreUrl()` (canonique, sitemap, courriels, liens) préfère le
+  domaine actif. L'ancien sous-domaine reste accessible (canonique vers le domaine). Écran : section sur la page boutique.
 - **Langues (EN/FR)** : `src/lib/i18n/`. Anglais par défaut. Plateforme : cookie `lang` (sélecteur) > région
   (`cf-ipcountry` + `cf-region-code` : Québec et pays francophones → fr) > navigateur > anglais. Textes dans
   `messages/*.ts` (anglais et français côte à côte, clés vérifiées par TypeScript) ; serveur : `getMessages()`,
@@ -200,4 +205,5 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
 - [x] Phase 8 — pages légales par boutique (CGV, retours, livraison, confidentialité Loi 25) et de la plateforme
 - [x] Phase 9 — tableau de bord : ventes, commandes, marge, commissions, versements, visites, conversion
 - [x] Phase 10 — SEO (titres, descriptions, sitemap, données produit), pixels Meta/TikTok avec consentement, contenus IA
-- [ ] Phases 11 (domaines) et 12 (admin) — validées, en cours
+- [x] Phase 11 — domaines personnalisés via Cloudflare for SaaS (instructions DNS, vérification auto, HTTPS)
+- [ ] Phase 12 (admin) — validée, en cours

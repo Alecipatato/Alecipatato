@@ -3,6 +3,7 @@ import { admin } from "./admin";
 import { auth } from "./auth";
 import { common } from "./common";
 import { dashboard } from "./dashboard";
+import { domains } from "./domains";
 import { emails } from "./emails";
 import { errors } from "./errors";
 import { legal } from "./legal";
@@ -25,6 +26,7 @@ function build(locale: Locale) {
     legal: legal[locale],
     stats: stats[locale],
     marketingTools: marketingTools[locale],
+    domains: domains[locale],
     moderation: admin[locale].moderation,
     admin: admin[locale].admin,
   };

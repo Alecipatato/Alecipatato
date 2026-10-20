@@ -7,7 +7,7 @@ import { parseStoreConfig, parseTheme } from "./store-config";
 import { createPublicClient } from "./supabase/public";
 import type { StoreWithProducts } from "./types";
 
-const STORE_COLUMNS = "id, subdomain, custom_domain, name, theme, config, contact_email, currency, language, legal_info, seo, pixels";
+const STORE_COLUMNS = "id, subdomain, custom_domain, name, theme, config, contact_email, currency, language, legal_info, seo, pixels, domain_status";
 const PRODUCT_COLUMNS = "id, title, description, category, highlights, images, price_cents, stock, delivery_days_min, delivery_days_max";
 
 /**
@@ -25,13 +25,11 @@ export const getStoreBySite = cache(async (site: string): Promise<StoreWithProdu
   const supabase = createPublicClient();
   if (!supabase) return null; // Supabase pas encore configuré : seules les démos existent.
 
-  const column = site.includes(".") ? "custom_domain" : "subdomain";
-  const { data: row, error } = await supabase
-    .from("stores")
-    .select(STORE_COLUMNS)
-    .eq(column, site)
-    .eq("status", "active")
-    .maybeSingle();
+  // Domaine personnalisé : servi seulement une fois vérifié par Cloudflare (domain_status = active).
+  const isCustom = site.includes(".");
+  let query = supabase.from("stores").select(STORE_COLUMNS).eq(isCustom ? "custom_domain" : "subdomain", site).eq("status", "active");
+  if (isCustom) query = query.eq("domain_status", "active");
+  const { data: row, error } = await query.maybeSingle();
   if (error) throw new Error(`Lecture de la boutique « ${site} » impossible : ${error.message}`);
   if (!row) return null;
 
@@ -47,7 +45,7 @@ export const getStoreBySite = cache(async (site: string): Promise<StoreWithProdu
     store: {
       id: row.id,
       subdomain: row.subdomain,
-      customDomain: row.custom_domain,
+      customDomain: row.domain_status === "active" ? row.custom_domain : null,
       name: row.name,
       theme: parseTheme(row.theme),
       config: parseStoreConfig(row.config),

@@ -2,7 +2,7 @@ import { fmt, isLocale } from "../i18n/config";
 import { MESSAGES } from "../i18n/messages";
 import { formatPrice, parseStoreConfig } from "../store-config";
 import { createAdminClient } from "../supabase/admin";
-import { platformUrl, storeUrl } from "../tenant";
+import { platformUrl, publicStoreUrl } from "../tenant";
 import { type BuyerEmailKind, buildBuyerEmail } from "./buyer-templates";
 import { sendEmail } from "./resend";
 
@@ -31,13 +31,13 @@ type OrderForEmail = {
   tracking_number: string | null;
   tracking_url: string | null;
   carrier: string | null;
-  stores: { name: string; subdomain: string; language: string; config: unknown; contact_email: string | null; owner_id: string } | null;
+  stores: { name: string; subdomain: string; custom_domain: string | null; domain_status: string | null; language: string; config: unknown; contact_email: string | null; owner_id: string } | null;
   order_items: { title: string; quantity: number; unit_price_cents: number }[];
 };
 type BuyerAddress = { line1?: string | null; line2?: string | null; city?: string | null; state?: string | null; postal_code?: string | null };
 
 const COLUMNS =
-  "id, order_number, customer_name, customer_email, currency, subtotal_cents, shipping_cents, tax_cents, total_cents, shipping_address, tracking_number, tracking_url, carrier, stores(name, subdomain, language, config, contact_email, owner_id), order_items(title, quantity, unit_price_cents)";
+  "id, order_number, customer_name, customer_email, currency, subtotal_cents, shipping_cents, tax_cents, total_cents, shipping_address, tracking_number, tracking_url, carrier, stores(name, subdomain, custom_domain, domain_status, language, config, contact_email, owner_id), order_items(title, quantity, unit_price_cents)";
 
 /** Envoie un courriel de commande à l'acheteur (une seule fois). Retourne true s'il est parti. */
 export async function sendBuyerEmail(orderId: string, kind: BuyerEmailKind): Promise<boolean> {
@@ -56,7 +56,7 @@ export async function sendBuyerEmail(orderId: string, kind: BuyerEmailKind): Pro
   const store = order.stores;
   const language = isLocale(store.language) ? store.language : "en";
   const email = buildBuyerEmail(kind, {
-    store: { name: store.name, language, primaryColor: parseStoreConfig(store.config).colors.primary, contactEmail: store.contact_email, url: storeUrl(store.subdomain) },
+    store: { name: store.name, language, primaryColor: parseStoreConfig(store.config).colors.primary, contactEmail: store.contact_email, url: publicStoreUrl({ subdomain: store.subdomain, customDomain: store.domain_status === "active" ? store.custom_domain : null }) },
     order: {
       number: order.order_number,
       customerName: order.customer_name,

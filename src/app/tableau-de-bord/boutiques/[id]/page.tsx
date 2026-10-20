@@ -7,9 +7,10 @@ import { buttonClasses } from "@/components/styles";
 import { briefLanguage, type StoreBrief } from "@/lib/ai/store-generator";
 import { requireUser } from "@/lib/auth";
 import { fmt, isLocale, plural } from "@/lib/i18n/config";
-import { getMessages } from "@/lib/i18n/server";
+import { getLocale, getMessages } from "@/lib/i18n/server";
 import { STORE_POLICY_PAGES } from "@/lib/legal/policies";
 import { missingLegalFields, parseLegalInfo } from "@/lib/legal/store-legal";
+import { parseDnsRecords } from "@/lib/domains/normalize";
 import { getPlatformSettings } from "@/lib/settings";
 import { parseStoreConfig, parseTheme } from "@/lib/store-config";
 import { createUserClient } from "@/lib/supabase/server";
@@ -17,6 +18,7 @@ import { baseDomainForHost, storeUrl } from "@/lib/tenant";
 import { regenerateStore, setStoreOnline } from "../../actions";
 import { BriefForm } from "../../brief-form";
 import { DesignForm } from "./design-form";
+import { DomainSection } from "./domain-section";
 import { LegalForm } from "./legal-form";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -33,7 +35,7 @@ export default async function StoreAdminPage({ params, searchParams }: PageProps
   const [{ data: store }, { data: products }, settings, m] = await Promise.all([
     supabase
       .from("stores")
-      .select("id, name, subdomain, status, theme, config, contact_email, regeneration_count, generation_brief, suspension_reason, language, legal_info")
+      .select("id, name, subdomain, status, theme, config, contact_email, regeneration_count, generation_brief, suspension_reason, language, legal_info, custom_domain, domain_status, domain_records, domain_error, domain_checked_at")
       .eq("id", id)
       .eq("owner_id", user.id)
       .maybeSingle(),
@@ -44,11 +46,14 @@ export default async function StoreAdminPage({ params, searchParams }: PageProps
   if (!store) notFound();
   const t = m.dashboard.store;
   const legalInfo = parseLegalInfo(store.legal_info);
+  const domainResult = typeof sp.domaine === "string" && sp.domaine in m.domains.results ? (sp.domaine as keyof typeof m.domains.results) : null;
   const brief = (store.generation_brief as Partial<StoreBrief> | null) ?? { niche: "" };
   const briefDefaults = { ...brief, language: isLocale(store.language) ? store.language : briefLanguage(brief) };
 
   const config = parseStoreConfig(store.config);
-  const url = storeUrl(store.subdomain, baseDomainForHost((await headers()).get("host")));
+  const defaultUrl = storeUrl(store.subdomain, baseDomainForHost((await headers()).get("host")));
+  // Domaine personnalisé actif : c'est l'adresse publique de la boutique.
+  const url = store.domain_status === "active" && store.custom_domain ? `https://${store.custom_domain}` : defaultUrl;
   const regenerationsLeft = Math.max(settings.freePlan.maxRegenerationsPerStore - store.regeneration_count, 0);
   const suspended = store.status === "suspended";
   const online = store.status === "active";
@@ -82,6 +87,11 @@ export default async function StoreAdminPage({ params, searchParams }: PageProps
       </div>
 
       {sp.nouvelle && <Alert kind="success">{t.created}</Alert>}
+      {domainResult && (
+        <Alert kind={domainResult === "active" || domainResult === "connected" || domainResult === "removed" ? "success" : domainResult === "pending" ? "info" : "error"}>
+          {m.domains.results[domainResult]}
+        </Alert>
+      )}
       {suspended && <Alert kind="error">{fmt(t.suspended, { reason: store.suspension_reason ? ` : ${store.suspension_reason}` : "" })}</Alert>}
       {!online && !suspended && <Alert kind="info">{t.offline}</Alert>}
       {missingLegalFields(legalInfo).length > 0 && !suspended && (
@@ -111,6 +121,19 @@ export default async function StoreAdminPage({ params, searchParams }: PageProps
               {t.manageProducts}
             </Link>
           </section>
+
+          <DomainSection
+            storeId={store.id}
+            defaultAddress={defaultUrl.replace(/^https?:\/\//, "")}
+            domain={store.custom_domain}
+            status={(store.domain_status as "pending" | "active" | "failed" | null) ?? null}
+            records={parseDnsRecords(store.domain_records)}
+            error={store.domain_error}
+            checkedAt={store.domain_checked_at}
+            disabled={suspended}
+            m={m}
+            locale={await getLocale()}
+          />
 
           <section className="rounded-2xl border border-line bg-white p-6" id="legal">
             <h2 className="font-display text-xl font-bold">{m.legal.form.title}</h2>
