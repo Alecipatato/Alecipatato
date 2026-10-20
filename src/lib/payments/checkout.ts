@@ -1,4 +1,6 @@
 import { getUsdCadRate } from "../fx";
+import { fmt, isLocale } from "../i18n/config";
+import { MESSAGES } from "../i18n/messages";
 import { computeOrderFinancials } from "../money";
 import { getPlatformSettings } from "../settings";
 import { createAdminClient } from "../supabase/admin";
@@ -145,10 +147,11 @@ export async function createCheckoutSession(params: {
   if (itemsError) throw new Error(`Enregistrement des articles impossible : ${itemsError.message}`);
 
   const currency = store.currency.toLowerCase();
+  const language = isLocale(store.language) ? store.language : "en";
   const session = await getStripe().checkout.sessions.create(
     {
       mode: "payment",
-      locale: store.language === "fr" ? "fr-CA" : "en",
+      locale: language === "fr" ? "fr-CA" : "en",
       client_reference_id: order.id,
       metadata: { order_id: order.id, store_id: store.id },
       line_items: lines.map((l) => ({
@@ -168,11 +171,13 @@ export async function createCheckoutSession(params: {
       shipping_address_collection: { allowed_countries: ["CA"] },
       // Le transporteur du fournisseur exige un numéro de téléphone.
       phone_number_collection: { enabled: true },
+      // Rappel des conditions de vente (page légale de la boutique) sous le bouton de paiement.
+      custom_text: { submit: { message: fmt(MESSAGES[language].legal.checkoutTerms, { url: `${params.storeUrl}/legal/conditions` }) } },
       shipping_options: [
         {
           shipping_rate_data: {
             type: "fixed_amount",
-            display_name: store.language === "fr" ? "Livraison standard avec suivi" : "Standard shipping with tracking",
+            display_name: language === "fr" ? "Livraison standard avec suivi" : "Standard shipping with tracking",
             fixed_amount: { amount: 0, currency },
             tax_behavior: "exclusive",
             delivery_estimate: {

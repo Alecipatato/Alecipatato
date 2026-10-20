@@ -29,6 +29,7 @@ export const DEMO_STORES: Record<string, StoreWithProducts> = {
       contactEmail: "hello@zenatelier.example",
       currency: "CAD",
       language: "en",
+      legalInfo: { legalName: "Zen Atelier Demo Inc.", address: "123 Example Street, Toronto, ON M5V 2T6", privacyOfficer: "Alex Martin", returnDays: 30 },
       config: {
         colors: { primary: "#3f6b4f", accent: "#a8743a", background: "#faf8f4", text: "#1f2a24" },
         fonts: { heading: "Cormorant Garamond", body: "DM Sans" },
@@ -76,6 +77,7 @@ export const DEMO_STORES: Record<string, StoreWithProducts> = {
       contactEmail: "team@voltgear.example",
       currency: "CAD",
       language: "fr",
+      legalInfo: { legalName: "Boutique de démonstration inc.", address: "123, rue Exemple, Montréal (Québec) H2X 1Y4", privacyOfficer: "Camille Roy", returnDays: 30 },
       config: {
         colors: { primary: "#ff3d00", accent: "#ffd600", background: "#0e0e10", text: "#f5f5f5" },
         fonts: { heading: "Bebas Neue", body: "Space Grotesk" },
@@ -123,6 +125,7 @@ export const DEMO_STORES: Record<string, StoreWithProducts> = {
       contactEmail: "contact@maisonlumen.example",
       currency: "CAD",
       language: "fr",
+      legalInfo: { legalName: "Boutique de démonstration inc.", address: "123, rue Exemple, Montréal (Québec) H2X 1Y4", privacyOfficer: "Camille Roy", returnDays: 30 },
       config: {
         colors: { primary: "#7a4b2a", accent: "#9c6b2f", background: "#fbf7f2", text: "#2b211b" },
         fonts: { heading: "Playfair Display", body: "Work Sans" },

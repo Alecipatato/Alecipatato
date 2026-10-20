@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState, useSyncExternalStore, useTransition } from "react";
 import { useI18n } from "@/lib/i18n/client";
 import { fmt, plural } from "@/lib/i18n/config";
+import { rich } from "@/lib/i18n/rich";
 import { formatPrice } from "@/lib/store-config";
 import { startCheckout } from "./actions";
 
@@ -240,6 +241,12 @@ export function CartView({
           {pending ? t.redirecting : t.checkout}
         </button>
         {error && <p role="alert" className="mt-3 text-center text-sm text-red-600">{error}</p>}
+        <p className="mt-3 text-center text-xs text-[var(--sf-muted)]">
+          {rich(m.legal.cartNotice, {
+            terms: (c) => <Link href={`${base}/legal/conditions`} className="underline">{c}</Link>,
+            returns: (c) => <Link href={`${base}/legal/retours`} className="underline">{c}</Link>,
+          })}
+        </p>
         <p className="mt-3 text-center text-xs text-[var(--sf-muted)]">
           {checkoutEnabled ? t.secure : t.disabled}
         </p>

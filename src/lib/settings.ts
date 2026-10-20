@@ -17,6 +17,8 @@ export interface PlatformSettings {
   disputeFeeCents: number;
   /** Marge brute minimale des produits, ex. "0.40" pour 40 %. */
   minMarginRate: string;
+  /** Entreprise qui exploite la plateforme (pages légales). Chaînes vides si non renseignées. */
+  legalIdentity: { legalName: string; address: string; email: string; privacyOfficer: string };
 }
 
 const DEFAULTS: PlatformSettings = {
@@ -29,6 +31,7 @@ const DEFAULTS: PlatformSettings = {
   stripeFeesPaidBy: "platform",
   disputeFeeCents: 1500,
   minMarginRate: "0.40",
+  legalIdentity: { legalName: "", address: "", email: "", privacyOfficer: "" },
 };
 
 const KEYS = [
@@ -41,7 +44,10 @@ const KEYS = [
   "stripe_fees_paid_by",
   "dispute_fee_cents",
   "min_margin_percent",
+  "legal_identity",
 ];
+
+const shortText = (v: unknown) => (typeof v === "string" ? v.trim().slice(0, 300) : "");
 
 const nonNegativeInt = (v: unknown, fallback: number) => (Number.isInteger(v) && (v as number) >= 0 ? (v as number) : fallback);
 
@@ -63,6 +69,7 @@ export async function getPlatformSettings(): Promise<PlatformSettings> {
   const byKey = Object.fromEntries((data ?? []).map((row) => [row.key, row.value])) as Record<string, unknown>;
   const free = (byKey.free_plan_limits ?? {}) as Record<string, unknown>;
   const rate = (byKey.ai_rate_limit ?? {}) as Record<string, unknown>;
+  const legal = (byKey.legal_identity ?? {}) as Record<string, unknown>;
 
   return {
     freePlan: {
@@ -77,5 +84,11 @@ export async function getPlatformSettings(): Promise<PlatformSettings> {
     stripeFeesPaidBy: byKey.stripe_fees_paid_by === "store" ? "store" : "platform",
     disputeFeeCents: nonNegativeInt(byKey.dispute_fee_cents, DEFAULTS.disputeFeeCents),
     minMarginRate: marginRate(byKey.min_margin_percent, DEFAULTS.minMarginRate),
+    legalIdentity: {
+      legalName: shortText(legal.legal_name),
+      address: shortText(legal.address),
+      email: shortText(legal.email),
+      privacyOfficer: shortText(legal.privacy_officer),
+    },
   };
 }

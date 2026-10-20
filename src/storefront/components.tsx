@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { I18nProvider } from "@/lib/i18n/client";
 import { fmt } from "@/lib/i18n/config";
 import { MESSAGES } from "@/lib/i18n/messages";
+import { STORE_POLICY_PAGES } from "@/lib/legal/policies";
 import { formatPrice, googleFontsUrl } from "@/lib/store-config";
 import type { Store, StoreProduct } from "@/lib/types";
 import { AddToCartButton, CartLink } from "./cart";
@@ -54,6 +55,7 @@ export function StoreShell({
   const categories = categoriesOf(products);
   const { content } = store.config;
   const t = MESSAGES[store.language].storefront;
+  const legal = MESSAGES[store.language].legal;
 
   return (
     <I18nProvider locale={store.language}>
@@ -97,7 +99,7 @@ export function StoreShell({
         <main className="flex-1">{children}</main>
 
         <footer className="mt-16 border-t border-[var(--sf-line)] bg-[var(--sf-surface)]">
-          <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:grid-cols-3 sm:px-6">
+          <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:grid-cols-2 sm:px-6 lg:grid-cols-4">
             <div>
               <p className="sf-heading text-xl">{store.name}</p>
               <p className="mt-2 text-sm text-[var(--sf-muted)]">{content.footerText || content.tagline}</p>
@@ -117,6 +119,14 @@ export function StoreShell({
                 {store.contactEmail && <li>{store.contactEmail}</li>}
                 <li><Link href={`${base}/contact`} className="hover:underline">{t.contactForm}</Link></li>
                 <li><Link href={`${base}/suivi`} className="hover:underline">{t.trackOrder}</Link></li>
+              </ul>
+            </div>
+            <div className="text-sm">
+              <p className="font-semibold">{legal.footerHeading}</p>
+              <ul className="mt-3 space-y-2 text-[var(--sf-muted)]">
+                {STORE_POLICY_PAGES.map((page) => (
+                  <li key={page}><Link href={`${base}/legal/${page}`} className="hover:underline">{legal.store[page]}</Link></li>
+                ))}
               </ul>
             </div>
           </div>

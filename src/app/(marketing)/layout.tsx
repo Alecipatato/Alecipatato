@@ -10,7 +10,9 @@ import { getSupabasePublicEnv } from "@/lib/supabase/env";
 
 export default async function MarketingLayout({ children }: { children: React.ReactNode }) {
   const user = getSupabasePublicEnv() ? await getCurrentUser() : null;
-  const { nav, footer } = (await getMessages()).common;
+  const m = await getMessages();
+  const { nav, footer } = m.common;
+  const legal = m.legal;
 
   return (
     <>
@@ -40,7 +42,7 @@ export default async function MarketingLayout({ children }: { children: React.Re
       <main className="flex-1">{children}</main>
 
       <footer className="border-t border-line bg-white">
-        <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 sm:grid-cols-[2fr_1fr_1fr] sm:px-6">
+        <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 sm:grid-cols-[2fr_1fr_1fr_1fr] sm:px-6">
           <div>
             <Logo />
             <p className="mt-3 max-w-xs text-sm text-muted">{footer.tagline}</p>
@@ -59,6 +61,13 @@ export default async function MarketingLayout({ children }: { children: React.Re
             <ul className="mt-3 space-y-2 text-muted">
               <li><Link href="/inscription" className="hover:text-ink">{footer.createAccount}</Link></li>
               <li><Link href="/connexion" className="hover:text-ink">{nav.signIn}</Link></li>
+            </ul>
+          </div>
+          <div className="text-sm">
+            <p className="font-semibold">{legal.footerHeading}</p>
+            <ul className="mt-3 space-y-2 text-muted">
+              <li><Link href="/conditions" className="hover:text-ink">{legal.platform.conditions}</Link></li>
+              <li><Link href="/confidentialite" className="hover:text-ink">{legal.platform.confidentialite}</Link></li>
             </ul>
           </div>
         </div>

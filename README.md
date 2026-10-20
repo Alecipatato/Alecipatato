@@ -154,6 +154,19 @@ plateforme garde 15 % de la marge brute et transfère le reste au compte Stripe 
    - **Modération** : marques, mentions de contrefaçon, produits et catégories interdits (liste de départ
      fournie). Ajoutez ou retirez des mots, puis « Lancer la vérification » pour l'appliquer aux produits existants.
 
+## Pages légales
+
+- Chaque boutique a ses pages **Conditions de vente, Retours, Livraison, Confidentialité (Loi 25)**, générées
+  automatiquement. Le client complète ses **informations légales** (nom légal, adresse, responsable des
+  renseignements personnels, délai de retour) sur la page de gestion de sa boutique.
+- Pages de la plateforme : `/conditions` (conditions d'utilisation : commission, versements, motifs de suspension)
+  et `/confidentialite`. Renseignez l'identité de votre entreprise dans **Supabase > SQL Editor** :
+  ```sql
+  update platform_settings set value = '{"legal_name":"Votre entreprise inc.","address":"Adresse complète",
+    "email":"vous@domaine.com","privacy_officer":"Votre nom"}' where key = 'legal_identity';
+  ```
+- ⚠️ Ce sont des **modèles** : faites-les relire par un juriste avant d'ouvrir au public.
+
 ## Tests
 
 ```bash

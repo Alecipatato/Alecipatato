@@ -300,3 +300,26 @@ export async function setStoreOnline(formData: FormData) {
   revalidatePath(`/tableau-de-bord/boutiques/${store.id}`);
   revalidatePath("/tableau-de-bord");
 }
+
+/** Informations légales de la boutique (pages légales générées automatiquement). */
+export async function updateStoreLegal(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await requireUser();
+  const m = await getMessages();
+  const store = await getOwnedStore(String(formData.get("store_id") ?? ""), user.id);
+  if (!store) return { error: m.dashboard.actions.notFound };
+  if (store.status === "suspended") return { error: m.dashboard.actions.suspended };
+
+  const get = (key: string, max: number) => String(formData.get(key) ?? "").trim().slice(0, max);
+  const returnDays = Number(get("return_days", 3));
+  if (!Number.isInteger(returnDays) || returnDays < 14 || returnDays > 90) return { error: m.legal.form.invalid };
+  const legalInfo = {
+    legal_name: get("legal_name", 120),
+    address: get("address", 300),
+    privacy_officer: get("privacy_officer", 120),
+    return_days: returnDays,
+  };
+  const { error } = await createAdminClient().from("stores").update({ legal_info: legalInfo }).eq("id", store.id);
+  if (error) return { error: m.dashboard.actions.changesFailed };
+  revalidatePath(`/tableau-de-bord/boutiques/${store.id}`);
+  return { message: m.legal.form.saved };
+}

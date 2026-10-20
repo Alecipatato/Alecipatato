@@ -5,6 +5,7 @@ import { common } from "./common";
 import { dashboard } from "./dashboard";
 import { emails } from "./emails";
 import { errors } from "./errors";
+import { legal } from "./legal";
 import { marketing } from "./marketing";
 import { sales } from "./sales";
 import { storefront } from "./storefront";
@@ -19,6 +20,7 @@ function build(locale: Locale) {
     storefront: storefront[locale],
     errors: errors[locale],
     emails: emails[locale],
+    legal: legal[locale],
     moderation: admin[locale].moderation,
     admin: admin[locale].admin,
   };

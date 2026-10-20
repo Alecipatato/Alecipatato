@@ -8,6 +8,8 @@ import { briefLanguage, type StoreBrief } from "@/lib/ai/store-generator";
 import { requireUser } from "@/lib/auth";
 import { fmt, isLocale, plural } from "@/lib/i18n/config";
 import { getMessages } from "@/lib/i18n/server";
+import { STORE_POLICY_PAGES } from "@/lib/legal/policies";
+import { missingLegalFields, parseLegalInfo } from "@/lib/legal/store-legal";
 import { getPlatformSettings } from "@/lib/settings";
 import { parseStoreConfig, parseTheme } from "@/lib/store-config";
 import { createUserClient } from "@/lib/supabase/server";
@@ -15,6 +17,7 @@ import { baseDomainForHost, storeUrl } from "@/lib/tenant";
 import { regenerateStore, setStoreOnline } from "../../actions";
 import { BriefForm } from "../../brief-form";
 import { DesignForm } from "./design-form";
+import { LegalForm } from "./legal-form";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getMessages()).dashboard.store.metaTitle };
@@ -30,7 +33,7 @@ export default async function StoreAdminPage({ params, searchParams }: PageProps
   const [{ data: store }, { data: products }, settings, m] = await Promise.all([
     supabase
       .from("stores")
-      .select("id, name, subdomain, status, theme, config, contact_email, regeneration_count, generation_brief, suspension_reason, language")
+      .select("id, name, subdomain, status, theme, config, contact_email, regeneration_count, generation_brief, suspension_reason, language, legal_info")
       .eq("id", id)
       .eq("owner_id", user.id)
       .maybeSingle(),
@@ -40,6 +43,7 @@ export default async function StoreAdminPage({ params, searchParams }: PageProps
   ]);
   if (!store) notFound();
   const t = m.dashboard.store;
+  const legalInfo = parseLegalInfo(store.legal_info);
   const brief = (store.generation_brief as Partial<StoreBrief> | null) ?? { niche: "" };
   const briefDefaults = { ...brief, language: isLocale(store.language) ? store.language : briefLanguage(brief) };
 
@@ -79,6 +83,9 @@ export default async function StoreAdminPage({ params, searchParams }: PageProps
       {sp.nouvelle && <Alert kind="success">{t.created}</Alert>}
       {suspended && <Alert kind="error">{fmt(t.suspended, { reason: store.suspension_reason ? ` : ${store.suspension_reason}` : "" })}</Alert>}
       {!online && !suspended && <Alert kind="info">{t.offline}</Alert>}
+      {missingLegalFields(legalInfo).length > 0 && !suspended && (
+        <Alert kind="info"><a href="#legal" className="underline">{m.legal.form.missing}</a></Alert>
+      )}
 
       <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
         <section className="min-w-0 rounded-2xl border border-line bg-white p-6">
@@ -102,6 +109,23 @@ export default async function StoreAdminPage({ params, searchParams }: PageProps
             <Link href={`/tableau-de-bord/boutiques/${store.id}/produits`} className={`${buttonClasses.secondary} mt-4 w-full`}>
               {t.manageProducts}
             </Link>
+          </section>
+
+          <section className="rounded-2xl border border-line bg-white p-6" id="legal">
+            <h2 className="font-display text-xl font-bold">{m.legal.form.title}</h2>
+            <p className="mt-1 text-sm text-muted">{m.legal.form.intro}</p>
+            <div className="mt-4">
+              <LegalForm storeId={store.id} info={legalInfo} />
+            </div>
+            <p className="mt-4 text-xs text-muted">
+              {m.legal.form.viewPages}{" "}
+              {STORE_POLICY_PAGES.map((page, i) => (
+                <span key={page}>
+                  {i > 0 && " · "}
+                  <a href={`${url}/legal/${page}`} target="_blank" rel="noreferrer" className="text-brand hover:underline">{m.legal.store[page]}</a>
+                </span>
+              ))}
+            </p>
           </section>
 
           <section className="rounded-2xl border border-line bg-white p-6">

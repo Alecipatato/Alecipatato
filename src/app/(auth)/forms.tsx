@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState, useState } from "react";
 import { Alert, Field, GoogleIcon, inputClasses, SubmitButton } from "@/components/ui";
 import { useI18n } from "@/lib/i18n/client";
+import { rich } from "@/lib/i18n/rich";
 import {
   type FormState,
   requestPasswordReset,
@@ -91,7 +92,8 @@ export function SignInForm({ next }: { next?: string }) {
 
 export function SignUpForm() {
   const [state, action] = useActionState(signUp, initial);
-  const { auth: t } = useI18n().m;
+  const { m } = useI18n();
+  const t = m.auth;
   return (
     <form action={action} className="flex flex-col gap-4">
       {state.error && <Alert kind="error">{state.error}</Alert>}
@@ -106,7 +108,7 @@ export function SignUpForm() {
       </Field>
       <label className="flex items-start gap-2.5 text-sm text-muted">
         <input type="checkbox" name="terms" required className="mt-0.5 h-4 w-4 accent-[var(--brand)]" />
-        <span>{t.signUp.terms}</span>
+        <span>{rich(m.legal.signupTerms, { terms: (c) => <Link href="/conditions" target="_blank" className="font-medium text-brand underline">{c}</Link> })}</span>
       </label>
       <SubmitButton pendingLabel={t.signUp.pending}>{t.signUp.submit}</SubmitButton>
     </form>

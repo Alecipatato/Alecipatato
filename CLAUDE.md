@@ -151,6 +151,12 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
   avis de vente au propriétaire). Déclenchés par `finalizePaidSession` (`after()`) et `syncTracking`.
   Page `/contact` par boutique → table `contact_messages` + courriel au propriétaire (5 messages/h/adresse,
   champ piège) ; lecture dans `/tableau-de-bord/boutiques/[id]/messages`.
+- **Pages légales** (phase 8) : modèles FR/EN dans `src/lib/legal/policies.ts` (⚠️ à faire valider par un juriste),
+  remplis avec `stores.legal_info` (nom légal, adresse, responsable Loi 25, délai de retour — formulaire sur la page
+  de la boutique) : `/legal/{conditions,retours,livraison,confidentialite}` sur chaque vitrine (pied de page, rappel
+  dans le panier et sous le bouton Stripe). Plateforme : `/conditions` (CGU : commission, réserve, suspension) et
+  `/confidentialite`, identité dans `platform_settings.legal_identity`. Seuls des témoins nécessaires sont utilisés :
+  un bandeau de consentement sera requis avec les pixels publicitaires (phase 10).
 - **Langues (EN/FR)** : `src/lib/i18n/`. Anglais par défaut. Plateforme : cookie `lang` (sélecteur) > région
   (`cf-ipcountry` + `cf-region-code` : Québec et pays francophones → fr) > navigateur > anglais. Textes dans
   `messages/*.ts` (anglais et français côte à côte, clés vérifiées par TypeScript) ; serveur : `getMessages()`,
@@ -177,4 +183,5 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
 - [x] Phase 6 — commandes CJ : transmission auto, paiement portefeuille, nouveaux essais, alertes admin,
       suivi de livraison, page publique de suivi (adaptateur CJ à valider avec une vraie clé)
 - [x] Phase 7 — courriels acheteurs (confirmation, expédition, livraison), avis de vente, page « Nous joindre »
-- [ ] Phases 8 (pages légales) et 9 (tableau de bord) — validées, en cours
+- [x] Phase 8 — pages légales par boutique (CGV, retours, livraison, confidentialité Loi 25) et de la plateforme
+- [ ] Phase 9 (tableau de bord) — validée, en cours
