@@ -1,6 +1,7 @@
 import { isCjConfigured } from "../cj/client";
 import { trackingUrl } from "../cj/normalize";
 import { cjAutoPayEnabled, cjOrdersEnabled, createCjOrder, getCjOrder, payCjOrder } from "../cj/orders";
+import { sendBuyerEmail, sendMissedBuyerEmails } from "../email/order-emails";
 import { alertAdmin } from "../email/resend";
 import { createAdminClient } from "../supabase/admin";
 
@@ -114,6 +115,8 @@ export interface FulfillmentReport {
   tracked: number;
   shipped: number;
   delivered: number;
+  /** Courriels de rattrapage envoyés. */
+  emails: number;
 }
 
 /** Transmet les commandes payées en attente (premiers envois et nouveaux essais dont le délai est écoulé). */
@@ -174,6 +177,9 @@ export async function syncTracking(report: FulfillmentReport, now = new Date()):
         );
       }
       await admin.from("orders").update(patch).eq("id", order.id);
+      // Courriels à l'acheteur (une seule fois chacun).
+      if (patch.delivered_at) await sendBuyerEmail(order.id, "delivered");
+      else if (patch.shipped_at || (detail.trackingNumber && order.shipped_at)) await sendBuyerEmail(order.id, "shipped");
     } catch (err) {
       console.warn(`Suivi CJ de la commande ${order.order_number} :`, err);
     }
@@ -182,10 +188,14 @@ export async function syncTracking(report: FulfillmentReport, now = new Date()):
 
 /** Tâche planifiée : transmission + suivi. */
 export async function runFulfillment(): Promise<FulfillmentReport> {
-  const report: FulfillmentReport = { enabled: cjOrdersEnabled() && isCjConfigured(), sent: 0, failed: 0, skipped: 0, tracked: 0, shipped: 0, delivered: 0 };
-  if (!isCjConfigured()) return report;
+  const report: FulfillmentReport = { enabled: cjOrdersEnabled() && isCjConfigured(), sent: 0, failed: 0, skipped: 0, tracked: 0, shipped: 0, delivered: 0, emails: 0 };
+  if (!isCjConfigured()) {
+    report.emails = await sendMissedBuyerEmails();
+    return report;
+  }
   if (report.enabled) await transmitPendingOrders(report);
   await syncTracking(report);
+  report.emails = await sendMissedBuyerEmails();
   return report;
 }
 

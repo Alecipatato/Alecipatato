@@ -1,6 +1,7 @@
 import { after } from "next/server";
 import type Stripe from "stripe";
 import { splitMargin, splitRefund } from "../money";
+import { notifyOwnerOfOrder, sendBuyerEmail } from "../email/order-emails";
 import { transmitOrder } from "../orders/fulfillment";
 import { getPlatformSettings } from "../settings";
 import { createAdminClient } from "../supabase/admin";
@@ -100,9 +101,15 @@ export async function finalizePaidSession(session: Stripe.Checkout.Session): Pro
 
   // Transmission au fournisseur juste après la réponse (la tâche planifiée rattrape les échecs).
   try {
-    after(() => transmitOrder(order.id).catch((err) => console.error("Transmission CJ :", err)));
+    after(async () => {
+      await transmitOrder(order.id).catch((err) => console.error("Transmission CJ :", err));
+      // Courriels : confirmation à l'acheteur, avis de vente au propriétaire.
+      if (await sendBuyerEmail(order.id, "confirmation").catch(() => false)) {
+        await notifyOwnerOfOrder(order.id).catch((err) => console.error("Avis de vente :", err));
+      }
+    });
   } catch {
-    // Appel hors d'une requête (tâche de fond) : la tâche planifiée s'en chargera.
+    // Appel hors d'une requête (tâche de fond) : la tâche planifiée s'en chargera (envoi et courriels).
   }
 }
 

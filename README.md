@@ -101,6 +101,9 @@ Limites du compte gratuit et nombre d'appels par heure : table `platform_setting
 1. Créez un compte sur https://resend.com, vérifiez votre domaine, puis copiez la clé dans `RESEND_API_KEY`.
 2. `EMAIL_FROM` : l'expéditeur (ex. `Kreo <noreply@mondomaine.com>`). `ADMIN_ALERT_EMAIL` : votre adresse,
    qui reçoit les alertes (commande CJ en échec, portefeuille CJ insuffisant, commande annulée chez CJ).
+3. Courriels envoyés automatiquement aux acheteurs, dans la langue de la boutique : **confirmation** de
+   commande, **expédition** (avec numéro de suivi) et **livraison**. Le propriétaire reçoit un avis à chaque vente
+   et les messages de la page « Nous joindre » ; les réponses des acheteurs arrivent à l'adresse de contact.
 
 ## Paiements (Stripe Connect) — mode TEST uniquement
 

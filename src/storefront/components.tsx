@@ -113,8 +113,11 @@ export function StoreShell({
             </div>
             <div className="text-sm">
               <p className="font-semibold">{t.footerContact}</p>
-              <p className="mt-3 text-[var(--sf-muted)]">{store.contactEmail ?? t.contactSoon}</p>
-              <p className="mt-2"><Link href={`${base}/suivi`} className="text-[var(--sf-muted)] hover:underline">{t.trackOrder}</Link></p>
+              <ul className="mt-3 space-y-2 text-[var(--sf-muted)]">
+                {store.contactEmail && <li>{store.contactEmail}</li>}
+                <li><Link href={`${base}/contact`} className="hover:underline">{t.contactForm}</Link></li>
+                <li><Link href={`${base}/suivi`} className="hover:underline">{t.trackOrder}</Link></li>
+              </ul>
             </div>
           </div>
           <p className="border-t border-[var(--sf-line)] px-4 py-4 text-center text-xs text-[var(--sf-muted)]">

@@ -70,6 +70,12 @@ export function resolveTenant(hostHeader: string | null, rootDomain: string): Te
 }
 
 /** URL publique d'une boutique sur son sous-domaine (`baseDomain` peut inclure un port). */
+/** URL publique de la plateforme (liens dans les courriels). */
+export function platformUrl(baseDomain = getRootDomain()): string {
+  const protocol = isLocalHostname(stripPort(baseDomain)) ? "http" : "https";
+  return `${protocol}://${baseDomain}`;
+}
+
 export function storeUrl(subdomain: string, baseDomain = getRootDomain()): string {
   const protocol = isLocalHostname(stripPort(baseDomain)) ? "http" : "https";
   return `${protocol}://${subdomain}.${baseDomain}`;

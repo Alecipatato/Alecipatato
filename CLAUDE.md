@@ -145,6 +145,12 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
   relu toutes les 4 h (expédiée/livrée, `tracking_url` 17track). Page publique `/suivi` (n° + courriel).
   Limites : une commande remboursée avant l'envoi n'est pas transmise ; un remboursement après l'envoi n'annule
   pas la commande chez CJ (à faire à la main). Téléphone demandé au paiement (`phone_number_collection`).
+- **Courriels** (phase 7) : `src/lib/email/` — `resend.ts` (`sendEmail` : nom d'expéditeur = boutique, `reply_to` =
+  contact de la boutique), `buyer-templates.ts` (confirmation / expédition / livraison, langue et couleur de la
+  boutique), `order-emails.ts` (envoi unique grâce à `orders.*_email_at`, rattrapage dans `/api/cron/orders`,
+  avis de vente au propriétaire). Déclenchés par `finalizePaidSession` (`after()`) et `syncTracking`.
+  Page `/contact` par boutique → table `contact_messages` + courriel au propriétaire (5 messages/h/adresse,
+  champ piège) ; lecture dans `/tableau-de-bord/boutiques/[id]/messages`.
 - **Langues (EN/FR)** : `src/lib/i18n/`. Anglais par défaut. Plateforme : cookie `lang` (sélecteur) > région
   (`cf-ipcountry` + `cf-region-code` : Québec et pays francophones → fr) > navigateur > anglais. Textes dans
   `messages/*.ts` (anglais et français côte à côte, clés vérifiées par TypeScript) ; serveur : `getMessages()`,
@@ -170,4 +176,5 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
 - [x] Phase 4 — modération (règles configurables, filtrage produits/textes, vérification, suspension admin)
 - [x] Phase 6 — commandes CJ : transmission auto, paiement portefeuille, nouveaux essais, alertes admin,
       suivi de livraison, page publique de suivi (adaptateur CJ à valider avec une vraie clé)
-- [ ] Prochaine phase — selon le choix du propriétaire (7 courriels, 8 pages légales, 9 tableau de bord…)
+- [x] Phase 7 — courriels acheteurs (confirmation, expédition, livraison), avis de vente, page « Nous joindre »
+- [ ] Phases 8 (pages légales) et 9 (tableau de bord) — validées, en cours
