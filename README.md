@@ -167,6 +167,12 @@ plateforme garde 15 % de la marge brute et transfère le reste au compte Stripe 
   ```
 - ⚠️ Ce sont des **modèles** : faites-les relire par un juriste avant d'ouvrir au public.
 
+## Statistiques
+
+Menu **Statistiques** du tableau de bord : ventes, commandes, panier moyen, marge, commission, votre part,
+visiteurs, taux de conversion (comparés à la période précédente), graphiques par jour, produits les plus
+vendus et versements. Les visites sont comptées sans cookie ni donnée personnelle (robots exclus).
+
 ## Tests
 
 ```bash

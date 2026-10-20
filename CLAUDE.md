@@ -157,6 +157,12 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
   dans le panier et sous le bouton Stripe). Plateforme : `/conditions` (CGU : commission, réserve, suspension) et
   `/confidentialite`, identité dans `platform_settings.legal_identity`. Seuls des témoins nécessaires sont utilisés :
   un bandeau de consentement sera requis avec les pixels publicitaires (phase 10).
+- **Tableau de bord des ventes** (phase 9) : `/tableau-de-bord/statistiques` (période 7/30/90 jours, filtre boutique).
+  Calculs purs et testés dans `src/lib/stats.ts` (période précédente pour comparer, conversion = commandes ÷
+  visiteurs en points de base). Visites anonymes : `VisitTracker` (vitrine) → action `recordVisit` → fonction SQL
+  `record_store_visit` → table `store_daily_stats` (visiteurs = sessions, pages vues ; robots et démos ignorés —
+  les navigateurs « headless », dont ceux des tests, sont comptés comme robots). Histogramme maison
+  `src/components/bar-chart.tsx` (une série, info-bulle, tableau des chiffres).
 - **Langues (EN/FR)** : `src/lib/i18n/`. Anglais par défaut. Plateforme : cookie `lang` (sélecteur) > région
   (`cf-ipcountry` + `cf-region-code` : Québec et pays francophones → fr) > navigateur > anglais. Textes dans
   `messages/*.ts` (anglais et français côte à côte, clés vérifiées par TypeScript) ; serveur : `getMessages()`,
@@ -184,4 +190,5 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
       suivi de livraison, page publique de suivi (adaptateur CJ à valider avec une vraie clé)
 - [x] Phase 7 — courriels acheteurs (confirmation, expédition, livraison), avis de vente, page « Nous joindre »
 - [x] Phase 8 — pages légales par boutique (CGV, retours, livraison, confidentialité Loi 25) et de la plateforme
-- [ ] Phase 9 (tableau de bord) — validée, en cours
+- [x] Phase 9 — tableau de bord : ventes, commandes, marge, commissions, versements, visites, conversion
+- [ ] Prochaine phase — selon le choix du propriétaire (10 marketing/SEO, 11 domaines, 12 admin)

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getStoreBySite } from "@/lib/stores";
 import { getStoreBase, StoreShell } from "@/storefront/components";
+import { VisitTracker } from "@/storefront/visit-tracker";
 
 /**
  * Enveloppe commune à toutes les pages d'une boutique (en-tête, recherche,
@@ -15,6 +16,7 @@ export default async function StoreLayout({ params, children }: LayoutProps<"/s/
 
   return (
     <StoreShell store={data.store} products={data.products} base={await getStoreBase(decoded)}>
+      <VisitTracker site={decoded} storeId={data.store.id} />
       {children}
     </StoreShell>
   );

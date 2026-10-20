@@ -1,5 +1,6 @@
 "use server";
 
+import { headers } from "next/headers";
 import { getOrigin } from "@/lib/auth";
 import { DEMO_STORES } from "@/lib/demo-stores";
 import { fmt } from "@/lib/i18n/config";
@@ -69,4 +70,16 @@ export async function sendContactMessage(site: string, _prev: ContactState, form
     await sendEmail({ to, subject: fmt(t.contactNotice.subject, vars), text: fmt(t.contactNotice.body, vars), replyTo: email });
   }
   return { sent: true };
+}
+
+const BOT = /bot|crawl|spider|slurp|preview|facebookexternalhit|headless|lighthouse/i;
+
+/** Compte une page vue (et un visiteur au premier affichage de la session). Les robots sont ignorés. */
+export async function recordVisit(site: string, newVisitor: boolean): Promise<void> {
+  if (DEMO_STORES[site]) return;
+  if (BOT.test((await headers()).get("user-agent") ?? "")) return;
+  const data = await getStoreBySite(site);
+  if (!data) return;
+  const { error } = await createAdminClient().rpc("record_store_visit", { p_store_id: data.store.id, p_new_visitor: newVisitor === true });
+  if (error) console.error("Statistiques de visite :", error.message);
 }

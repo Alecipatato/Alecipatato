@@ -8,7 +8,8 @@ import { getMessages } from "@/lib/i18n/server";
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
   const name = (user.user_metadata?.full_name as string | undefined) || user.email;
-  const t = (await getMessages()).dashboard.nav;
+  const m = await getMessages();
+  const t = m.dashboard.nav;
   const admin = await isAdmin(user.id);
 
   return (
@@ -19,6 +20,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
             <Logo />
             <nav aria-label={t.label} className="flex gap-5 text-sm font-medium">
               <Link href="/tableau-de-bord" className="text-muted hover:text-ink">{t.stores}</Link>
+              <Link href="/tableau-de-bord/statistiques" className="text-muted hover:text-ink">{m.stats.nav}</Link>
               <Link href="/tableau-de-bord/paiements" className="text-muted hover:text-ink">{t.payments}</Link>
               {admin && <Link href="/admin" className="text-muted hover:text-ink">{t.admin}</Link>}
             </nav>

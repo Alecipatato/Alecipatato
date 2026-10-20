@@ -8,6 +8,7 @@ import { errors } from "./errors";
 import { legal } from "./legal";
 import { marketing } from "./marketing";
 import { sales } from "./sales";
+import { stats } from "./stats";
 import { storefront } from "./storefront";
 
 function build(locale: Locale) {
@@ -21,6 +22,7 @@ function build(locale: Locale) {
     errors: errors[locale],
     emails: emails[locale],
     legal: legal[locale],
+    stats: stats[locale],
     moderation: admin[locale].moderation,
     admin: admin[locale].admin,
   };
