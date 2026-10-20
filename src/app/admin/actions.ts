@@ -14,14 +14,14 @@ export async function suspendStore(formData: FormData) {
   await requireAdmin();
   const storeId = String(formData.get("store_id") ?? "");
   const reason = String(formData.get("reason") ?? "").trim().slice(0, 300);
-  if (!reason) redirect("/admin?resultat=motif-requis");
+  if (!reason) redirect("/admin/boutiques?resultat=motif-requis");
   // Hors ligne immédiatement ; le paiement (checkout) et les versements sont bloqués tant que dure la suspension.
   await createAdminClient()
     .from("stores")
     .update({ status: "suspended", suspension_reason: reason, suspended_at: new Date().toISOString() })
     .eq("id", storeId);
-  revalidatePath("/admin");
-  redirect("/admin?resultat=suspendue");
+  revalidatePath("/admin/boutiques");
+  redirect("/admin/boutiques?resultat=suspendue");
 }
 
 export async function reactivateStore(formData: FormData) {
@@ -33,8 +33,8 @@ export async function reactivateStore(formData: FormData) {
     .update({ status: "draft", suspension_reason: null, suspended_at: null })
     .eq("id", storeId)
     .eq("status", "suspended");
-  revalidatePath("/admin");
-  redirect("/admin?resultat=reactivee");
+  revalidatePath("/admin/boutiques");
+  redirect("/admin/boutiques?resultat=reactivee");
 }
 
 const KINDS: ModerationKind[] = ["brand", "counterfeit", "prohibited", "category"];

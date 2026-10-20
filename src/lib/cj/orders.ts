@@ -1,5 +1,5 @@
 import { cjRequest } from "./client";
-import { type CjCreatedOrder, type CjOrderDetail, normalizeCreatedOrder, normalizeOrderDetail } from "./normalize";
+import { type CjCreatedOrder, type CjOrderDetail, normalizeBalance, normalizeCreatedOrder, normalizeOrderDetail } from "./normalize";
 
 /**
  * Commandes CJ : création, paiement depuis le portefeuille CJ, suivi.
@@ -60,4 +60,9 @@ export async function payCjOrder(cjOrderId: string): Promise<void> {
 
 export async function getCjOrder(cjOrderId: string): Promise<CjOrderDetail | null> {
   return normalizeOrderDetail(await cjRequest("GET", "/shopping/order/getOrderDetail", { query: { orderId: cjOrderId } }));
+}
+
+/** Solde disponible du portefeuille CJ (USD), pour le tableau de bord admin. */
+export async function getCjBalance(): Promise<{ availableUsdCents: number; frozenUsdCents: number } | null> {
+  return normalizeBalance(await cjRequest("GET", "/shopping/pay/getBalance"));
 }

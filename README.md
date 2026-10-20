@@ -149,6 +149,8 @@ plateforme garde 15 % de la marge brute et transfère le reste au compte Stripe 
    update profiles set role = 'admin' where email = 'votre@courriel.com';
    ```
 2. Un lien **Administration** apparaît dans le tableau de bord (`/admin`) :
+   - **Vue d'ensemble** : ventes de toutes les boutiques, commissions, revenu net estimé, coûts de l'IA (tarifs
+     modifiables dans `platform_settings.ai_pricing`), solde du portefeuille CJ, versements dus, boutiques à surveiller.
    - **Boutiques** : liste, recherche, produits bloqués, textes à vérifier, **suspendre** (avec motif) / réactiver.
      Une boutique suspendue est hors ligne, ne peut plus encaisser et ses versements attendent.
    - **Modération** : marques, mentions de contrefaçon, produits et catégories interdits (liste de départ

@@ -19,6 +19,8 @@ export interface PlatformSettings {
   minMarginRate: string;
   /** Entreprise qui exploite la plateforme (pages légales). Chaînes vides si non renseignées. */
   legalIdentity: { legalName: string; address: string; email: string; privacyOfficer: string };
+  /** Tarifs IA par modèle, en cents US par million de jetons. */
+  aiPricing: Record<string, { inputCentsPerMTok: number; outputCentsPerMTok: number }>;
 }
 
 const DEFAULTS: PlatformSettings = {
@@ -32,6 +34,7 @@ const DEFAULTS: PlatformSettings = {
   disputeFeeCents: 1500,
   minMarginRate: "0.40",
   legalIdentity: { legalName: "", address: "", email: "", privacyOfficer: "" },
+  aiPricing: { "claude-opus-5-5": { inputCentsPerMTok: 400, outputCentsPerMTok: 2000 } },
 };
 
 const KEYS = [
@@ -45,6 +48,7 @@ const KEYS = [
   "dispute_fee_cents",
   "min_margin_percent",
   "legal_identity",
+  "ai_pricing",
 ];
 
 const shortText = (v: unknown) => (typeof v === "string" ? v.trim().slice(0, 300) : "");
@@ -60,6 +64,18 @@ function decimalString(v: unknown, fallback: string, min: number, max: number): 
 /** 40 → "0.40" (pourcentage entier entre 0 et 90). */
 function marginRate(v: unknown, fallback: string): string {
   return Number.isInteger(v) && (v as number) >= 0 && (v as number) <= 90 ? ((v as number) / 100).toFixed(2) : fallback;
+}
+
+function parseAiPricing(v: unknown): PlatformSettings["aiPricing"] {
+  const out: PlatformSettings["aiPricing"] = { ...DEFAULTS.aiPricing };
+  if (typeof v !== "object" || v === null) return out;
+  for (const [model, raw] of Object.entries(v as Record<string, unknown>)) {
+    const p = (raw ?? {}) as Record<string, unknown>;
+    const input = nonNegativeInt(p.input_cents_per_mtok, -1);
+    const output = nonNegativeInt(p.output_cents_per_mtok, -1);
+    if (input >= 0 && output >= 0) out[model] = { inputCentsPerMTok: input, outputCentsPerMTok: output };
+  }
+  return out;
 }
 
 export async function getPlatformSettings(): Promise<PlatformSettings> {
@@ -90,5 +106,6 @@ export async function getPlatformSettings(): Promise<PlatformSettings> {
       email: shortText(legal.email),
       privacyOfficer: shortText(legal.privacy_officer),
     },
+    aiPricing: parseAiPricing(byKey.ai_pricing),
   };
 }

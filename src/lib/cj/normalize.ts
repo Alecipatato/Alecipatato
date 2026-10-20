@@ -263,3 +263,12 @@ export function normalizeOrderDetail(data: unknown): CjOrderDetail | null {
 export function trackingUrl(trackingNumber: string): string {
   return `https://t.17track.net/en#nums=${encodeURIComponent(trackingNumber)}`;
 }
+
+/** Solde du portefeuille CJ (USD) → cents. null si la réponse est illisible. */
+export function normalizeBalance(data: unknown): { availableUsdCents: number; frozenUsdCents: number } | null {
+  const d = isObject(data) ? data : typeof data === "number" || typeof data === "string" ? { amount: data } : null;
+  if (!d) return null;
+  const available = parseUsdCents(d.amount ?? d.balance ?? d.availableAmount ?? d.availableBalance ?? null);
+  if (available === null) return null;
+  return { availableUsdCents: available, frozenUsdCents: parseUsdCents(d.freezeAmount ?? d.frozenAmount ?? null) ?? 0 };
+}

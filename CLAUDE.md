@@ -134,8 +134,15 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
   sans casse ni accents). Appliquée : niche + textes générés + personnalisation (`tableau-de-bord/actions.ts`),
   candidats CJ et fiches rédigées (`products/sourcing.ts`), produits d'exemple, nouvelle vérification
   (`moderation/rescan.ts` → `products.moderation_reason` = « kind:terme », produit refusé et non modifiable).
-- **Admin** : `profiles.role = 'admin'` (`requireAdmin`, sinon 404). `/admin` : boutiques, suspension avec motif
-  (hors ligne, checkout refusé, versements en attente ; réactivation → `draft`).
+- **Admin** : `profiles.role = 'admin'` (`requireAdmin`, sinon 404). `/admin` = vue d'ensemble (phase 12) ;
+  `/admin/boutiques` : liste, suspension avec motif (hors ligne, checkout refusé, versements en attente ; réactivation
+  → `draft`) ; `/admin/moderation` ; `/admin/commandes`.
+- **Tableau de bord admin** (phase 12) : `src/app/admin/page.tsx` + calculs purs testés `src/lib/admin-stats.ts` —
+  revenu net estimé = commissions − part des remboursements/litiges payée par la plateforme **hors taxes**
+  (`refundPlatformCostCents`) − frais Stripe à sa charge ; coûts IA = jetons de `ai_generations` × tarifs
+  `platform_settings.ai_pricing` (cents US / million de jetons ; Claude Opus 5.5 : 400 / 2000) ; solde du portefeuille CJ
+  (`getCjBalance`, `/shopping/pay/getBalance`, à valider) ; boutiques à surveiller (`flagReasons` : suspendue, produits
+  bloqués, texte, remboursements ≥ 10 % sur 3 commandes, litiges, commandes CJ en échec).
 - **Commandes CJ** (phase 6) : `src/lib/orders/fulfillment.ts` + adaptateur `src/lib/cj/orders.ts`
   (`createOrderV2`, `payBalance`, `getOrderDetail` ; réponses lues par `normalize.ts`). Transmission juste après
   le paiement (`after()` dans `finalizePaidSession`) et par `/api/cron/orders` (nouveaux essais : 15 min, 1 h, 3 h,
@@ -206,4 +213,5 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
 - [x] Phase 9 — tableau de bord : ventes, commandes, marge, commissions, versements, visites, conversion
 - [x] Phase 10 — SEO (titres, descriptions, sitemap, données produit), pixels Meta/TikTok avec consentement, contenus IA
 - [x] Phase 11 — domaines personnalisés via Cloudflare for SaaS (instructions DNS, vérification auto, HTTPS)
-- [ ] Phase 12 (admin) — validée, en cours
+- [x] Phase 12 — tableau de bord admin : revenus plateforme, coûts IA, portefeuille CJ, versements dus, boutiques signalées
+- [ ] Prochaine étape — mise en production (déploiement Cloudflare, vraies clés en mode test, validation CJ)

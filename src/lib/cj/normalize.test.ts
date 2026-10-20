@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   bestShippingOption,
+  normalizeBalance,
   normalizeCreatedOrder,
   normalizeOrderDetail,
   orderStage,
@@ -133,5 +134,14 @@ describe("commandes CJ", () => {
 
   it("lien de suivi", () => {
     assert.equal(trackingUrl("YT 1"), "https://t.17track.net/en#nums=YT%201");
+  });
+});
+
+describe("solde du portefeuille CJ", () => {
+  it("plusieurs formes de réponse", () => {
+    assert.deepEqual(normalizeBalance({ amount: 152.3, freezeAmount: "10.00" }), { availableUsdCents: 15230, frozenUsdCents: 1000 });
+    assert.deepEqual(normalizeBalance({ balance: "99.5" }), { availableUsdCents: 9950, frozenUsdCents: 0 });
+    assert.deepEqual(normalizeBalance(12), { availableUsdCents: 1200, frozenUsdCents: 0 });
+    assert.equal(normalizeBalance({}), null);
   });
 });
