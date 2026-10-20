@@ -34,6 +34,7 @@ function policyFor({ store, products }: StoreWithProducts, page: StorePolicyPage
       deliveryMax: maxs.length ? Math.max(...maxs) : MAX_DELIVERY_DAYS,
       platformName: PLATFORM_NAME,
       currency: store.currency,
+      adPixels: [...(store.pixels.meta ? ["Meta"] : []), ...(store.pixels.tiktok ? ["TikTok"] : [])],
     },
     store.language,
   );

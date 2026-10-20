@@ -7,6 +7,7 @@ import { fmt, plural } from "@/lib/i18n/config";
 import { rich } from "@/lib/i18n/rich";
 import { formatPrice } from "@/lib/store-config";
 import { startCheckout } from "./actions";
+import { track } from "./pixels";
 
 /**
  * Panier enregistré dans le navigateur de l'acheteur (un panier par boutique).
@@ -122,6 +123,7 @@ export function AddToCartButton({ storeId, product, compact = false }: { storeId
       type="button"
       onClick={() => {
         add(product);
+        track("AddToCart", { content_ids: [product.id], content_name: product.title, content_type: "product", value: product.priceCents / 100, quantity: 1 });
         setAdded(true);
         setTimeout(() => setAdded(false), 1600);
       }}
@@ -155,6 +157,7 @@ export function BuyBox({ storeId, product }: { storeId: string; product: Product
         type="button"
         onClick={() => {
           add(product, quantity);
+          track("AddToCart", { content_ids: [product.id], content_name: product.title, content_type: "product", value: (product.priceCents * quantity) / 100, quantity });
           setAdded(true);
           setTimeout(() => setAdded(false), 1800);
         }}
@@ -188,6 +191,7 @@ export function CartView({
 
   const checkout = () => {
     setError(null);
+    track("InitiateCheckout", { content_ids: items.map((i) => i.id), num_items: items.reduce((n, i) => n + i.quantity, 0), value: subtotalCents / 100, currency });
     startTransition(async () => {
       const result = await startCheckout(site, items.map((i) => ({ productId: i.id, quantity: i.quantity })));
       if (result.url) window.location.assign(result.url);

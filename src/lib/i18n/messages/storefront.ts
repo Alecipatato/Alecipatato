@@ -3,6 +3,14 @@ import { defineMessages } from "./define";
 /** Vitrine des boutiques (langue de la boutique, pas celle du visiteur). */
 export const storefront = defineMessages({
   en: {
+    consent: {
+      title: "Cookies and advertising",
+      body: "With your permission, we use Meta and TikTok cookies to measure our ads and show you relevant offers. The store works the same if you decline.",
+      policy: "Privacy policy",
+      accept: "Accept",
+      refuse: "Decline",
+      manage: "Manage cookies",
+    },
     searchLabel: "Search for a product",
     searchPlaceholder: "Search {store}",
     search: "Search",
@@ -106,6 +114,14 @@ export const storefront = defineMessages({
     },
   },
   fr: {
+    consent: {
+      title: "Témoins et publicité",
+      body: "Avec votre accord, nous utilisons des témoins de Meta et TikTok pour mesurer nos publicités et vous montrer des offres pertinentes. La boutique fonctionne de la même façon si vous refusez.",
+      policy: "Politique de confidentialité",
+      accept: "Accepter",
+      refuse: "Refuser",
+      manage: "Gérer les témoins",
+    },
     searchLabel: "Rechercher un produit",
     searchPlaceholder: "Rechercher dans {store}",
     search: "Rechercher",

@@ -7,6 +7,7 @@ import { emails } from "./emails";
 import { errors } from "./errors";
 import { legal } from "./legal";
 import { marketing } from "./marketing";
+import { marketingTools } from "./marketing-tools";
 import { sales } from "./sales";
 import { stats } from "./stats";
 import { storefront } from "./storefront";
@@ -23,6 +24,7 @@ function build(locale: Locale) {
     emails: emails[locale],
     legal: legal[locale],
     stats: stats[locale],
+    marketingTools: marketingTools[locale],
     moderation: admin[locale].moderation,
     admin: admin[locale].admin,
   };

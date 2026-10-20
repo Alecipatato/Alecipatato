@@ -173,6 +173,15 @@ Menu **Statistiques** du tableau de bord : ventes, commandes, panier moyen, marg
 visiteurs, taux de conversion (comparés à la période précédente), graphiques par jour, produits les plus
 vendus et versements. Les visites sont comptées sans cookie ni donnée personnelle (robots exclus).
 
+## Marketing et référencement
+
+Bouton **Marketing** sur la page de chaque boutique :
+- **SEO** : titre et description pour Google (aperçu en direct). Le plan du site `/sitemap.xml` et `/robots.txt`
+  de chaque boutique sont générés automatiquement : soumettez l'adresse du sitemap dans Google Search Console.
+- **Pixels Meta et TikTok** : collez les identifiants. Un bandeau de consentement s'affiche aux visiteurs (Loi 25) ;
+  les pixels ne se chargent qu'après « Accepter ».
+- **Contenus IA** : scripts de vidéos TikTok, textes publicitaires et suggestion SEO, à relire avant publication.
+
 ## Tests
 
 ```bash

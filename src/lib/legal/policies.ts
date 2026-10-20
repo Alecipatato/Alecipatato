@@ -31,6 +31,8 @@ export interface StorePolicyContext {
   deliveryMax: number;
   platformName: string;
   currency: string;
+  /** Pixels publicitaires actifs sur la boutique (ex. ["Meta", "TikTok"]). */
+  adPixels: string[];
 }
 
 const contactFr = (c: StorePolicyContext) => (c.email ? `par courriel à ${c.email} ou ` : "") + "au moyen de la page « Nous joindre » de la boutique";
@@ -90,7 +92,16 @@ function storeFr(page: StorePolicyPage, c: StorePolicyContext): LegalDocument {
           { heading: "Renseignements recueillis", body: ["- Lors d'une commande : nom, adresse courriel, numéro de téléphone, adresse de livraison, articles commandés et montants.", "- Lors d'un message : nom, adresse courriel, numéro de commande et contenu du message.", "- Les données de carte bancaire sont saisies directement chez Stripe : nous n'y avons pas accès."] },
           { heading: "Pourquoi nous les utilisons", body: ["- Traiter et livrer votre commande, et vous en informer par courriel (confirmation, expédition, livraison).", "- Répondre à vos questions et traiter les retours et remboursements.", "- Respecter nos obligations légales (comptabilité, taxes) et prévenir la fraude.", "Nous ne vendons pas vos renseignements et ne les utilisons pas à des fins publicitaires sans votre consentement."] },
           { heading: "Qui y a accès", body: ["Vos renseignements sont communiqués uniquement aux prestataires nécessaires au service :", `- ${c.platformName} (plateforme de la boutique) et ses hébergeurs ;`, "- Stripe (paiement) ;", "- notre fournisseur et ses transporteurs (préparation et livraison de la commande) ;", "- un service d'envoi de courriels.", "Certains de ces prestataires sont situés à l'extérieur du Québec (au Canada, aux États-Unis ou en Chine pour la préparation des colis). Avant toute communication hors du Québec, nous évaluons que les renseignements y bénéficient d'une protection adéquate, et nous limitons les renseignements transmis à ce qui est nécessaire (par exemple, nom, téléphone et adresse de livraison pour le transporteur)."] },
-          { heading: "Témoins (cookies) et stockage", body: ["La boutique n'utilise que des éléments strictement nécessaires à son fonctionnement : votre panier est conservé dans votre navigateur. Aucun témoin publicitaire ou de mesure d'audience n'est utilisé sans votre consentement."] },
+          {
+            heading: "Témoins (cookies) et stockage",
+            body: c.adPixels.length
+              ? [
+                  "Votre panier est conservé dans votre navigateur ; les visites sont comptées de façon anonyme, sans témoin.",
+                  `Seulement si vous l'acceptez dans le bandeau prévu à cet effet, nous utilisons les pixels publicitaires de ${c.adPixels.join(" et ")}. Ils déposent des témoins et transmettent à ces entreprises (situées hors du Québec) des informations sur votre navigation et vos achats (pages vues, articles ajoutés au panier, montant de la commande), afin de mesurer nos publicités et de vous proposer des offres pertinentes.`,
+                  "Vous pouvez refuser ou retirer votre consentement en tout temps avec le lien « Gérer les témoins » au bas de chaque page.",
+                ]
+              : ["La boutique n'utilise que des éléments strictement nécessaires à son fonctionnement : votre panier est conservé dans votre navigateur et les visites sont comptées de façon anonyme. Aucun témoin publicitaire ou de mesure d'audience n'est utilisé."],
+          },
           { heading: "Conservation", body: ["Les renseignements liés aux commandes sont conservés pendant la durée exigée par les lois fiscales (habituellement 6 ans), puis détruits ou anonymisés. Les messages sont conservés le temps nécessaire pour y répondre."] },
           { heading: "Vos droits", body: [`Vous pouvez demander l'accès à vos renseignements, leur rectification, leur suppression lorsque la loi le permet, ou retirer votre consentement, en écrivant au responsable indiqué ci-dessus. Nous répondons dans un délai de 30 jours. Vous pouvez aussi porter plainte auprès de la Commission d'accès à l'information du Québec.`] },
           { heading: "Incident de confidentialité", body: ["En cas d'incident présentant un risque de préjudice sérieux, nous en avisons les personnes concernées et la Commission d'accès à l'information, comme l'exige la loi."] },
@@ -148,7 +159,16 @@ function storeEn(page: StorePolicyPage, c: StorePolicyContext): LegalDocument {
           { heading: "Information we collect", body: ["- When you order: name, email address, phone number, shipping address, items ordered and amounts.", "- When you send a message: name, email address, order number and message content.", "- Card details are entered directly with Stripe: we have no access to them."] },
           { heading: "Why we use it", body: ["- To process and deliver your order and keep you informed by email (confirmation, shipping, delivery).", "- To answer your questions and handle returns and refunds.", "- To meet our legal obligations (accounting, taxes) and prevent fraud.", "We do not sell your information or use it for advertising without your consent."] },
           { heading: "Who has access", body: ["Your information is shared only with the providers required for the service:", `- ${c.platformName} (the store platform) and its hosting providers;`, "- Stripe (payments);", "- our supplier and its carriers (order preparation and delivery);", "- an email delivery service.", "Some of these providers are located outside Québec (in Canada, the United States, or China for order preparation). Before any transfer outside Québec, we assess that the information will receive adequate protection, and we limit what is shared to what is necessary (for example, name, phone and shipping address for the carrier)."] },
-          { heading: "Cookies and storage", body: ["The store only uses what is strictly necessary for it to work: your cart is kept in your browser. No advertising or analytics cookies are used without your consent."] },
+          {
+            heading: "Cookies and storage",
+            body: c.adPixels.length
+              ? [
+                  "Your cart is kept in your browser; visits are counted anonymously, without cookies.",
+                  `Only if you accept in the dedicated banner, we use the ${c.adPixels.join(" and ")} advertising pixels. They set cookies and send these companies (located outside Québec) information about your browsing and purchases (pages viewed, items added to cart, order amount) to measure our ads and show you relevant offers.`,
+                  "You can decline or withdraw your consent at any time with the “Manage cookies” link at the bottom of every page.",
+                ]
+              : ["The store only uses what is strictly necessary for it to work: your cart is kept in your browser and visits are counted anonymously. No advertising or analytics cookies are used."],
+          },
           { heading: "Retention", body: ["Order information is kept for the period required by tax laws (usually 6 years), then destroyed or anonymized. Messages are kept as long as needed to answer them."] },
           { heading: "Your rights", body: ["You may request access to your information, its correction, its deletion where the law allows, or withdraw your consent by writing to the person named above. We respond within 30 days. You may also file a complaint with Québec's Commission d'accès à l'information."] },
           { heading: "Confidentiality incidents", body: ["If an incident presents a risk of serious injury, we notify the affected people and the Commission d'accès à l'information, as required by law."] },

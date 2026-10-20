@@ -5,9 +5,11 @@ import { I18nProvider } from "@/lib/i18n/client";
 import { fmt } from "@/lib/i18n/config";
 import { MESSAGES } from "@/lib/i18n/messages";
 import { STORE_POLICY_PAGES } from "@/lib/legal/policies";
+import { hasPixels } from "@/lib/marketing/settings";
 import { formatPrice, googleFontsUrl } from "@/lib/store-config";
 import type { Store, StoreProduct } from "@/lib/types";
 import { AddToCartButton, CartLink } from "./cart";
+import { ConsentAndPixels, ManageConsentLink } from "./pixels";
 import { storeCssVars } from "./theme";
 
 /**
@@ -127,6 +129,7 @@ export function StoreShell({
                 {STORE_POLICY_PAGES.map((page) => (
                   <li key={page}><Link href={`${base}/legal/${page}`} className="hover:underline">{legal.store[page]}</Link></li>
                 ))}
+                {hasPixels(store.pixels) && <li><ManageConsentLink label={t.consent.manage} /></li>}
               </ul>
             </div>
           </div>
@@ -134,6 +137,7 @@ export function StoreShell({
             {fmt(t.footerCopy, { year: new Date().getFullYear(), store: store.name, currency: store.currency })}
           </p>
         </footer>
+        {hasPixels(store.pixels) && <ConsentAndPixels storeId={store.id} pixels={store.pixels} base={base} />}
       </div>
     </I18nProvider>
   );

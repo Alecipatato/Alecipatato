@@ -2,11 +2,12 @@ import { cache } from "react";
 import { DEMO_STORES } from "./demo-stores";
 import { isLocale } from "./i18n/config";
 import { parseLegalInfo } from "./legal/store-legal";
+import { parsePixels, parseSeo } from "./marketing/settings";
 import { parseStoreConfig, parseTheme } from "./store-config";
 import { createPublicClient } from "./supabase/public";
 import type { StoreWithProducts } from "./types";
 
-const STORE_COLUMNS = "id, subdomain, custom_domain, name, theme, config, contact_email, currency, language, legal_info";
+const STORE_COLUMNS = "id, subdomain, custom_domain, name, theme, config, contact_email, currency, language, legal_info, seo, pixels";
 const PRODUCT_COLUMNS = "id, title, description, category, highlights, images, price_cents, stock, delivery_days_min, delivery_days_max";
 
 /**
@@ -54,6 +55,8 @@ export const getStoreBySite = cache(async (site: string): Promise<StoreWithProdu
       currency: row.currency,
       language: isLocale(row.language) ? row.language : "en",
       legalInfo: parseLegalInfo(row.legal_info),
+      seo: parseSeo(row.seo),
+      pixels: parsePixels(row.pixels),
     },
     products: (products ?? []).map((p) => ({
       id: p.id,

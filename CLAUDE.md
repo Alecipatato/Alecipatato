@@ -163,6 +163,14 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
   `record_store_visit` → table `store_daily_stats` (visiteurs = sessions, pages vues ; robots et démos ignorés —
   les navigateurs « headless », dont ceux des tests, sont comptés comme robots). Histogramme maison
   `src/components/bar-chart.tsx` (une série, info-bulle, tableau des chiffres).
+- **Marketing et SEO** (phase 10) : `stores.seo` / `stores.pixels` (`src/lib/marketing/settings.ts`), métadonnées
+  (canonique, Open Graph) et données structurées Product dans `src/lib/marketing/seo.ts` ; `/sitemap.xml` et `/robots.txt`
+  par boutique (`src/app/s/[site]/sitemap.xml|robots.txt/route.ts`, `force-dynamic`) et pour la plateforme.
+  Pixels Meta/TikTok : `src/storefront/pixels.tsx` — chargés SEULEMENT après « Accepter » (choix mémorisé par boutique,
+  lien « Gérer les témoins »), événements PageView, ViewContent, AddToCart, InitiateCheckout, Purchase (une fois par
+  commande) ; la politique de confidentialité les mentionne automatiquement. Contenus IA (2 scripts TikTok, 3 publicités,
+  suggestion SEO) : `src/lib/ai/marketing.ts` → table `marketing_assets` (journal `ai_generations.kind = 'marketing'`,
+  limite horaire, modération). Écran `/tableau-de-bord/boutiques/[id]/marketing`.
 - **Langues (EN/FR)** : `src/lib/i18n/`. Anglais par défaut. Plateforme : cookie `lang` (sélecteur) > région
   (`cf-ipcountry` + `cf-region-code` : Québec et pays francophones → fr) > navigateur > anglais. Textes dans
   `messages/*.ts` (anglais et français côte à côte, clés vérifiées par TypeScript) ; serveur : `getMessages()`,
@@ -191,4 +199,5 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
 - [x] Phase 7 — courriels acheteurs (confirmation, expédition, livraison), avis de vente, page « Nous joindre »
 - [x] Phase 8 — pages légales par boutique (CGV, retours, livraison, confidentialité Loi 25) et de la plateforme
 - [x] Phase 9 — tableau de bord : ventes, commandes, marge, commissions, versements, visites, conversion
-- [ ] Prochaine phase — selon le choix du propriétaire (10 marketing/SEO, 11 domaines, 12 admin)
+- [x] Phase 10 — SEO (titres, descriptions, sitemap, données produit), pixels Meta/TikTok avec consentement, contenus IA
+- [ ] Phases 11 (domaines) et 12 (admin) — validées, en cours

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { fmt, plural } from "@/lib/i18n/config";
 import { MESSAGES } from "@/lib/i18n/messages";
+import { storeHomeMetadata } from "@/lib/marketing/seo";
 import { getStoreBySite } from "@/lib/stores";
 import type { StoreProduct } from "@/lib/types";
 import { categoriesOf, categoryHref, getStoreBase, ProductGrid } from "@/storefront/components";
@@ -25,10 +26,7 @@ export async function generateMetadata({ params }: PageProps<"/s/[site]">): Prom
   const { site } = await params;
   const data = await getStoreBySite(decodeURIComponent(site));
   if (!data) return { title: MESSAGES.en.storefront.storeNotFound };
-  return {
-    title: { absolute: `${data.store.name} — ${data.store.config.content.tagline}` },
-    description: data.store.config.content.hero.subtitle || data.store.config.content.tagline,
-  };
+  return storeHomeMetadata(data.store, data.products);
 }
 
 export default async function StoreHomePage({ params, searchParams }: PageProps<"/s/[site]">) {

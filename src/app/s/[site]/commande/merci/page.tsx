@@ -10,6 +10,7 @@ import { getStoreBySite } from "@/lib/stores";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe";
 import { ClearCart } from "@/storefront/cart";
+import { TrackEvent } from "@/storefront/pixels";
 import { getStoreBase } from "@/storefront/components";
 
 export async function generateMetadata({ params }: PageProps<"/s/[site]/commande/merci">): Promise<Metadata> {
@@ -54,6 +55,13 @@ export default async function ThankYouPage({ params, searchParams }: PageProps<"
   return (
     <div className="mx-auto max-w-2xl px-4 py-14 sm:px-6">
       {paid && <ClearCart storeId={data.store.id} />}
+      {paid && (
+        <TrackEvent
+          event="Purchase"
+          onceKey={`purchase:${order.order_number}`}
+          params={{ value: Number(order.subtotal_cents) / 100, currency: order.currency, content_type: "product", num_items: items.reduce((n, i) => n + i.quantity, 0), order_id: order.order_number }}
+        />
+      )}
       <div className="text-center">
         <div aria-hidden className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[var(--store-primary)] text-2xl text-[var(--store-on-primary)]">✓</div>
         <h1 className="sf-heading mt-5 text-3xl">{paid ? t.title : t.pendingTitle}</h1>

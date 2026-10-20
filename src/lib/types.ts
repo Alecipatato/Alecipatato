@@ -5,6 +5,7 @@
 
 import type { Locale } from "./i18n/config";
 import type { StoreLegalInfo } from "./legal/store-legal";
+import type { StorePixels, StoreSeo } from "./marketing/settings";
 
 export type ThemeId = "minimal" | "bold" | "elegant";
 
@@ -41,6 +42,8 @@ export interface Store {
   language: Locale;
   /** Informations légales (pages légales de la boutique). */
   legalInfo: StoreLegalInfo;
+  seo: StoreSeo;
+  pixels: StorePixels;
 }
 
 /** Produit tel qu'affiché au public (jamais les coûts fournisseur). */

@@ -3,9 +3,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { fmt } from "@/lib/i18n/config";
 import { MESSAGES } from "@/lib/i18n/messages";
+import { productJsonLd, productMetadata } from "@/lib/marketing/seo";
 import { formatPrice } from "@/lib/store-config";
 import { getStoreBySite } from "@/lib/stores";
 import { BuyBox } from "@/storefront/cart";
+import { TrackEvent } from "@/storefront/pixels";
 import { categoryHref, getStoreBase, ProductGrid, ProductImage } from "@/storefront/components";
 
 async function load(params: PageProps<"/s/[site]/produit/[productId]">["params"]) {
@@ -20,10 +22,7 @@ async function load(params: PageProps<"/s/[site]/produit/[productId]">["params"]
 export async function generateMetadata({ params }: PageProps<"/s/[site]/produit/[productId]">): Promise<Metadata> {
   const data = await load(params);
   if (!data) return { title: MESSAGES.en.storefront.productNotFound };
-  return {
-    title: { absolute: `${data.product.title} | ${data.store.name}` },
-    description: data.product.description ?? undefined,
-  };
+  return productMetadata(data.store, data.product);
 }
 
 /** Fiche produit : galerie, prix, points forts, ajout au panier, produits similaires. */
@@ -45,6 +44,9 @@ export default async function ProductPage({ params }: PageProps<"/s/[site]/produ
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+      {/* Données structurées pour les moteurs de recherche (JSON échappé). */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: productJsonLd(store, product) }} />
+      <TrackEvent event="ViewContent" params={{ content_ids: [product.id], content_name: product.title, content_type: "product", value: product.priceCents / 100, currency: store.currency }} />
       <nav aria-label={t.breadcrumb} className="text-sm text-[var(--sf-muted)]">
         <ol className="flex flex-wrap items-center gap-1.5">
           <li><Link href={base || "/"} className="hover:underline">{t.home}</Link></li>
