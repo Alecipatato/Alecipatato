@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import type { ReactNode } from "react";
+import { I18nProvider } from "@/lib/i18n/client";
+import { fmt } from "@/lib/i18n/config";
+import { MESSAGES } from "@/lib/i18n/messages";
 import { formatPrice, googleFontsUrl } from "@/lib/store-config";
 import type { Store, StoreProduct } from "@/lib/types";
 import { AddToCartButton, CartLink } from "./cart";
@@ -50,72 +53,76 @@ export function StoreShell({
   const home = base || "/";
   const categories = categoriesOf(products);
   const { content } = store.config;
+  const t = MESSAGES[store.language].storefront;
 
   return (
-    <div style={storeCssVars(store)} className="sf flex min-h-screen flex-col">
-      <link rel="stylesheet" href={googleFontsUrl(store.config)} precedence="default" />
+    <I18nProvider locale={store.language}>
+      <div style={storeCssVars(store)} className="sf flex min-h-screen flex-col">
+        <link rel="stylesheet" href={googleFontsUrl(store.config)} precedence="default" />
 
-      <header className="sticky top-0 z-20 bg-[var(--sf-header-bg)] text-[var(--sf-header-fg)] shadow-[0_1px_0_var(--sf-line)]">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3 sm:px-6">
-          <Link href={home} className="sf-heading text-2xl leading-none">{store.name}</Link>
-          <form action={home} method="get" role="search" className="order-last flex w-full min-w-0 sm:order-none sm:flex-1">
-            <label htmlFor="store-search" className="sr-only">Rechercher un produit</label>
-            <input
-              id="store-search"
-              name="q"
-              type="search"
-              placeholder={`Rechercher dans ${store.name}`}
-              className="min-w-0 flex-1 rounded-l-[var(--sf-radius)] border border-r-0 border-[var(--sf-line)] bg-white px-4 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-500 focus:outline-none"
-            />
-            <button type="submit" className="sf-btn rounded-l-none px-4" aria-label="Rechercher">
-              <SearchIcon />
-            </button>
-          </form>
-          <div className="ml-auto sm:ml-0">
-            <CartLink storeId={store.id} href={`${base}/panier`} />
+        <header className="sticky top-0 z-20 bg-[var(--sf-header-bg)] text-[var(--sf-header-fg)] shadow-[0_1px_0_var(--sf-line)]">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3 sm:px-6">
+            <Link href={home} className="sf-heading text-2xl leading-none">{store.name}</Link>
+            <form action={home} method="get" role="search" className="order-last flex w-full min-w-0 sm:order-none sm:flex-1">
+              <label htmlFor="store-search" className="sr-only">{t.searchLabel}</label>
+              <input
+                id="store-search"
+                name="q"
+                type="search"
+                placeholder={fmt(t.searchPlaceholder, { store: store.name })}
+                className="min-w-0 flex-1 rounded-l-[var(--sf-radius)] border border-r-0 border-[var(--sf-line)] bg-white px-4 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-500 focus:outline-none"
+              />
+              <button type="submit" className="sf-btn rounded-l-none px-4" aria-label={t.search}>
+                <SearchIcon />
+              </button>
+            </form>
+            <div className="ml-auto sm:ml-0">
+              <CartLink storeId={store.id} href={`${base}/panier`} />
+            </div>
           </div>
-        </div>
-        {categories.length > 0 && (
-          <nav aria-label="Catégories" className="border-t border-current/10">
-            <ul className="mx-auto flex max-w-7xl gap-5 overflow-x-auto px-4 py-2.5 text-sm whitespace-nowrap sm:px-6">
-              <li><Link href={home} className="opacity-90 hover:underline hover:opacity-100">Tous les produits</Link></li>
-              {categories.map((c) => (
-                <li key={c.name}>
-                  <Link href={categoryHref(base, c.name)} className="opacity-90 hover:underline hover:opacity-100">{c.name}</Link>
-                </li>
-              ))}
-            </ul>
-          </nav>
-        )}
-      </header>
+          {categories.length > 0 && (
+            <nav aria-label={t.categories} className="border-t border-current/10">
+              <ul className="mx-auto flex max-w-7xl gap-5 overflow-x-auto px-4 py-2.5 text-sm whitespace-nowrap sm:px-6">
+                <li><Link href={home} className="opacity-90 hover:underline hover:opacity-100">{t.allProducts}</Link></li>
+                {categories.map((c) => (
+                  <li key={c.name}>
+                    <Link href={categoryHref(base, c.name)} className="opacity-90 hover:underline hover:opacity-100">{c.name}</Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          )}
+        </header>
 
-      <main className="flex-1">{children}</main>
+        <main className="flex-1">{children}</main>
 
-      <footer className="mt-16 border-t border-[var(--sf-line)] bg-[var(--sf-surface)]">
-        <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:grid-cols-3 sm:px-6">
-          <div>
-            <p className="sf-heading text-xl">{store.name}</p>
-            <p className="mt-2 text-sm text-[var(--sf-muted)]">{content.footerText || content.tagline}</p>
+        <footer className="mt-16 border-t border-[var(--sf-line)] bg-[var(--sf-surface)]">
+          <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:grid-cols-3 sm:px-6">
+            <div>
+              <p className="sf-heading text-xl">{store.name}</p>
+              <p className="mt-2 text-sm text-[var(--sf-muted)]">{content.footerText || content.tagline}</p>
+            </div>
+            <div className="text-sm">
+              <p className="font-semibold">{t.footerShop}</p>
+              <ul className="mt-3 space-y-2 text-[var(--sf-muted)]">
+                <li><Link href={home} className="hover:underline">{t.allProducts}</Link></li>
+                {categories.slice(0, 4).map((c) => (
+                  <li key={c.name}><Link href={categoryHref(base, c.name)} className="hover:underline">{c.name}</Link></li>
+                ))}
+              </ul>
+            </div>
+            <div className="text-sm">
+              <p className="font-semibold">{t.footerContact}</p>
+              <p className="mt-3 text-[var(--sf-muted)]">{store.contactEmail ?? t.contactSoon}</p>
+              <p className="mt-2"><Link href={`${base}/suivi`} className="text-[var(--sf-muted)] hover:underline">{t.trackOrder}</Link></p>
+            </div>
           </div>
-          <div className="text-sm">
-            <p className="font-semibold">Boutique</p>
-            <ul className="mt-3 space-y-2 text-[var(--sf-muted)]">
-              <li><Link href={home} className="hover:underline">Tous les produits</Link></li>
-              {categories.slice(0, 4).map((c) => (
-                <li key={c.name}><Link href={categoryHref(base, c.name)} className="hover:underline">{c.name}</Link></li>
-              ))}
-            </ul>
-          </div>
-          <div className="text-sm">
-            <p className="font-semibold">Nous joindre</p>
-            <p className="mt-3 text-[var(--sf-muted)]">{store.contactEmail ?? "Adresse de contact bientôt disponible"}</p>
-          </div>
-        </div>
-        <p className="border-t border-[var(--sf-line)] px-4 py-4 text-center text-xs text-[var(--sf-muted)]">
-          © {new Date().getFullYear()} {store.name}. Prix en {store.currency}.
-        </p>
-      </footer>
-    </div>
+          <p className="border-t border-[var(--sf-line)] px-4 py-4 text-center text-xs text-[var(--sf-muted)]">
+            {fmt(t.footerCopy, { year: new Date().getFullYear(), store: store.name, currency: store.currency })}
+          </p>
+        </footer>
+      </div>
+    </I18nProvider>
   );
 }
 
@@ -150,7 +157,7 @@ export function ProductCard({ product, store, base }: { product: StoreProduct; s
           <Link href={href} className="hover:underline">{product.title}</Link>
         </h3>
         <p className="mt-2 text-lg font-semibold tabular-nums text-[var(--store-price)]">
-          {formatPrice(product.priceCents, store.currency)}
+          {formatPrice(product.priceCents, store.currency, store.language)}
         </p>
         <div className="mt-auto pt-3">
           <AddToCartButton storeId={store.id} product={{ id: product.id, title: product.title, priceCents: product.priceCents }} compact />

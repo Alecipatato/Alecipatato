@@ -2,6 +2,8 @@
 
 import { getOrigin } from "@/lib/auth";
 import { DEMO_STORES } from "@/lib/demo-stores";
+import { fmt } from "@/lib/i18n/config";
+import { getMessages } from "@/lib/i18n/server";
 import { CheckoutError, createCheckoutSession } from "@/lib/payments/checkout";
 import { getStoreBySite } from "@/lib/stores";
 import { PaymentsNotConfiguredError } from "@/lib/stripe";
@@ -12,18 +14,20 @@ export async function startCheckout(
   site: string,
   lines: { productId: string; quantity: number }[],
 ): Promise<{ url?: string; error?: string }> {
-  if (DEMO_STORES[site]) return { error: "Boutique de démonstration : le paiement est désactivé." };
   const data = await getStoreBySite(site);
-  if (!data) return { error: "Cette boutique n'est pas disponible." };
-  if (!Array.isArray(lines)) return { error: "Panier invalide." };
+  const t = (await getMessages(data?.store.language)).storefront.errors;
+  if (DEMO_STORES[site]) return { error: t.demo };
+  if (!data) return { error: t.unavailable };
+  if (!Array.isArray(lines)) return { error: t.invalidCart };
 
   try {
     const storeUrl = `${await getOrigin()}${await getStoreBase(site)}`;
     const url = await createCheckoutSession({ storeId: data.store.id, lines, storeUrl });
     return { url };
   } catch (err) {
-    if (err instanceof CheckoutError || err instanceof PaymentsNotConfiguredError) return { error: err.message };
+    if (err instanceof CheckoutError) return { error: fmt(t[err.code], { title: err.productTitle ?? "" }) };
+    if (err instanceof PaymentsNotConfiguredError) return { error: t.notConfigured };
     console.error("Passage à la caisse :", err);
-    return { error: "Le paiement n'a pas pu démarrer. Réessayez dans un instant." };
+    return { error: t.generic };
   }
 }

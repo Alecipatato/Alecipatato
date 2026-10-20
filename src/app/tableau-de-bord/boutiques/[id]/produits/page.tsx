@@ -9,20 +9,20 @@ import { getUsdCadRate } from "@/lib/fx";
 import { marginBasisPoints, usdToCadCents } from "@/lib/money";
 import type { SourcingState } from "@/lib/products/sourcing";
 import { getPlatformSettings } from "@/lib/settings";
+import { fmt } from "@/lib/i18n/config";
+import { getLocale, getMessages } from "@/lib/i18n/server";
 import { formatPrice } from "@/lib/store-config";
 import { createUserClient } from "@/lib/supabase/server";
 import { acceptAllProducts, acceptProduct, unpublishProduct } from "../../../products-actions";
 import { setStoreOnline } from "../../../actions";
 import { NewSearchForm, PriceForm, RejectForm, SourcingRunner } from "./client";
 
-export const metadata: Metadata = { title: "Produits" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getMessages()).sales.products.metaTitle };
+}
 
-const RESULTS: Record<string, { kind: "success" | "info" | "error"; text: string }> = {
-  remplace: { kind: "success", text: "Produit remplacé : le nouveau produit vous attend dans « À valider »." },
-  refuse: { kind: "info", text: "Produit refusé." },
-  "plus-de-remplacant": { kind: "info", text: "Produit refusé. Plus de remplaçant disponible : lancez une nouvelle recherche en bas de page." },
-  "echec-remplacement": { kind: "error", text: "Produit refusé, mais le fournisseur n'a pas répondu pour le remplacement. Réessayez plus tard." },
-};
+const RESULT_KINDS = { remplace: "success", refuse: "info", "plus-de-remplacant": "info", "echec-remplacement": "error" } as const;
+type ResultKey = keyof typeof RESULT_KINDS;
 
 type ProductRow = {
   id: string;
@@ -60,6 +60,10 @@ export default async function ProductsPage({ params, searchParams }: PageProps<"
     getPlatformSettings(),
   ]);
   const fx = await getUsdCadRate(settings.usdCadFallbackRate);
+  const locale = await getLocale();
+  const t = (await getMessages(locale)).sales.products;
+  const price = (cents: number) => formatPrice(cents, "CAD", locale);
+  const result = typeof sp.resultat === "string" && sp.resultat in RESULT_KINDS ? (sp.resultat as ResultKey) : null;
   const rows = (products ?? []) as ProductRow[];
   const proposed = rows.filter((p) => p.status === "proposed");
   const active = rows.filter((p) => p.status === "active");
@@ -84,38 +88,42 @@ export default async function ProductsPage({ params, searchParams }: PageProps<"
             // eslint-disable-next-line @next/next/no-img-element -- image du fournisseur
             <img src={image} alt="" className="h-full w-full object-cover" loading="lazy" />
           ) : (
-            <div className="grid h-full place-items-center text-xs text-muted">Exemple</div>
+            <div className="grid h-full place-items-center text-xs text-muted">{t.sample}</div>
           )}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div className="min-w-0">
               <p className="font-semibold leading-snug">{p.title}</p>
-              <p className="text-xs text-muted">{p.category}{p.supplier === "sample" && " · produit d'exemple"}</p>
+              <p className="text-xs text-muted">{p.category}{p.supplier === "sample" && t.sampleProduct}</p>
             </div>
-            <p className="text-lg font-semibold tabular-nums">{formatPrice(Number(p.price_cents), "CAD")}</p>
+            <p className="text-lg font-semibold tabular-nums">{price(Number(p.price_cents))}</p>
           </div>
           {p.supplier === "cj" && (
             <dl className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted">
-              <div><dt className="inline">Coût total : </dt><dd className="inline tabular-nums text-ink">{formatPrice(costCad, "CAD")}</dd></div>
-              <div><dt className="inline">Marge : </dt><dd className={`inline font-semibold tabular-nums ${margin >= minMarginPct ? "text-brand-strong" : "text-danger"}`}>{margin.toFixed(0)} %</dd></div>
-              {p.delivery_days_max && <div><dt className="inline">Livraison : </dt><dd className="inline text-ink">{p.delivery_days_min}–{p.delivery_days_max} jours</dd></div>}
-              {p.stock !== null && <div><dt className="inline">Stock : </dt><dd className="inline text-ink">{p.stock}</dd></div>}
+              <div><dt className="inline">{t.totalCost}</dt><dd className="inline tabular-nums text-ink">{price(costCad)}</dd></div>
+              <div><dt className="inline">{t.margin}</dt><dd className={`inline font-semibold tabular-nums ${margin >= minMarginPct ? "text-brand-strong" : "text-danger"}`}>{margin.toFixed(0)} %</dd></div>
+              {p.delivery_days_max && <div><dt className="inline">{t.delivery}</dt><dd className="inline text-ink">{fmt(t.days, { min: p.delivery_days_min ?? p.delivery_days_max, max: p.delivery_days_max })}</dd></div>}
+              {p.stock !== null && <div><dt className="inline">{t.stock}</dt><dd className="inline text-ink">{p.stock}</dd></div>}
             </dl>
           )}
-          {p.sync_note && <p className={`mt-2 rounded-lg px-2.5 py-1.5 text-xs ${p.sync_status === "unavailable" ? "bg-danger-soft text-danger" : "bg-marigold-soft"}`}>{p.sync_note}</p>}
+          {p.sync_status !== "ok" && p.sync_status in t.syncNotes && (
+            <p className={`mt-2 rounded-lg px-2.5 py-1.5 text-xs ${p.sync_status === "unavailable" ? "bg-danger-soft text-danger" : "bg-marigold-soft"}`}>
+              {fmt(t.syncNotes[p.sync_status as keyof typeof t.syncNotes], { old: price(Number(p.sync_note) || 0), new: price(Number(p.price_cents)) })}
+            </p>
+          )}
           {!suspended && (
             <div className="mt-3 flex flex-wrap items-start gap-x-4 gap-y-2">
               {p.status === "proposed" && (
                 <form action={acceptProduct}>
                   <input type="hidden" name="product_id" value={p.id} />
-                  <button type="submit" className={`${buttonClasses.primary} px-3 py-1.5 text-xs`}>Accepter</button>
+                  <button type="submit" className={`${buttonClasses.primary} px-3 py-1.5 text-xs`}>{t.accept}</button>
                 </form>
               )}
               {p.status === "active" && (
                 <form action={unpublishProduct}>
                   <input type="hidden" name="product_id" value={p.id} />
-                  <button type="submit" className={`${buttonClasses.secondary} px-3 py-1.5 text-xs`}>Retirer de la vente</button>
+                  <button type="submit" className={`${buttonClasses.secondary} px-3 py-1.5 text-xs`}>{t.unpublish}</button>
                 </form>
               )}
               {p.status !== "rejected" && <RejectForm productId={p.id} canReplace={p.supplier === "cj" && hasReplacements} />}
@@ -133,57 +141,54 @@ export default async function ProductsPage({ params, searchParams }: PageProps<"
         <Link href={`/tableau-de-bord/boutiques/${store.id}`} className="text-sm font-medium text-muted hover:text-ink">← {store.name}</Link>
         <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="font-display text-4xl font-bold tracking-tight">Produits</h1>
-            <p className="mt-1 max-w-2xl text-muted">
-              L&apos;IA a sélectionné ces produits chez notre fournisseur. Acceptez ceux que vous voulez vendre, remplacez les autres.
-              Les prix suggérés gardent au moins {minMarginPct} % de marge ; vous pouvez les modifier.
-            </p>
+            <h1 className="font-display text-4xl font-bold tracking-tight">{t.title}</h1>
+            <p className="mt-1 max-w-2xl text-muted">{fmt(t.intro, { pct: minMarginPct })}</p>
           </div>
           {store.status === "draft" && active.length > 0 && !suspended && (
             <form action={setStoreOnline}>
               <input type="hidden" name="store_id" value={store.id} />
               <input type="hidden" name="online" value="1" />
-              <button type="submit" className={buttonClasses.primary}>Mettre ma boutique en ligne</button>
+              <button type="submit" className={buttonClasses.primary}>{t.goOnline}</button>
             </form>
           )}
         </div>
       </div>
 
-      {typeof sp.resultat === "string" && RESULTS[sp.resultat] && <Alert kind={RESULTS[sp.resultat].kind}>{RESULTS[sp.resultat].text}</Alert>}
-      {sp.nouvelle && <Alert kind="success">Votre boutique est créée ! L&apos;IA cherche maintenant les produits chez notre fournisseur.</Alert>}
-      {!isCjConfigured() && <Alert kind="info">Le fournisseur n&apos;est pas encore connecté : les produits affichés sont des exemples générés par l&apos;IA.</Alert>}
-      {store.status === "draft" && !suspended && <Alert kind="info">Votre boutique est hors ligne. Acceptez des produits, puis mettez-la en ligne.</Alert>}
+      {result && <Alert kind={RESULT_KINDS[result]}>{t.results[result]}</Alert>}
+      {sp.nouvelle && <Alert kind="success">{t.created}</Alert>}
+      {!isCjConfigured() && <Alert kind="info">{t.noSupplier}</Alert>}
+      {store.status === "draft" && !suspended && <Alert kind="info">{t.draft}</Alert>}
 
       {jobState && <SourcingRunner key={jobState.id} storeId={store.id} initial={jobState} />}
 
       <section>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-display text-2xl font-bold">À valider <span className="text-muted">({proposed.length})</span></h2>
+          <h2 className="font-display text-2xl font-bold">{t.toReview} <span className="text-muted">({proposed.length})</span></h2>
           {proposed.length > 1 && !suspended && (
             <form action={acceptAllProducts}>
               <input type="hidden" name="store_id" value={store.id} />
-              <button type="submit" className={buttonClasses.secondary}>Tout accepter</button>
+              <button type="submit" className={buttonClasses.secondary}>{t.acceptAll}</button>
             </form>
           )}
         </div>
-        {proposed.length > 0 ? <ul className="grid gap-3">{proposed.map(card)}</ul> : <p className="text-sm text-muted">Aucun produit en attente.</p>}
+        {proposed.length > 0 ? <ul className="grid gap-3">{proposed.map(card)}</ul> : <p className="text-sm text-muted">{t.noneWaiting}</p>}
       </section>
 
       <section>
-        <h2 className="mb-4 font-display text-2xl font-bold">En vente <span className="text-muted">({active.length})</span></h2>
-        {active.length > 0 ? <ul className="grid gap-3">{active.map(card)}</ul> : <p className="text-sm text-muted">Aucun produit en vente pour l&apos;instant.</p>}
+        <h2 className="mb-4 font-display text-2xl font-bold">{t.forSale} <span className="text-muted">({active.length})</span></h2>
+        {active.length > 0 ? <ul className="grid gap-3">{active.map(card)}</ul> : <p className="text-sm text-muted">{t.noneForSale}</p>}
       </section>
 
       {rejected.length > 0 && (
         <details>
-          <summary className="cursor-pointer font-display text-xl font-bold">Refusés ou retirés <span className="text-muted">({rejected.length})</span></summary>
+          <summary className="cursor-pointer font-display text-xl font-bold">{t.rejected} <span className="text-muted">({rejected.length})</span></summary>
           <ul className="mt-4 grid gap-3 opacity-70">{rejected.map(card)}</ul>
         </details>
       )}
 
       {isCjConfigured() && !suspended && (!job || job.status === "done" || job.status === "failed") && (
         <section className="rounded-2xl border border-line bg-white p-6">
-          <h2 className="font-display text-xl font-bold">Chercher d&apos;autres produits</h2>
+          <h2 className="font-display text-xl font-bold">{t.searchMore}</h2>
           <div className="mt-4 max-w-xl">
             <NewSearchForm storeId={store.id} defaultKeywords={((job?.keywords as string[] | undefined) ?? []).join(", ")} />
           </div>

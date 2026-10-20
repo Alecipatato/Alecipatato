@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import { Bricolage_Grotesque, Geist } from "next/font/google";
+import { I18nProvider } from "@/lib/i18n/client";
+import { fmt } from "@/lib/i18n/config";
+import { getLocale, getMessages } from "@/lib/i18n/server";
 import { PLATFORM_NAME } from "@/lib/platform";
 import "./globals.css";
 
@@ -13,15 +16,21 @@ const display = Bricolage_Grotesque({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: { default: `${PLATFORM_NAME} — Votre boutique en ligne créée par l'IA`, template: `%s · ${PLATFORM_NAME}` },
-  description: "Créez gratuitement une boutique de dropshipping complète grâce à l'IA. Vous payez seulement une commission sur vos ventes.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const m = await getMessages();
+  return {
+    title: { default: fmt(m.common.meta.title, { platform: PLATFORM_NAME }), template: `%s · ${PLATFORM_NAME}` },
+    description: m.common.meta.description,
+  };
+}
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const locale = await getLocale();
   return (
-    <html lang="fr" className={`${geistSans.variable} ${display.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col">{children}</body>
+    <html lang={locale} className={`${geistSans.variable} ${display.variable} h-full antialiased`}>
+      <body className="min-h-full flex flex-col">
+        <I18nProvider locale={locale}>{children}</I18nProvider>
+      </body>
     </html>
   );
 }

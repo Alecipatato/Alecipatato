@@ -17,7 +17,7 @@ npm run dev
 Ouvrez ensuite **l'adresse affichée par `npm run dev`** (normalement http://localhost:3000) :
 
 - Plateforme : http://localhost:3000
-- Boutiques démo : http://demo.localhost:3000, http://demo2.localhost:3000, http://demo3.localhost:3000
+- Boutiques démo : http://demo.localhost:3000 (en anglais), http://demo2.localhost:3000, http://demo3.localhost:3000
   (ou http://localhost:3000/s/demo, `/s/demo2`, `/s/demo3`)
 
 Sans Supabase, seules la page d'accueil et les boutiques de démonstration fonctionnent.
@@ -115,6 +115,15 @@ plateforme garde 15 % de la marge brute et transfère le reste au compte Stripe 
 > ventes : elle est responsable de percevoir et reverser les taxes, et elle supporte les frais
 > Stripe (sauf si `stripe_fees_paid_by` = `"store"`). Faites valider ce point par un comptable
 > avant de passer en mode réel.
+
+## Langues (anglais / français)
+
+- La plateforme s'affiche en **anglais par défaut**, en **français** pour les visiteurs du Québec, des pays
+  francophones ou dont le navigateur est en français. Le sélecteur (globe) mémorise le choix.
+- Pour la détection par région en production : Cloudflare > **Rules > Managed Transforms** > activez
+  **Add visitor location headers** (fournit le pays et la province).
+- Chaque boutique a sa langue (choisie à la création) : vitrine, fiches produits générées par l'IA, page de paiement.
+- Les modèles de courriel (`supabase/templates/`) contiennent les deux langues : recopiez-les tels quels dans Supabase.
 
 ## Tests
 

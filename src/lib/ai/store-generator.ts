@@ -1,6 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { PALETTES } from "../palettes";
-import { ALLOWED_FONTS, parseStoreConfig, parseTheme, THEME_IDS, THEME_LABELS } from "../store-config";
+import { isLocale, type Locale } from "../i18n/config";
+import { MESSAGES } from "../i18n/messages";
+import { ALLOWED_FONTS, parseStoreConfig, parseTheme, THEME_IDS } from "../store-config";
 import type { StoreConfig, ThemeId } from "../types";
 
 /**
@@ -19,6 +21,12 @@ export interface StoreBrief {
   palette: string; // clé de PALETTES, "auto" ou "custom"
   primaryColor?: string;
   storeName?: string;
+  /** Langue de la boutique (textes générés). Absente des anciennes boutiques : français. */
+  language?: Locale;
+}
+
+export function briefLanguage(brief: Partial<StoreBrief> | null | undefined): Locale {
+  return isLocale(brief?.language) ? brief.language : "fr";
 }
 
 export interface GeneratedProduct {
@@ -39,7 +47,17 @@ export interface GeneratedStore {
   products: GeneratedProduct[];
 }
 
-export class StoreGenerationError extends Error {}
+export type GenerationErrorCode = keyof (typeof MESSAGES)["en"]["errors"]["generation"];
+
+/** Erreur montrée au client : `code` → message traduit (messages errors.generation). */
+export class StoreGenerationError extends Error {
+  constructor(
+    readonly code: GenerationErrorCode,
+    readonly reason?: string,
+  ) {
+    super(reason ? `${code}: ${reason}` : code);
+  }
+}
 
 const str = { type: "string" } as const;
 const OUTPUT_SCHEMA = {
@@ -95,9 +113,9 @@ const OUTPUT_SCHEMA = {
   },
 };
 
-const SYSTEM_PROMPT = `You design complete dropshipping storefronts for small entrepreneurs in Québec and the rest of Canada. Your output is stored as data and rendered by a fixed storefront that works like Amazon: a catalogue page with search and categories, then a detail page per product.
+const SYSTEM_PROMPT = `You design complete dropshipping storefronts for small entrepreneurs in Canada. Your output is stored as data and rendered by a fixed storefront that works like Amazon: a catalogue page with search and categories, then a detail page per product.
 
-Write every customer-facing text in natural Québec French (vouvoiement, Canadian spelling and prices in CAD with "$" after the number when you mention one). Be concrete and specific to the niche; avoid hype and generic filler.
+Write every customer-facing text in the store language given in the request. Be concrete and specific to the niche; avoid hype and generic filler.
 
 What to produce:
 - name: a short, memorable, original store name (2-3 words max) that is not an existing brand.
@@ -115,17 +133,24 @@ What to produce:
 Rules you must follow:
 - Never use real brand names, trademarks, licensed characters or celebrity names, and never describe replicas or "inspired by" copies of branded goods.
 - Never invent reviews, ratings, certifications, awards, medical or health claims, or "made in Canada" claims.
-- If the requested niche is mainly about prohibited goods (weapons or weapon parts, drugs or drug paraphernalia, tobacco, vaping or cannabis, alcohol, adult content, prescription or medical products, supplements with health claims, live animals, gambling, counterfeit goods, hazardous materials), set refusal_reason to a short explanation in French, and return placeholder values with an empty products array. Otherwise set refusal_reason to null.`;
+- If the requested niche is mainly about prohibited goods (weapons or weapon parts, drugs or drug paraphernalia, tobacco, vaping or cannabis, alcohol, adult content, prescription or medical products, supplements with health claims, live animals, gambling, counterfeit goods, hazardous materials), set refusal_reason to a short explanation in the store language, and return placeholder values with an empty products array. Otherwise set refusal_reason to null.`;
+
+const LANGUAGE_INSTRUCTIONS: Record<Locale, string> = {
+  en: "Store language: English. Use natural Canadian English (Canadian spelling, prices in CAD written like $24.99).",
+  fr: "Store language: French. Use natural Québec French (vouvoiement, prices in CAD written like 24,99 $).",
+};
 
 function describeBrief(brief: StoreBrief): string {
+  const themes = MESSAGES.en.common.themes;
   const lines = [
+    LANGUAGE_INSTRUCTIONS[briefLanguage(brief)],
     `Niche and target customers: ${brief.niche}`,
     `Types of products to sell: ${brief.productTypes || "choose what fits the niche best"}`,
   ];
   if (brief.storeName) lines.push(`Store name requested by the owner (use it exactly): ${brief.storeName}`);
 
-  if (brief.theme === "auto") lines.push(`Style: choose the best fit among ${THEME_IDS.map((t) => `"${t}" (${THEME_LABELS[t].description})`).join(", ")}.`);
-  else lines.push(`Style: "${brief.theme}" (${THEME_LABELS[brief.theme].description}). Return this theme.`);
+  if (brief.theme === "auto") lines.push(`Style: choose the best fit among ${THEME_IDS.map((t) => `"${t}" (${themes[t].description})`).join(", ")}.`);
+  else lines.push(`Style: "${brief.theme}" (${themes[brief.theme].description}). Return this theme.`);
 
   const palette = PALETTES[brief.palette];
   if (palette) lines.push(`Colors: use exactly this palette: ${JSON.stringify(palette.colors)}.`);
@@ -140,11 +165,11 @@ const text = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slic
 
 /** Vérifie et nettoie la réponse de l'IA (on ne fait jamais confiance aveuglément au JSON reçu). */
 export function parseGeneratedStore(raw: unknown, brief: StoreBrief): GeneratedStore {
-  if (typeof raw !== "object" || raw === null) throw new StoreGenerationError("Réponse de l'IA illisible.");
+  if (typeof raw !== "object" || raw === null) throw new StoreGenerationError("unreadable");
   const r = raw as Json;
 
   if (typeof r.refusal_reason === "string" && r.refusal_reason.trim()) {
-    throw new StoreGenerationError(`Cette niche ne peut pas être acceptée : ${r.refusal_reason.trim()}`);
+    throw new StoreGenerationError("refused_niche", r.refusal_reason.trim().slice(0, 300));
   }
 
   const hero = (r.hero ?? {}) as Json;
@@ -165,11 +190,12 @@ export function parseGeneratedStore(raw: unknown, brief: StoreBrief): GeneratedS
     },
   });
 
+  const fr = briefLanguage(brief) === "fr";
   const products = (Array.isArray(r.products) ? r.products : [])
     .filter((p): p is Json => typeof p === "object" && p !== null)
     .map((p) => ({
       title: text(p.title, 120),
-      category: text(p.category, 40) || "Divers",
+      category: text(p.category, 40) || (fr ? "Divers" : "Miscellaneous"),
       description: text(p.description, 1000),
       highlights: (Array.isArray(p.highlights) ? p.highlights : []).map((h) => text(h, 200)).filter(Boolean).slice(0, 6),
       priceCents: Math.min(Math.max(Math.round(Number(p.price_cents) || 0), 500), 100000),
@@ -177,9 +203,9 @@ export function parseGeneratedStore(raw: unknown, brief: StoreBrief): GeneratedS
     .filter((p) => p.title)
     .slice(0, 20);
 
-  if (products.length === 0) throw new StoreGenerationError("L'IA n'a proposé aucun produit. Réessayez avec une description plus précise.");
+  if (products.length === 0) throw new StoreGenerationError("no_products");
 
-  const name = text(brief.storeName, 60) || text(r.name, 60) || "Ma boutique";
+  const name = text(brief.storeName, 60) || text(r.name, 60) || (fr ? "Ma boutique" : "My store");
   return {
     name,
     subdomainSuggestion: text(r.subdomain, 40),
@@ -200,7 +226,7 @@ export interface GenerationResult {
 
 export async function generateStore(brief: StoreBrief): Promise<GenerationResult> {
   if (!process.env.ANTHROPIC_API_KEY) {
-    throw new StoreGenerationError("La génération par IA n'est pas encore configurée sur ce serveur (clé ANTHROPIC_API_KEY manquante).");
+    throw new StoreGenerationError("not_configured");
   }
   const client = new Anthropic();
 
@@ -218,32 +244,32 @@ export async function generateStore(brief: StoreBrief): Promise<GenerationResult
     });
   } catch (error) {
     if (error instanceof Anthropic.AuthenticationError) {
-      throw new StoreGenerationError("La clé d'accès à l'IA est invalide (configuration du serveur).");
+      throw new StoreGenerationError("invalid_key");
     }
     if (error instanceof Anthropic.RateLimitError || (error instanceof Anthropic.APIError && error.status === 529)) {
-      throw new StoreGenerationError("L'IA est très sollicitée en ce moment. Réessayez dans une minute.");
+      throw new StoreGenerationError("overloaded");
     }
     if (error instanceof Anthropic.APIConnectionError) {
-      throw new StoreGenerationError("Impossible de joindre le service d'IA. Réessayez dans un instant.");
+      throw new StoreGenerationError("unreachable");
     }
     throw error;
   }
 
   if (response.stop_reason === "refusal") {
-    throw new StoreGenerationError("L'IA a refusé cette demande. Reformulez votre description de niche.");
+    throw new StoreGenerationError("refused");
   }
   if (response.stop_reason === "max_tokens") {
-    throw new StoreGenerationError("La réponse de l'IA était incomplète. Réessayez.");
+    throw new StoreGenerationError("incomplete");
   }
 
   const textBlock = response.content.find((b) => b.type === "text");
-  if (!textBlock || textBlock.type !== "text") throw new StoreGenerationError("Réponse de l'IA vide.");
+  if (!textBlock || textBlock.type !== "text") throw new StoreGenerationError("empty");
 
   let json: unknown;
   try {
     json = JSON.parse(textBlock.text);
   } catch {
-    throw new StoreGenerationError("Réponse de l'IA illisible. Réessayez.");
+    throw new StoreGenerationError("unreadable");
   }
 
   return {

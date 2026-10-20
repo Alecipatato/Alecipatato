@@ -1,12 +1,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { rich } from "@/lib/i18n/rich";
+import { getMessages } from "@/lib/i18n/server";
 import { ResendConfirmationForm } from "../forms";
 
-export const metadata: Metadata = { title: "Vérifiez vos courriels" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getMessages()).auth.checkEmail.metaTitle };
+}
 
 export default async function CheckEmailPage({ searchParams }: PageProps<"/verifier-courriel">) {
   const { courriel } = await searchParams;
   const email = typeof courriel === "string" ? courriel : "";
+  const t = (await getMessages()).auth.checkEmail;
 
   return (
     <div className="flex flex-col gap-6">
@@ -17,15 +22,15 @@ export default async function CheckEmailPage({ searchParams }: PageProps<"/verif
         </svg>
       </div>
       <div>
-        <h1 className="font-display text-3xl font-bold">Vérifiez vos courriels</h1>
+        <h1 className="font-display text-3xl font-bold">{t.title}</h1>
         <p className="mt-3 text-sm leading-relaxed text-muted">
-          Nous avons envoyé un lien de confirmation{email && <> à <strong className="text-ink">{email}</strong></>}.
-          Cliquez dessus pour activer votre compte, puis créez votre première boutique.
+          {t.sent}
+          {email && rich(t.sentTo, { b: (s) => <strong className="text-ink">{s}</strong> }, { email })}. {t.next}
         </p>
       </div>
       <div className="rounded-2xl border border-line bg-white p-5 text-sm">
-        <p className="font-medium">Rien reçu après quelques minutes ?</p>
-        <p className="mt-1 text-muted">Regardez dans vos indésirables, ou renvoyez le courriel.</p>
+        <p className="font-medium">{t.nothing}</p>
+        <p className="mt-1 text-muted">{t.spam}</p>
         {email && (
           <div className="mt-4">
             <ResendConfirmationForm email={email} />
@@ -33,7 +38,7 @@ export default async function CheckEmailPage({ searchParams }: PageProps<"/verif
         )}
       </div>
       <Link href="/connexion" className="text-center text-sm font-semibold text-brand hover:underline">
-        J&apos;ai confirmé, me connecter
+        {t.confirmed}
       </Link>
     </div>
   );

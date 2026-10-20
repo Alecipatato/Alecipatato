@@ -1,3 +1,4 @@
+import { intlLocale, type Locale } from "./i18n/config";
 import type { StoreConfig, ThemeId } from "./types";
 
 /**
@@ -7,12 +8,6 @@ import type { StoreConfig, ThemeId } from "./types";
  */
 
 export const THEME_IDS: ThemeId[] = ["minimal", "bold", "elegant"];
-
-export const THEME_LABELS: Record<ThemeId, { name: string; description: string }> = {
-  minimal: { name: "Minimal", description: "Clair, aéré et moderne" },
-  bold: { name: "Audacieux", description: "Contrasté, gros titres, énergique" },
-  elegant: { name: "Élégant", description: "Raffiné, typographie classique" },
-};
 
 /** Polices Google Fonts autorisées (liste fermée : on ne charge rien d'arbitraire). */
 export const ALLOWED_FONTS = [
@@ -130,6 +125,6 @@ export function ensureReadableColors(colors: StoreConfig["colors"]): StoreConfig
   return { ...colors, text: readableOn(colors.background) };
 }
 
-export function formatPrice(cents: number, currency: string): string {
-  return new Intl.NumberFormat("fr-CA", { style: "currency", currency }).format(cents / 100);
+export function formatPrice(cents: number, currency: string, locale: Locale): string {
+  return new Intl.NumberFormat(intlLocale(locale), { style: "currency", currency }).format(cents / 100);
 }

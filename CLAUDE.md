@@ -129,6 +129,13 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
   rupture, produit retiré → `rejected` + `sync_status`).
 - Boutique créée avec CJ : `draft` jusqu'à acceptation des produits ; sans `CJ_API_KEY` : produits
   d'exemple (`supplier = 'sample'`).
+- **Langues (EN/FR)** : `src/lib/i18n/`. Anglais par défaut. Plateforme : cookie `lang` (sélecteur) > région
+  (`cf-ipcountry` + `cf-region-code` : Québec et pays francophones → fr) > navigateur > anglais. Textes dans
+  `messages/*.ts` (anglais et français côte à côte, clés vérifiées par TypeScript) ; serveur : `getMessages()`,
+  client : `useI18n()` ; valeurs `{x}` via `fmt`, gras/liens via `rich`. **Vitrine = langue de la boutique**
+  (`stores.language`, en-tête interne `x-store-site` posé par le proxy). Les erreurs des modules (`StoreGenerationError`,
+  `CheckoutError`, recherche CJ) sont des **codes** traduits à l'affichage. `formatPrice(cents, devise, langue)`.
+  Courriels Supabase bilingues selon `user_metadata.locale`. Les adresses (/connexion, /tableau-de-bord…) restent en français.
 - Écran avec formulaire qui disparaît après l'action (produit refusé, commande remboursée) : afficher
   la confirmation en haut de page via un paramètre d'URL, pas dans le formulaire.
 - Le client Supabase admin désactive la mémorisation des GET de Next (signal par requête) : une relecture

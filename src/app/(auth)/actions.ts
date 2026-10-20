@@ -1,7 +1,8 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { authErrorMessage, getOrigin, safeNextPath } from "@/lib/auth";
+import { authErrorKey, getOrigin, safeNextPath } from "@/lib/auth";
+import { getLocale, getMessages } from "@/lib/i18n/server";
 import { createUserClient } from "@/lib/supabase/server";
 
 export type FormState = { error?: string; message?: string; email?: string };
@@ -12,11 +13,18 @@ function readEmail(formData: FormData) {
   return String(formData.get("email") ?? "").trim().toLowerCase();
 }
 
-function passwordProblem(password: string): string | null {
-  if (password.length < 8) return "Le mot de passe doit contenir au moins 8 caractères.";
-  if (!/[a-zA-Z]/.test(password) || !/\d/.test(password)) {
-    return "Le mot de passe doit contenir des lettres et des chiffres.";
-  }
+async function texts() {
+  return (await getMessages()).auth;
+}
+
+async function errorText(error: { code?: string }) {
+  return (await texts()).errors[authErrorKey(error)];
+}
+
+async function passwordProblem(password: string): Promise<string | null> {
+  const m = (await texts()).messages;
+  if (password.length < 8) return m.passwordLength;
+  if (!/[a-zA-Z]/.test(password) || !/\d/.test(password)) return m.passwordMix;
   return null;
 }
 
@@ -26,10 +34,11 @@ export async function signUp(_prev: FormState, formData: FormData): Promise<Form
   const password = String(formData.get("password") ?? "");
   const fullName = String(formData.get("full_name") ?? "").trim().slice(0, 100);
 
-  if (!EMAIL_PATTERN.test(email)) return { error: "Adresse courriel invalide.", email };
-  const problem = passwordProblem(password);
+  const m = (await texts()).messages;
+  if (!EMAIL_PATTERN.test(email)) return { error: m.invalidEmail, email };
+  const problem = await passwordProblem(password);
   if (problem) return { error: problem, email };
-  if (formData.get("terms") !== "on") return { error: "Vous devez accepter les conditions d'utilisation.", email };
+  if (formData.get("terms") !== "on") return { error: m.acceptTerms, email };
 
   const supabase = await createUserClient();
   const { data, error } = await supabase.auth.signUp({
@@ -37,10 +46,11 @@ export async function signUp(_prev: FormState, formData: FormData): Promise<Form
     password,
     options: {
       emailRedirectTo: `${await getOrigin()}/auth/callback?next=/tableau-de-bord`,
-      data: { full_name: fullName },
+      // La langue servira aux courriels envoyés au client.
+      data: { full_name: fullName, locale: await getLocale() },
     },
   });
-  if (error) return { error: authErrorMessage(error), email };
+  if (error) return { error: await errorText(error), email };
 
   // Confirmation désactivée (rare) : l'utilisateur est déjà connecté.
   if (data.session) redirect("/tableau-de-bord");
@@ -51,11 +61,11 @@ export async function signUp(_prev: FormState, formData: FormData): Promise<Form
 export async function signIn(_prev: FormState, formData: FormData): Promise<FormState> {
   const email = readEmail(formData);
   const password = String(formData.get("password") ?? "");
-  if (!email || !password) return { error: "Entrez votre courriel et votre mot de passe.", email };
+  if (!email || !password) return { error: (await texts()).messages.enterCredentials, email };
 
   const supabase = await createUserClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) return { error: authErrorMessage(error), email };
+  if (error) return { error: await errorText(error), email };
 
   redirect(safeNextPath(String(formData.get("next") ?? "")));
 }
@@ -75,43 +85,43 @@ export async function signInWithGoogle(formData: FormData) {
 /** Envoie le courriel « mot de passe oublié ». */
 export async function requestPasswordReset(_prev: FormState, formData: FormData): Promise<FormState> {
   const email = readEmail(formData);
-  if (!EMAIL_PATTERN.test(email)) return { error: "Adresse courriel invalide.", email };
+  const m = (await texts()).messages;
+  if (!EMAIL_PATTERN.test(email)) return { error: m.invalidEmail, email };
 
   const supabase = await createUserClient();
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${await getOrigin()}/auth/callback?next=/reinitialiser-mot-de-passe`,
   });
   if (error && (error.code === "over_email_send_rate_limit" || error.code === "over_request_rate_limit")) {
-    return { error: authErrorMessage(error), email };
+    return { error: await errorText(error), email };
   }
   // Même message que le compte existe ou non : on ne révèle pas quelles adresses sont inscrites.
-  return {
-    message: "Si un compte existe avec cette adresse, vous allez recevoir un courriel avec un lien pour choisir un nouveau mot de passe.",
-    email,
-  };
+  return { message: m.resetSent, email };
 }
 
 /** Enregistre le nouveau mot de passe (après le lien reçu par courriel). */
 export async function updatePassword(_prev: FormState, formData: FormData): Promise<FormState> {
   const password = String(formData.get("password") ?? "");
   const confirm = String(formData.get("password_confirm") ?? "");
-  const problem = passwordProblem(password);
+  const m = (await texts()).messages;
+  const problem = await passwordProblem(password);
   if (problem) return { error: problem };
-  if (password !== confirm) return { error: "Les deux mots de passe ne correspondent pas." };
+  if (password !== confirm) return { error: m.mismatch };
 
   const supabase = await createUserClient();
   const { data } = await supabase.auth.getUser();
-  if (!data.user) return { error: "Ce lien a expiré. Refaites une demande de réinitialisation." };
+  if (!data.user) return { error: m.linkExpired };
 
   const { error } = await supabase.auth.updateUser({ password });
-  if (error) return { error: authErrorMessage(error) };
+  if (error) return { error: await errorText(error) };
   redirect("/tableau-de-bord?message=mot-de-passe-modifie");
 }
 
 /** Renvoie le courriel de confirmation d'inscription. */
 export async function resendConfirmation(_prev: FormState, formData: FormData): Promise<FormState> {
   const email = readEmail(formData);
-  if (!EMAIL_PATTERN.test(email)) return { error: "Adresse courriel invalide.", email };
+  const m = (await texts()).messages;
+  if (!EMAIL_PATTERN.test(email)) return { error: m.invalidEmail, email };
 
   const supabase = await createUserClient();
   const { error } = await supabase.auth.resend({
@@ -119,8 +129,8 @@ export async function resendConfirmation(_prev: FormState, formData: FormData): 
     email,
     options: { emailRedirectTo: `${await getOrigin()}/auth/callback?next=/tableau-de-bord` },
   });
-  if (error) return { error: authErrorMessage(error), email };
-  return { message: "Courriel renvoyé. Pensez à vérifier vos indésirables.", email };
+  if (error) return { error: await errorText(error), email };
+  return { message: m.resent, email };
 }
 
 export async function signOut() {

@@ -1,18 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { fmt, plural } from "@/lib/i18n/config";
+import { MESSAGES } from "@/lib/i18n/messages";
 import { getStoreBySite } from "@/lib/stores";
 import type { StoreProduct } from "@/lib/types";
 import { categoriesOf, categoryHref, getStoreBase, ProductGrid } from "@/storefront/components";
 
 /** Page principale d'une boutique : tous les produits, recherche, catégories, tri. */
 
-const SORTS = {
-  pertinence: "Pertinence",
-  "prix-croissant": "Prix croissant",
-  "prix-decroissant": "Prix décroissant",
-} as const;
-type Sort = keyof typeof SORTS;
+const SORTS = ["pertinence", "prix-croissant", "prix-decroissant"] as const;
+type Sort = (typeof SORTS)[number];
 
 const normalize = (s: string) => s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
 
@@ -26,7 +24,7 @@ const param = (v: string | string[] | undefined) => (typeof v === "string" ? v.t
 export async function generateMetadata({ params }: PageProps<"/s/[site]">): Promise<Metadata> {
   const { site } = await params;
   const data = await getStoreBySite(decodeURIComponent(site));
-  if (!data) return { title: "Boutique introuvable" };
+  if (!data) return { title: MESSAGES.en.storefront.storeNotFound };
   return {
     title: { absolute: `${data.store.name} — ${data.store.config.content.tagline}` },
     description: data.store.config.content.hero.subtitle || data.store.config.content.tagline,
@@ -45,7 +43,8 @@ export default async function StoreHomePage({ params, searchParams }: PageProps<
   const sp = await searchParams;
   const query = param(sp.q).slice(0, 100);
   const category = param(sp.categorie);
-  const sort: Sort = param(sp.tri) in SORTS ? (param(sp.tri) as Sort) : "pertinence";
+  const sort: Sort = (SORTS as readonly string[]).includes(param(sp.tri)) ? (param(sp.tri) as Sort) : "pertinence";
+  const t = MESSAGES[store.language].storefront;
 
   let results = products.filter((p) => (!category || p.category === category) && (!query || matches(p, query)));
   if (sort === "prix-croissant") results = [...results].sort((a, b) => a.priceCents - b.priceCents);
@@ -90,11 +89,11 @@ export default async function StoreHomePage({ params, searchParams }: PageProps<
 
       <div id="produits" className="mx-auto grid max-w-7xl scroll-mt-28 gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[220px_1fr]">
         <aside className="hidden lg:block">
-          <p className="text-sm font-semibold">Catégories</p>
+          <p className="text-sm font-semibold">{t.categories}</p>
           <ul className="mt-3 space-y-1.5 text-sm">
             <li>
               <Link href={home} className={!category ? "font-semibold text-[var(--store-primary)]" : "text-[var(--sf-muted)] hover:underline"}>
-                Tous les produits <span className="opacity-60">({products.length})</span>
+                {t.allProducts} <span className="opacity-60">({products.length})</span>
               </Link>
             </li>
             {categories.map((c) => (
@@ -114,22 +113,22 @@ export default async function StoreHomePage({ params, searchParams }: PageProps<
           <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
             <div>
               <h2 className="sf-heading text-2xl sm:text-3xl">
-                {query ? `Résultats pour « ${query} »` : category || "Tous les produits"}
+                {query ? fmt(t.resultsFor, { query }) : category || t.allProducts}
               </h2>
               <p className="mt-1 text-sm text-[var(--sf-muted)]">
-                {results.length} produit{results.length > 1 ? "s" : ""}
-                {query && category && ` dans ${category}`}
+                {plural(results.length, t.countOne, t.countOther)}
+                {query && category && fmt(t.inCategory, { category })}
               </p>
             </div>
-            <nav aria-label="Trier" className="flex flex-wrap gap-2 text-sm">
-              {(Object.keys(SORTS) as Sort[]).map((s) => (
+            <nav aria-label={t.sort.label} className="flex flex-wrap gap-2 text-sm">
+              {SORTS.map((s) => (
                 <Link
                   key={s}
                   href={sortHref(s)}
                   aria-current={s === sort ? "true" : undefined}
                   className={`rounded-full border px-3 py-1.5 ${s === sort ? "border-[var(--store-text)] font-semibold" : "border-[var(--sf-line)] text-[var(--sf-muted)] hover:border-[var(--store-text)]"}`}
                 >
-                  {SORTS[s]}
+                  {t.sort[s]}
                 </Link>
               ))}
             </nav>
@@ -139,9 +138,9 @@ export default async function StoreHomePage({ params, searchParams }: PageProps<
             <ProductGrid products={results} store={store} base={base} />
           ) : (
             <div className="rounded-[var(--sf-radius)] border border-[var(--sf-line)] bg-[var(--sf-surface)] px-6 py-14 text-center">
-              <p className="font-semibold">Aucun produit ne correspond à votre recherche.</p>
-              <p className="mt-1 text-sm text-[var(--sf-muted)]">Essayez un autre mot, ou parcourez toutes les catégories.</p>
-              <Link href={home} className="sf-btn-outline mt-5 px-5 py-2.5 text-sm">Voir tous les produits</Link>
+              <p className="font-semibold">{t.noResults}</p>
+              <p className="mt-1 text-sm text-[var(--sf-muted)]">{t.noResultsHint}</p>
+              <Link href={home} className="sf-btn-outline mt-5 px-5 py-2.5 text-sm">{t.seeAll}</Link>
             </div>
           )}
         </section>

@@ -1,5 +1,6 @@
 import { type AiUsage, rewriteProducts, selectProducts } from "../ai/product-curator";
-import { AI_MODEL } from "../ai/store-generator";
+import { AI_MODEL, StoreGenerationError } from "../ai/store-generator";
+import { isLocale } from "../i18n/config";
 import { getProductDetail, getShippingOptions, searchProducts } from "../cj/catalog";
 import { bestShippingOption, type CjProductDetail, type CjProductSummary, type CjShippingOption, type CjVariant } from "../cj/normalize";
 import { getUsdCadRate } from "../fx";
@@ -12,7 +13,7 @@ import { createAdminClient } from "../supabase/admin";
  * advanceSourcing dure quelques secondes) :
  *   1. searching  : recherche dans le catalogue CJ avec les mots-clés de la boutique
  *   2. selecting  : l'IA choisit et classe les meilleurs candidats
- *   3. processing : par lots — fiche CJ, livraison Canada ≤ 15 jours, rédaction FR, prix ≥ 40 % de marge
+ *   3. processing : par lots — fiche CJ, livraison Canada ≤ 15 jours, rédaction, prix ≥ 40 % de marge
  *   4. done       : produits « proposés », à valider par le client ; les choix restants servent de remplaçants
  */
 
@@ -115,7 +116,7 @@ export async function advanceSourcing(jobId: string): Promise<SourcingState> {
       }
       const candidates = [...found.values()].slice(0, MAX_CANDIDATES);
       if (candidates.length === 0) {
-        await updateJob(job.id, { status: "failed", error: "Aucun produit trouvé chez le fournisseur pour cette niche." });
+        await updateJob(job.id, { status: "failed", error: "no_products_found" });
       } else {
         await updateJob(job.id, { status: "selecting", candidates });
       }
@@ -124,7 +125,7 @@ export async function advanceSourcing(jobId: string): Promise<SourcingState> {
       const { pids, usage } = await selectProducts(store?.niche_description || store?.name || "", job.candidates, job.target + EXTRA_PICKS);
       await logAi(job.store_id, "select_products", usage);
       if (pids.length === 0) {
-        await updateJob(job.id, { status: "failed", error: "Aucun produit du catalogue ne convient à cette niche." });
+        await updateJob(job.id, { status: "failed", error: "no_products_suitable" });
       } else {
         await updateJob(job.id, { status: "processing", picks: pids, cursor: 0 });
       }
@@ -137,7 +138,8 @@ export async function advanceSourcing(jobId: string): Promise<SourcingState> {
       await updateJob(job.id, { cursor, ...(done && { status: "done" }) });
     }
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Erreur inconnue";
+    // Code d'erreur (traduit à l'affichage) ou détail technique.
+    const message = err instanceof StoreGenerationError ? err.code : err instanceof Error ? err.message : "unknown";
     console.error("Recherche de produits :", err);
     await updateJob(job.id, { status: "failed", error: message.slice(0, 300) });
   }
@@ -162,7 +164,7 @@ async function prepare(pid: string): Promise<Prepared | null> {
 
 /**
  * Traite des choix de l'IA : vérifie chaque produit chez CJ, fait rédiger les
- * fiches en français et enregistre les produits « proposés ». Retourne le nombre ajouté.
+ * fiches dans la langue de la boutique et enregistre les produits « proposés ». Retourne le nombre ajouté.
  */
 export async function processPicks(storeId: string, pids: string[]): Promise<number> {
   const prepared: Prepared[] = [];
@@ -178,15 +180,16 @@ export async function processPicks(storeId: string, pids: string[]): Promise<num
 
   const admin = createAdminClient();
   const [{ data: store }, { data: existing }, settings] = await Promise.all([
-    admin.from("stores").select("niche_description, name").eq("id", storeId).single(),
+    admin.from("stores").select("niche_description, name, language").eq("id", storeId).single(),
     admin.from("products").select("category, position").eq("store_id", storeId),
     getPlatformSettings(),
   ]);
   const categories = [...new Set((existing ?? []).map((p) => p.category).filter((c): c is string => Boolean(c)))];
+  const language = isLocale(store?.language) ? store.language : "en";
   let position = Math.max(-1, ...(existing ?? []).map((p) => p.position ?? 0)) + 1;
 
   const { copies, usage } = await rewriteProducts(
-    { niche: store?.niche_description || store?.name || "", categories },
+    { niche: store?.niche_description || store?.name || "", categories, language },
     prepared.map((p) => ({ pid: p.detail.pid, name: p.detail.name, description: p.detail.description, variantName: p.variant.name })),
   );
   await logAi(storeId, "rewrite_products", usage);
@@ -206,7 +209,7 @@ export async function processPicks(storeId: string, pids: string[]): Promise<num
       title: copy?.title || p.detail.name.slice(0, 120),
       description: copy?.description || null,
       highlights: copy?.highlights ?? [],
-      category: copy?.category || p.detail.category || "Divers",
+      category: copy?.category || p.detail.category || (language === "fr" ? "Divers" : "Miscellaneous"),
       images,
       price_cents: price,
       suggested_price_cents: price,

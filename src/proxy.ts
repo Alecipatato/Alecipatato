@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { STORE_SITE_HEADER } from "@/lib/i18n/config";
 import { updateSession } from "@/lib/supabase/proxy-session";
 import { getRootDomain, resolveTenant } from "@/lib/tenant";
 
@@ -16,6 +17,10 @@ export async function proxy(request: NextRequest) {
   const tenant = resolveTenant(request.headers.get("host"), getRootDomain());
   const { pathname, search } = request.nextUrl;
 
+  // En-têtes internes : jamais acceptés venant du navigateur.
+  request.headers.delete(STORE_SITE_HEADER);
+  request.headers.delete("x-store-base");
+
   if (tenant.kind === "platform") {
     // Les pages internes /s/... ne sont accessibles que via un hostname de boutique.
     // Exception en développement : localhost:3000/s/demo marche dans tous les
@@ -24,8 +29,11 @@ export async function proxy(request: NextRequest) {
     if (!isDev && (pathname === "/s" || pathname.startsWith("/s/"))) {
       return new NextResponse("Page introuvable", { status: 404 });
     }
+    // Vitrine en développement (localhost:3000/s/demo) : indique la boutique (sa langue).
+    const devSite = /^\/s\/([^/]+)/.exec(pathname)?.[1];
+    if (devSite) request.headers.set(STORE_SITE_HEADER, safeDecode(devSite));
     // Routes techniques (webhook Stripe, tâches planifiées) : pas de session utilisateur.
-    if (pathname.startsWith("/api/")) return NextResponse.next();
+    if (pathname.startsWith("/api/")) return NextResponse.next({ request });
     return updateSession(request);
   }
 
@@ -41,7 +49,16 @@ export async function proxy(request: NextRequest) {
   // les liens internes sont alors « /produit/… » et non « /s/<boutique>/produit/… ».
   const headers = new Headers(request.headers);
   headers.set("x-store-base", "");
+  headers.set(STORE_SITE_HEADER, tenant.site);
   return NextResponse.rewrite(url, { request: { headers } });
+}
+
+function safeDecode(segment: string): string {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
 }
 
 export const config = {

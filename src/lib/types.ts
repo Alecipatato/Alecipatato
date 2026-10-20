@@ -3,6 +3,8 @@
  * C'est ce JSON (colonne stores.config) que l'IA génère.
  */
 
+import type { Locale } from "./i18n/config";
+
 export type ThemeId = "minimal" | "bold" | "elegant";
 
 export interface StoreConfig {
@@ -34,6 +36,8 @@ export interface Store {
   config: StoreConfig;
   contactEmail: string | null;
   currency: string;
+  /** Langue de la vitrine et des textes générés. */
+  language: Locale;
 }
 
 /** Produit tel qu'affiché au public (jamais les coûts fournisseur). */

@@ -2,7 +2,6 @@ import { getProductDetail, getVariantStock } from "../cj/catalog";
 import { getUsdCadRate } from "../fx";
 import { minimumPriceCents, suggestRetailPriceCents, usdToCadCents } from "../money";
 import { getPlatformSettings } from "../settings";
-import { formatPrice } from "../store-config";
 import { createAdminClient } from "../supabase/admin";
 
 /**
@@ -47,7 +46,7 @@ export async function syncSupplierProducts(limit = 25): Promise<SyncReport> {
       if (!variant) {
         await admin
           .from("products")
-          .update({ status: "rejected", sync_status: "unavailable", sync_note: "Retiré du catalogue du fournisseur.", last_synced_at: now })
+          .update({ status: "rejected", sync_status: "unavailable", sync_note: null, last_synced_at: now })
           .eq("id", product.id);
         report.unavailable++;
         continue;
@@ -77,11 +76,12 @@ export async function syncSupplierProducts(limit = 25): Promise<SyncReport> {
         Object.assign(patch, {
           price_cents: suggested,
           sync_status: "price_raised",
-          sync_note: `Prix relevé de ${formatPrice(currentPrice, "CAD")} à ${formatPrice(suggested, "CAD")} : le coût du fournisseur a augmenté.`,
+          // Ancien prix (en cents) : le message est rédigé à l'affichage, dans la langue du client.
+          sync_note: String(currentPrice),
         });
         report.priceRaised++;
       } else if (stock === 0) {
-        Object.assign(patch, { sync_status: "out_of_stock", sync_note: "En rupture de stock chez le fournisseur." });
+        Object.assign(patch, { sync_status: "out_of_stock", sync_note: null });
         report.outOfStock++;
       } else {
         Object.assign(patch, { sync_status: "ok", sync_note: null });

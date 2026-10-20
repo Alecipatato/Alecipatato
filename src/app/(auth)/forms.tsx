@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useActionState, useState } from "react";
 import { Alert, Field, GoogleIcon, inputClasses, SubmitButton } from "@/components/ui";
+import { useI18n } from "@/lib/i18n/client";
 import {
   type FormState,
   requestPasswordReset,
@@ -16,10 +17,11 @@ import {
 const initial: FormState = {};
 
 export function GoogleButton({ next, label }: { next?: string; label: string }) {
+  const { m } = useI18n();
   return (
     <form action={signInWithGoogle}>
       <input type="hidden" name="next" value={next ?? ""} />
-      <SubmitButton variant="secondary" className="w-full" pendingLabel="Redirection vers Google…">
+      <SubmitButton variant="secondary" className="w-full" pendingLabel={m.auth.google.redirecting}>
         <GoogleIcon />
         {label}
       </SubmitButton>
@@ -28,10 +30,11 @@ export function GoogleButton({ next, label }: { next?: string; label: string }) 
 }
 
 export function Divider() {
+  const { m } = useI18n();
   return (
     <div className="flex items-center gap-3 text-xs uppercase tracking-wider text-muted">
       <span className="h-px flex-1 bg-line" />
-      ou
+      {m.auth.or}
       <span className="h-px flex-1 bg-line" />
     </div>
   );
@@ -39,6 +42,7 @@ export function Divider() {
 
 function PasswordInput({ id, name, autoComplete }: { id: string; name: string; autoComplete: string }) {
   const [visible, setVisible] = useState(false);
+  const { m } = useI18n();
   return (
     <div className="relative">
       <input
@@ -55,7 +59,7 @@ function PasswordInput({ id, name, autoComplete }: { id: string; name: string; a
         onClick={() => setVisible((v) => !v)}
         className="absolute inset-y-0 right-2 my-auto h-7 rounded-lg px-2 text-xs font-medium text-muted hover:text-ink"
       >
-        {visible ? "Masquer" : "Afficher"}
+        {visible ? m.auth.hide : m.auth.show}
       </button>
     </div>
   );
@@ -63,90 +67,93 @@ function PasswordInput({ id, name, autoComplete }: { id: string; name: string; a
 
 export function SignInForm({ next }: { next?: string }) {
   const [state, action] = useActionState(signIn, initial);
+  const { auth: t } = useI18n().m;
   return (
     <form action={action} className="flex flex-col gap-4">
       {state.error && <Alert kind="error">{state.error}</Alert>}
       <input type="hidden" name="next" value={next ?? ""} />
-      <Field label="Courriel" id="email">
+      <Field label={t.email} id="email">
         <input id="email" name="email" type="email" autoComplete="email" required defaultValue={state.email} className={inputClasses} />
       </Field>
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between">
-          <label htmlFor="password" className="text-sm font-medium">Mot de passe</label>
+          <label htmlFor="password" className="text-sm font-medium">{t.password}</label>
           <Link href="/mot-de-passe-oublie" className="text-xs font-medium text-brand hover:underline">
-            Mot de passe oublié ?
+            {t.signIn.forgot}
           </Link>
         </div>
         <PasswordInput id="password" name="password" autoComplete="current-password" />
       </div>
-      <SubmitButton pendingLabel="Connexion…">Se connecter</SubmitButton>
+      <SubmitButton pendingLabel={t.signIn.pending}>{t.signIn.submit}</SubmitButton>
     </form>
   );
 }
 
 export function SignUpForm() {
   const [state, action] = useActionState(signUp, initial);
+  const { auth: t } = useI18n().m;
   return (
     <form action={action} className="flex flex-col gap-4">
       {state.error && <Alert kind="error">{state.error}</Alert>}
-      <Field label="Nom complet" id="full_name">
+      <Field label={t.signUp.fullName} id="full_name">
         <input id="full_name" name="full_name" autoComplete="name" required className={inputClasses} />
       </Field>
-      <Field label="Courriel" id="email">
+      <Field label={t.email} id="email">
         <input id="email" name="email" type="email" autoComplete="email" required defaultValue={state.email} className={inputClasses} />
       </Field>
-      <Field label="Mot de passe" id="password" hint="Au moins 8 caractères, avec des lettres et des chiffres.">
+      <Field label={t.password} id="password" hint={t.passwordHint}>
         <PasswordInput id="password" name="password" autoComplete="new-password" />
       </Field>
       <label className="flex items-start gap-2.5 text-sm text-muted">
         <input type="checkbox" name="terms" required className="mt-0.5 h-4 w-4 accent-[var(--brand)]" />
-        <span>
-          J&apos;accepte les conditions d&apos;utilisation, dont la commission de 15 % sur la marge brute de chaque vente.
-        </span>
+        <span>{t.signUp.terms}</span>
       </label>
-      <SubmitButton pendingLabel="Création du compte…">Créer mon compte</SubmitButton>
+      <SubmitButton pendingLabel={t.signUp.pending}>{t.signUp.submit}</SubmitButton>
     </form>
   );
 }
 
 export function ForgotPasswordForm() {
   const [state, action] = useActionState(requestPasswordReset, initial);
+  const { auth: t } = useI18n().m;
   if (state.message) return <Alert kind="success">{state.message}</Alert>;
   return (
     <form action={action} className="flex flex-col gap-4">
       {state.error && <Alert kind="error">{state.error}</Alert>}
-      <Field label="Courriel" id="email">
+      <Field label={t.email} id="email">
         <input id="email" name="email" type="email" autoComplete="email" required defaultValue={state.email} className={inputClasses} />
       </Field>
-      <SubmitButton pendingLabel="Envoi…">Recevoir le lien</SubmitButton>
+      <SubmitButton pendingLabel={t.forgot.pending}>{t.forgot.submit}</SubmitButton>
     </form>
   );
 }
 
 export function ResetPasswordForm() {
   const [state, action] = useActionState(updatePassword, initial);
+  const { auth: t } = useI18n().m;
   return (
     <form action={action} className="flex flex-col gap-4">
       {state.error && <Alert kind="error">{state.error}</Alert>}
-      <Field label="Nouveau mot de passe" id="password" hint="Au moins 8 caractères, avec des lettres et des chiffres.">
+      <Field label={t.reset.newPassword} id="password" hint={t.passwordHint}>
         <PasswordInput id="password" name="password" autoComplete="new-password" />
       </Field>
-      <Field label="Confirmez le mot de passe" id="password_confirm">
+      <Field label={t.reset.confirm} id="password_confirm">
         <PasswordInput id="password_confirm" name="password_confirm" autoComplete="new-password" />
       </Field>
-      <SubmitButton pendingLabel="Enregistrement…">Enregistrer le mot de passe</SubmitButton>
+      <SubmitButton pendingLabel={t.reset.pending}>{t.reset.submit}</SubmitButton>
     </form>
   );
 }
 
 export function ResendConfirmationForm({ email }: { email: string }) {
   const [state, action] = useActionState(resendConfirmation, { email });
+  const { auth: t } = useI18n().m;
   return (
     <form action={action} className="flex flex-col gap-3">
       {state.error && <Alert kind="error">{state.error}</Alert>}
       {state.message && <Alert kind="success">{state.message}</Alert>}
       <input type="hidden" name="email" value={state.email ?? email} />
-      <SubmitButton variant="secondary" pendingLabel="Envoi…">Renvoyer le courriel</SubmitButton>
+      <SubmitButton variant="secondary" pendingLabel={t.checkEmail.pending}>{t.checkEmail.resend}</SubmitButton>
     </form>
   );
 }

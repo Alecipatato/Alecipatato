@@ -12,22 +12,26 @@ import { parseStoreConfig, THEME_IDS } from "@/lib/store-config";
 import { allocateSubdomain } from "@/lib/subdomains";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { GeneratedProduct } from "@/lib/ai/store-generator";
+import { fmt, isLocale, plural } from "@/lib/i18n/config";
+import { getLocale, getMessages } from "@/lib/i18n/server";
 import type { ThemeId } from "@/lib/types";
 
 export type ActionState = { error?: string; message?: string };
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
 
-function readBrief(formData: FormData): StoreBrief | string {
+async function readBrief(formData: FormData): Promise<StoreBrief | string> {
+  const t = (await getMessages()).dashboard.actions;
   const niche = String(formData.get("niche") ?? "").trim();
   const productTypes = String(formData.get("product_types") ?? "").trim();
   const themeRaw = String(formData.get("theme") ?? "auto");
   const palette = String(formData.get("palette") ?? "auto");
   const primaryColor = String(formData.get("primary_color") ?? "");
   const storeName = String(formData.get("store_name") ?? "").trim();
+  const languageRaw = formData.get("language");
 
-  if (niche.length < 10) return "Décrivez votre niche en au moins une phrase (10 caractères minimum).";
-  if (niche.length > 1000 || productTypes.length > 500 || storeName.length > 60) return "Un des champs est trop long.";
+  if (niche.length < 10) return t.nicheTooShort;
+  if (niche.length > 1000 || productTypes.length > 500 || storeName.length > 60) return t.fieldTooLong;
   const theme = themeRaw === "auto" || THEME_IDS.includes(themeRaw as ThemeId) ? (themeRaw as StoreBrief["theme"]) : "auto";
   const validPalette = palette === "auto" || palette === "custom" || palette in PALETTES ? palette : "auto";
 
@@ -38,6 +42,7 @@ function readBrief(formData: FormData): StoreBrief | string {
     palette: validPalette,
     primaryColor: validPalette === "custom" && HEX.test(primaryColor) ? primaryColor : undefined,
     storeName: storeName || undefined,
+    language: isLocale(languageRaw) ? languageRaw : await getLocale(),
   };
 }
 
@@ -50,6 +55,7 @@ async function runGeneration(
 ): Promise<(GenerationResult & { logId: string }) | string> {
   const admin = createAdminClient();
   const settings = await getPlatformSettings();
+  const m = await getMessages();
 
   const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
   const { count } = await admin
@@ -59,7 +65,7 @@ async function runGeneration(
     .in("kind", ["create_store", "regenerate_store"]) // la recherche de produits ne compte pas dans la limite
     .gte("created_at", since);
   if ((count ?? 0) >= settings.aiRateLimit.maxRequestsPerHour) {
-    return "Vous avez atteint la limite de générations pour cette heure. Réessayez un peu plus tard.";
+    return m.dashboard.actions.rateLimited;
   }
 
   const { data: log, error: logError } = await admin
@@ -82,7 +88,10 @@ async function runGeneration(
       .eq("id", log.id);
     return { ...result, logId: log.id };
   } catch (error) {
-    const message = error instanceof StoreGenerationError ? error.message : "La génération a échoué. Réessayez dans un instant.";
+    const message =
+      error instanceof StoreGenerationError
+        ? fmt(m.errors.generation[error.code], { reason: error.reason ?? "" })
+        : m.dashboard.actions.generationFailed;
     if (!(error instanceof StoreGenerationError)) console.error("Génération IA :", error);
     await admin
       .from("ai_generations")
@@ -120,15 +129,15 @@ async function getOwnedStore(storeId: string, userId: string) {
 
 export async function createStore(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await requireUser();
-  const brief = readBrief(formData);
+  const t = (await getMessages()).dashboard.actions;
+  const brief = await readBrief(formData);
   if (typeof brief === "string") return { error: brief };
 
   const admin = createAdminClient();
   const settings = await getPlatformSettings();
   const { count } = await admin.from("stores").select("id", { count: "exact", head: true }).eq("owner_id", user.id);
-  if ((count ?? 0) >= settings.freePlan.maxStores) {
-    return { error: `Le compte gratuit est limité à ${settings.freePlan.maxStores} boutique${settings.freePlan.maxStores > 1 ? "s" : ""}.` };
-  }
+  const max = settings.freePlan.maxStores;
+  if ((count ?? 0) >= max) return { error: fmt(plural(max, t.storeLimitOne, t.storeLimitOther), { max }) };
 
   const result = await runGeneration(user.id, "create_store", null, brief);
   if (typeof result === "string") return { error: result };
@@ -148,13 +157,14 @@ export async function createStore(_prev: ActionState, formData: FormData): Promi
       // Avec le fournisseur CJ : hors ligne le temps de choisir les produits.
       status: withSupplier ? "draft" : "active",
       contact_email: user.email,
+      language: brief.language,
       generation_brief: brief,
     })
     .select("id")
     .single();
   if (error) {
     console.error("Création de boutique :", error);
-    return { error: "La boutique n'a pas pu être enregistrée. Réessayez." };
+    return { error: t.saveFailed };
   }
 
   await admin.from("ai_generations").update({ store_id: store.id }).eq("id", result.logId);
@@ -174,17 +184,18 @@ export async function createStore(_prev: ActionState, formData: FormData): Promi
 
 export async function regenerateStore(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await requireUser();
+  const t = (await getMessages()).dashboard.actions;
   const storeId = String(formData.get("store_id") ?? "");
   const store = await getOwnedStore(storeId, user.id);
-  if (!store) return { error: "Boutique introuvable." };
-  if (store.status === "suspended") return { error: "Cette boutique est suspendue : elle ne peut pas être modifiée." };
+  if (!store) return { error: t.notFound };
+  if (store.status === "suspended") return { error: t.suspended };
 
   const settings = await getPlatformSettings();
   if (store.regeneration_count >= settings.freePlan.maxRegenerationsPerStore) {
-    return { error: `Vous avez utilisé vos ${settings.freePlan.maxRegenerationsPerStore} régénérations pour cette boutique.` };
+    return { error: fmt(t.regenerationsUsed, { max: settings.freePlan.maxRegenerationsPerStore }) };
   }
 
-  const brief = readBrief(formData);
+  const brief = await readBrief(formData);
   if (typeof brief === "string") return { error: brief };
 
   const result = await runGeneration(user.id, "regenerate_store", store.id, brief);
@@ -199,31 +210,33 @@ export async function regenerateStore(_prev: ActionState, formData: FormData): P
       niche_description: brief.niche,
       theme: generated.theme,
       config: generated.config,
+      language: brief.language,
       generation_brief: brief,
       regeneration_count: store.regeneration_count + 1,
     })
     .eq("id", store.id);
-  if (error) return { error: "La boutique n'a pas pu être mise à jour. Réessayez." };
+  if (error) return { error: t.updateFailed };
 
   // Les produits du fournisseur sont conservés ; seuls les produits d'exemple sont regénérés.
   await admin.from("products").delete().eq("store_id", store.id).eq("supplier", "sample");
   if (!isCjConfigured()) await admin.from("products").insert(productRows(store.id, generated.products));
 
   revalidatePath(`/tableau-de-bord/boutiques/${store.id}`);
-  return { message: "Votre boutique a été régénérée." };
+  return { message: t.regenerated };
 }
 
 export async function updateStoreDesign(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await requireUser();
+  const t = (await getMessages()).dashboard.actions;
   const store = await getOwnedStore(String(formData.get("store_id") ?? ""), user.id);
-  if (!store) return { error: "Boutique introuvable." };
-  if (store.status === "suspended") return { error: "Cette boutique est suspendue : elle ne peut pas être modifiée." };
+  if (!store) return { error: t.notFound };
+  if (store.status === "suspended") return { error: t.suspended };
 
   const get = (key: string) => String(formData.get(key) ?? "").trim();
   const name = get("name").slice(0, 60);
-  if (!name) return { error: "Le nom de la boutique est obligatoire." };
+  if (!name) return { error: t.nameRequired };
   const contactEmail = get("contact_email");
-  if (contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) return { error: "Adresse de contact invalide." };
+  if (contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) return { error: t.invalidContact };
   const theme = get("theme");
 
   const current = parseStoreConfig(store.config);
@@ -253,10 +266,10 @@ export async function updateStoreDesign(_prev: ActionState, formData: FormData):
       contact_email: contactEmail || null,
     })
     .eq("id", store.id);
-  if (error) return { error: "Les modifications n'ont pas pu être enregistrées." };
+  if (error) return { error: t.changesFailed };
 
   revalidatePath(`/tableau-de-bord/boutiques/${store.id}`);
-  return { message: "Modifications enregistrées. Elles sont déjà visibles sur votre boutique." };
+  return { message: t.changesSaved };
 }
 
 

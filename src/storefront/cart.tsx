@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState, useSyncExternalStore, useTransition } from "react";
+import { useI18n } from "@/lib/i18n/client";
+import { fmt, plural } from "@/lib/i18n/config";
 import { formatPrice } from "@/lib/store-config";
 import { startCheckout } from "./actions";
 
@@ -94,10 +96,11 @@ function CartIcon() {
 
 export function CartLink({ storeId, href }: { storeId: string; href: string }) {
   const { count } = useCart(storeId);
+  const t = useI18n().m.storefront.cart;
   return (
-    <Link href={href} className="relative inline-flex items-center gap-2 px-1 py-1 text-sm font-medium" aria-label={`Panier, ${count} article${count > 1 ? "s" : ""}`}>
+    <Link href={href} className="relative inline-flex items-center gap-2 px-1 py-1 text-sm font-medium" aria-label={plural(count, t.ariaOne, t.ariaOther)}>
       <CartIcon />
-      <span className="hidden sm:inline">Panier</span>
+      <span className="hidden sm:inline">{t.link}</span>
       {count > 0 && (
         <span className="absolute -top-1 left-4 grid h-5 min-w-5 place-items-center rounded-full bg-[var(--store-accent)] px-1 text-[11px] font-bold text-[var(--store-on-accent)]">
           {count}
@@ -112,6 +115,7 @@ type ProductRef = { id: string; title: string; priceCents: number };
 export function AddToCartButton({ storeId, product, compact = false }: { storeId: string; product: ProductRef; compact?: boolean }) {
   const { add } = useCart(storeId);
   const [added, setAdded] = useState(false);
+  const t = useI18n().m.storefront.cart;
   return (
     <button
       type="button"
@@ -122,7 +126,7 @@ export function AddToCartButton({ storeId, product, compact = false }: { storeId
       }}
       className={`sf-btn ${compact ? "px-3 py-2 text-xs" : "w-full px-6 py-3 text-sm"}`}
     >
-      {added ? "Ajouté ✓" : "Ajouter au panier"}
+      {added ? t.added : t.add}
     </button>
   );
 }
@@ -131,10 +135,11 @@ export function BuyBox({ storeId, product }: { storeId: string; product: Product
   const { add } = useCart(storeId);
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
+  const t = useI18n().m.storefront.cart;
   return (
     <div className="flex flex-col gap-3">
       <label className="flex items-center gap-3 text-sm">
-        Quantité
+        {t.quantity}
         <select
           value={quantity}
           onChange={(e) => setQuantity(Number(e.target.value))}
@@ -154,7 +159,7 @@ export function BuyBox({ storeId, product }: { storeId: string; product: Product
         }}
         className="sf-btn w-full px-6 py-3.5 text-sm"
       >
-        {added ? "Ajouté au panier ✓" : "Ajouter au panier"}
+        {added ? t.addedToCart : t.add}
       </button>
     </div>
   );
@@ -176,22 +181,25 @@ export function CartView({
   const { items, subtotalCents, setQuantity } = useCart(storeId);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const { locale, m } = useI18n();
+  const t = m.storefront.cart;
+  const price = (cents: number) => formatPrice(cents, currency, locale);
 
   const checkout = () => {
     setError(null);
     startTransition(async () => {
       const result = await startCheckout(site, items.map((i) => ({ productId: i.id, quantity: i.quantity })));
       if (result.url) window.location.assign(result.url);
-      else setError(result.error ?? "Le paiement n'a pas pu démarrer.");
+      else setError(result.error ?? t.checkoutFailed);
     });
   };
 
   if (items.length === 0) {
     return (
       <div className="rounded-[var(--sf-radius)] border border-[var(--sf-line)] bg-[var(--sf-surface)] px-6 py-16 text-center">
-        <p className="sf-heading text-2xl">Votre panier est vide</p>
-        <p className="mt-2 text-[var(--sf-muted)]">Parcourez nos produits pour trouver votre bonheur.</p>
-        <Link href={base || "/"} className="sf-btn mt-6 px-6 py-3 text-sm">Voir les produits</Link>
+        <p className="sf-heading text-2xl">{t.empty}</p>
+        <p className="mt-2 text-[var(--sf-muted)]">{t.emptyHint}</p>
+        <Link href={base || "/"} className="sf-btn mt-6 px-6 py-3 text-sm">{t.browse}</Link>
       </div>
     );
   }
@@ -203,10 +211,10 @@ export function CartView({
           <li key={item.id} className="flex flex-wrap items-center gap-4 py-5">
             <div className="min-w-0 flex-1">
               <Link href={`${base}/produit/${item.id}`} className="font-medium hover:underline">{item.title}</Link>
-              <p className="mt-1 text-sm text-[var(--sf-muted)]">{formatPrice(item.priceCents, currency)} l&apos;unité</p>
+              <p className="mt-1 text-sm text-[var(--sf-muted)]">{fmt(t.each, { price: price(item.priceCents) })}</p>
             </div>
             <select
-              aria-label={`Quantité pour ${item.title}`}
+              aria-label={fmt(t.quantityFor, { title: item.title })}
               value={item.quantity}
               onChange={(e) => setQuantity(item.id, Number(e.target.value))}
               className="rounded-[var(--sf-radius)] border border-[var(--sf-line)] bg-[var(--store-bg)] px-3 py-2 text-sm"
@@ -215,25 +223,25 @@ export function CartView({
                 <option key={n} value={n}>{n}</option>
               ))}
             </select>
-            <span className="w-24 text-right font-semibold tabular-nums">{formatPrice(item.priceCents * item.quantity, currency)}</span>
+            <span className="w-24 text-right font-semibold tabular-nums">{price(item.priceCents * item.quantity)}</span>
             <button type="button" onClick={() => setQuantity(item.id, 0)} className="text-sm text-[var(--sf-muted)] underline hover:text-[var(--store-text)]">
-              Retirer
+              {t.remove}
             </button>
           </li>
         ))}
       </ul>
       <aside className="h-fit rounded-[var(--sf-radius)] border border-[var(--sf-line)] bg-[var(--sf-surface)] p-6">
         <div className="flex justify-between text-sm">
-          <span>Sous-total</span>
-          <span className="font-semibold tabular-nums">{formatPrice(subtotalCents, currency)}</span>
+          <span>{t.subtotal}</span>
+          <span className="font-semibold tabular-nums">{price(subtotalCents)}</span>
         </div>
-        <p className="mt-1 text-xs text-[var(--sf-muted)]">Livraison gratuite. Taxes calculées à l&apos;étape du paiement.</p>
+        <p className="mt-1 text-xs text-[var(--sf-muted)]">{t.shippingNote}</p>
         <button type="button" onClick={checkout} disabled={!checkoutEnabled || pending} className="sf-btn mt-5 w-full px-6 py-3 text-sm">
-          {pending ? "Redirection vers le paiement…" : "Passer à la caisse"}
+          {pending ? t.redirecting : t.checkout}
         </button>
         {error && <p role="alert" className="mt-3 text-center text-sm text-red-600">{error}</p>}
         <p className="mt-3 text-center text-xs text-[var(--sf-muted)]">
-          {checkoutEnabled ? "Paiement sécurisé par Stripe." : "Cette boutique n'accepte pas encore les paiements en ligne."}
+          {checkoutEnabled ? t.secure : t.disabled}
         </p>
       </aside>
     </div>

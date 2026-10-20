@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { getOrigin, requireUser } from "@/lib/auth";
 import { createExpressDashboardLink, createOnboardingLink, ensureConnectedAccount } from "@/lib/payments/connect";
 import { recordRefund } from "@/lib/payments/events";
+import { getMessages } from "@/lib/i18n/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe";
 
@@ -53,6 +54,7 @@ export async function refundOrder(_prev: RefundState, formData: FormData): Promi
   const user = await requireUser();
   const admin = createAdminClient();
   const orderId = String(formData.get("order_id") ?? "");
+  const t = (await getMessages()).sales.orders.errors;
 
   const { data: order } = await admin
     .from("orders")
@@ -60,15 +62,15 @@ export async function refundOrder(_prev: RefundState, formData: FormData): Promi
     .eq("id", orderId)
     .maybeSingle();
   const owner = (order?.stores as unknown as { owner_id: string } | null)?.owner_id;
-  if (!order || owner !== user.id) return { error: "Commande introuvable." };
-  if (!REFUNDABLE.includes(order.status) || !order.stripe_payment_intent_id) return { error: "Cette commande ne peut pas être remboursée." };
-  if (order.disputed) return { error: "Un litige est en cours sur cette commande : le remboursement passe par Stripe." };
+  if (!order || owner !== user.id) return { error: t.notFound };
+  if (!REFUNDABLE.includes(order.status) || !order.stripe_payment_intent_id) return { error: t.notRefundable };
+  if (order.disputed) return { error: t.disputed };
 
   const remaining = Number(order.total_cents) - Number(order.refunded_cents);
   const amountText = String(formData.get("amount") ?? "").trim();
   const amount = amountText ? parseAmountCents(amountText) : remaining;
-  if (amount === null || amount <= 0) return { error: "Montant invalide." };
-  if (amount > remaining) return { error: "Le montant dépasse ce qui reste à rembourser." };
+  if (amount === null || amount <= 0) return { error: t.invalidAmount };
+  if (amount > remaining) return { error: t.tooMuch };
 
   try {
     const refund = await getStripe().refunds.create(
@@ -84,7 +86,7 @@ export async function refundOrder(_prev: RefundState, formData: FormData): Promi
     await recordRefund(refund);
   } catch (err) {
     console.error("Remboursement :", err);
-    return { error: "Le remboursement a échoué. Réessayez ou contactez le support." };
+    return { error: t.failed };
   }
 
   // Confirmation affichée en haut de la liste (le formulaire disparaît si tout est remboursé).

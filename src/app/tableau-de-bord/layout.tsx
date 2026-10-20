@@ -2,10 +2,13 @@ import Link from "next/link";
 import { signOut } from "@/app/(auth)/actions";
 import { Logo } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
+import { LanguageSwitcher } from "@/lib/i18n/client";
+import { getMessages } from "@/lib/i18n/server";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
   const name = (user.user_metadata?.full_name as string | undefined) || user.email;
+  const t = (await getMessages()).dashboard.nav;
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -13,16 +16,17 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <div className="flex items-center gap-8">
             <Logo />
-            <nav aria-label="Tableau de bord" className="flex gap-5 text-sm font-medium">
-              <Link href="/tableau-de-bord" className="text-muted hover:text-ink">Mes boutiques</Link>
-              <Link href="/tableau-de-bord/paiements" className="text-muted hover:text-ink">Paiements</Link>
+            <nav aria-label={t.label} className="flex gap-5 text-sm font-medium">
+              <Link href="/tableau-de-bord" className="text-muted hover:text-ink">{t.stores}</Link>
+              <Link href="/tableau-de-bord/paiements" className="text-muted hover:text-ink">{t.payments}</Link>
             </nav>
           </div>
           <div className="flex items-center gap-4 text-sm">
+            <LanguageSwitcher />
             <span className="hidden max-w-56 truncate text-muted sm:inline">{name}</span>
             <form action={signOut}>
               <button type="submit" className="rounded-lg px-3 py-1.5 font-medium text-muted hover:bg-paper hover:text-ink">
-                Se déconnecter
+                {t.signOut}
               </button>
             </form>
           </div>

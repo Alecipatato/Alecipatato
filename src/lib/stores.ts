@@ -1,10 +1,11 @@
 import { cache } from "react";
 import { DEMO_STORES } from "./demo-stores";
+import { isLocale } from "./i18n/config";
 import { parseStoreConfig, parseTheme } from "./store-config";
 import { createPublicClient } from "./supabase/public";
 import type { StoreWithProducts } from "./types";
 
-const STORE_COLUMNS = "id, subdomain, custom_domain, name, theme, config, contact_email, currency";
+const STORE_COLUMNS = "id, subdomain, custom_domain, name, theme, config, contact_email, currency, language";
 const PRODUCT_COLUMNS = "id, title, description, category, highlights, images, price_cents, stock, delivery_days_min, delivery_days_max";
 
 /**
@@ -50,6 +51,7 @@ export const getStoreBySite = cache(async (site: string): Promise<StoreWithProdu
       config: parseStoreConfig(row.config),
       contactEmail: row.contact_email,
       currency: row.currency,
+      language: isLocale(row.language) ? row.language : "en",
     },
     products: (products ?? []).map((p) => ({
       id: p.id,

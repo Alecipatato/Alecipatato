@@ -10,7 +10,17 @@ import { automaticTaxEnabled, getStripe, isLiveMode } from "../stripe";
  * sera transférée après la réserve (voir payouts.ts).
  */
 
-export class CheckoutError extends Error {}
+export type CheckoutErrorCode = "unavailable" | "notAccepting" | "emptyCart" | "itemGone" | "outOfStock" | "samples";
+
+/** Erreur montrée à l'acheteur : `code` → message traduit (messages storefront.errors). */
+export class CheckoutError extends Error {
+  constructor(
+    readonly code: CheckoutErrorCode,
+    readonly productTitle?: string,
+  ) {
+    super(code);
+  }
+}
 
 export interface CartLine {
   productId: string;
@@ -47,10 +57,10 @@ export async function createCheckoutSession(params: {
 }): Promise<string> {
   const admin = createAdminClient();
 
-  const { data: store } = await admin.from("stores").select("id, name, status, currency").eq("id", params.storeId).maybeSingle();
-  if (!store || store.status !== "active") throw new CheckoutError("Cette boutique n'est pas disponible.");
+  const { data: store } = await admin.from("stores").select("id, name, status, currency, language").eq("id", params.storeId).maybeSingle();
+  if (!store || store.status !== "active") throw new CheckoutError("unavailable");
   if (!(await storeAcceptsPayments(store.id))) {
-    throw new CheckoutError("Cette boutique n'accepte pas encore les paiements en ligne.");
+    throw new CheckoutError("notAccepting");
   }
 
   // Regroupe les doublons et valide les quantités.
@@ -59,7 +69,7 @@ export async function createCheckoutSession(params: {
     if (typeof line.productId !== "string" || !Number.isInteger(line.quantity) || line.quantity < 1) continue;
     quantities.set(line.productId, Math.min((quantities.get(line.productId) ?? 0) + line.quantity, MAX_QUANTITY));
   }
-  if (quantities.size === 0) throw new CheckoutError("Votre panier est vide.");
+  if (quantities.size === 0) throw new CheckoutError("emptyCart");
 
   const { data: products, error } = await admin
     .from("products")
@@ -70,15 +80,15 @@ export async function createCheckoutSession(params: {
 
   const available = (products ?? []).filter((p) => p.status === "active");
   if (available.length !== quantities.size) {
-    throw new CheckoutError("Un article de votre panier n'est plus disponible. Retirez-le puis réessayez.");
+    throw new CheckoutError("itemGone");
   }
   for (const p of available) {
     if (p.stock !== null && p.stock < (quantities.get(p.id) ?? 0)) {
-      throw new CheckoutError(`Stock insuffisant pour « ${p.title} ».`);
+      throw new CheckoutError("outOfStock", p.title);
     }
   }
   if (isLiveMode() && available.some((p) => p.supplier === "sample")) {
-    throw new CheckoutError("Cette boutique contient encore des produits d'exemple : la vente réelle est impossible.");
+    throw new CheckoutError("samples");
   }
 
   const settings = await getPlatformSettings();
@@ -138,7 +148,7 @@ export async function createCheckoutSession(params: {
   const session = await getStripe().checkout.sessions.create(
     {
       mode: "payment",
-      locale: "fr-CA",
+      locale: store.language === "fr" ? "fr-CA" : "en",
       client_reference_id: order.id,
       metadata: { order_id: order.id, store_id: store.id },
       line_items: lines.map((l) => ({

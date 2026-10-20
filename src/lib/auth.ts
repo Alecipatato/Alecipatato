@@ -1,5 +1,7 @@
 import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import type { Messages } from "./i18n/messages";
+import { createAdminClient } from "./supabase/admin";
 import { createUserClient } from "./supabase/server";
 
 /** Utilisateur connecté (vérifié auprès de Supabase), ou null. */
@@ -13,6 +15,19 @@ export async function getCurrentUser() {
 export async function requireUser() {
   const user = await getCurrentUser();
   if (!user) redirect("/connexion");
+  return user;
+}
+
+/** L'utilisateur a-t-il le rôle administrateur (profiles.role = 'admin') ? */
+export async function isAdmin(userId: string): Promise<boolean> {
+  const { data } = await createAdminClient().from("profiles").select("role").eq("id", userId).maybeSingle();
+  return data?.role === "admin";
+}
+
+/** Administrateur connecté, sinon page introuvable (on ne révèle pas l'existence de l'espace admin). */
+export async function requireAdmin() {
+  const user = await requireUser();
+  if (!(await isAdmin(user.id))) notFound();
   return user;
 }
 
@@ -31,26 +46,22 @@ export function safeNextPath(next: string | null | undefined, fallback = "/table
   return next;
 }
 
-/** Traduit les erreurs Supabase Auth en messages clairs. */
-export function authErrorMessage(error: { code?: string; message: string }): string {
+/** Erreurs Supabase Auth → clé du message clair (messages auth.errors). */
+export function authErrorKey(error: { code?: string }): keyof Messages["auth"]["errors"] {
   switch (error.code) {
     case "invalid_credentials":
-      return "Courriel ou mot de passe incorrect.";
     case "email_not_confirmed":
-      return "Votre adresse courriel n'est pas encore confirmée. Cliquez sur le lien reçu par courriel.";
     case "weak_password":
-      return "Mot de passe trop faible : au moins 8 caractères, avec des lettres et des chiffres.";
     case "same_password":
-      return "Le nouveau mot de passe doit être différent de l'ancien.";
+    case "signup_disabled":
+      return error.code;
     case "over_email_send_rate_limit":
     case "over_request_rate_limit":
-      return "Trop de tentatives. Patientez quelques minutes avant de réessayer.";
+      return "rate_limit";
     case "user_already_exists":
     case "email_exists":
-      return "Un compte existe déjà avec cette adresse. Connectez-vous ou réinitialisez votre mot de passe.";
-    case "signup_disabled":
-      return "Les inscriptions sont temporairement fermées.";
+      return "user_exists";
     default:
-      return "Une erreur est survenue. Réessayez dans un instant.";
+      return "generic";
   }
 }

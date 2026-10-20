@@ -2,8 +2,8 @@ import type { StoreProduct, StoreWithProducts } from "./types";
 
 /**
  * Boutiques de démonstration codées à la main.
- * Elles fonctionnent sans base de données et montrent les trois styles :
- *   http://demo.localhost:3000   → « minimal »
+ * Elles fonctionnent sans base de données et montrent les trois styles (et les deux langues) :
+ *   http://demo.localhost:3000   → « minimal » (anglais)
  *   http://demo2.localhost:3000  → « bold »
  *   http://demo3.localhost:3000  → « elegant »
  * Ces sous-domaines sont réservés : aucune vraie boutique ne peut les prendre.
@@ -26,42 +26,43 @@ export const DEMO_STORES: Record<string, StoreWithProducts> = {
       customDomain: null,
       name: "Zen Atelier",
       theme: "minimal",
-      contactEmail: "bonjour@zenatelier.example",
+      contactEmail: "hello@zenatelier.example",
       currency: "CAD",
+      language: "en",
       config: {
         colors: { primary: "#3f6b4f", accent: "#a8743a", background: "#faf8f4", text: "#1f2a24" },
         fonts: { heading: "Cormorant Garamond", body: "DM Sans" },
         content: {
-          tagline: "Yoga et méditation, en toute simplicité",
+          tagline: "Yoga and meditation, made simple",
           hero: {
-            title: "Trouvez votre calme intérieur",
-            subtitle: "Des accessoires choisis pour accompagner votre pratique, du premier souffle à la dernière posture.",
-            ctaLabel: "Découvrir la collection",
+            title: "Find your inner calm",
+            subtitle: "Hand-picked accessories to support your practice, from the first breath to the last pose.",
+            ctaLabel: "Explore the collection",
           },
           features: [
-            { title: "Livraison au Canada", description: "Reçue en moins de 15 jours, suivi inclus." },
-            { title: "Matières douces", description: "Liège, coton et fibres naturelles." },
-            { title: "Retours faciles", description: "30 jours pour changer d'avis." },
+            { title: "Delivery in Canada", description: "Arrives in under 15 days, tracking included." },
+            { title: "Soft materials", description: "Cork, cotton and natural fibres." },
+            { title: "Easy returns", description: "30 days to change your mind." },
           ],
           about: {
-            title: "Notre philosophie",
-            body: "Zen Atelier est né d'une idée simple : une pratique sereine commence par un espace apaisant. Chaque objet est sélectionné pour sa qualité et sa simplicité.",
+            title: "Our philosophy",
+            body: "Zen Atelier was born from a simple idea: a peaceful practice starts with a calming space. Every item is chosen for its quality and simplicity.",
           },
-          footerText: "Respirez. Bougez. Recommencez.",
+          footerText: "Breathe. Move. Repeat.",
         },
       },
     },
     products: [
-      p("d1", "Tapis de yoga en liège", "Tapis", 7900, "Un tapis naturel qui adhère mieux à mesure que vous transpirez.", ["Liège naturel et caoutchouc", "4 mm d'épaisseur", "183 × 61 cm", "Sangle de transport incluse"]),
-      p("d2", "Tapis de voyage pliable", "Tapis", 5900, "Léger et pliable, il se glisse dans une valise.", ["1,5 mm d'épaisseur", "Pèse 900 g", "Surface antidérapante"]),
-      p("d3", "Coussin de méditation zafu", "Méditation", 4900, "Un coussin ferme qui soutient une posture droite.", ["Garni d'écorces de sarrasin", "Housse en coton lavable", "Poignée de transport"]),
-      p("d4", "Banc de méditation en bambou", "Méditation", 6400, "Pour méditer à genoux sans douleur aux chevilles.", ["Bambou massif", "Pieds pliables", "Supporte 120 kg"]),
-      p("d5", "Bol chantant tibétain", "Méditation", 8900, "Un son profond pour ouvrir et clore vos séances.", ["Fabriqué à la main", "Coussin et maillet inclus", "Diamètre 12 cm"]),
-      p("d6", "Duo de blocs en liège", "Accessoires", 3400, "Stabilité et confort pour toutes les postures.", ["Lot de 2 blocs", "23 × 15 × 7,5 cm", "Bords arrondis"]),
-      p("d7", "Sangle en coton bio", "Accessoires", 1900, "Pour approfondir les étirements en douceur.", ["2,5 m de long", "Boucle métallique", "Coton biologique"]),
-      p("d8", "Traversin de yoga restauratif", "Accessoires", 5400, "Soutien idéal pour le yoga doux et restauratif.", ["Housse amovible", "Garnissage en coton", "66 × 23 cm"]),
-      p("d9", "Diffuseur d'huiles essentielles", "Ambiance", 5900, "Brume fine et lumière tamisée pour créer votre bulle.", ["Réservoir de 300 ml", "Arrêt automatique", "7 couleurs de lumière"]),
-      p("d10", "Coffret de bougies à la sauge", "Ambiance", 3900, "Trois bougies parfumées pour vos rituels du soir.", ["Cire de soja", "35 h de combustion chacune", "Mèche en coton"]),
+      p("d1", "Cork yoga mat", "Mats", 7900, "A natural mat that grips better the more you sweat.", ["Natural cork and rubber", "4 mm thick", "183 × 61 cm", "Carrying strap included"]),
+      p("d2", "Foldable travel mat", "Mats", 5900, "Light and foldable, it slips into a suitcase.", ["1.5 mm thick", "Weighs 900 g", "Non-slip surface"]),
+      p("d3", "Zafu meditation cushion", "Meditation", 4900, "A firm cushion that supports an upright posture.", ["Buckwheat hull filling", "Washable cotton cover", "Carrying handle"]),
+      p("d4", "Bamboo meditation bench", "Meditation", 6400, "Kneel while meditating without ankle pain.", ["Solid bamboo", "Folding legs", "Holds up to 120 kg"]),
+      p("d5", "Tibetan singing bowl", "Meditation", 8900, "A deep tone to open and close your sessions.", ["Handmade", "Cushion and mallet included", "12 cm diameter"]),
+      p("d6", "Cork block pair", "Accessories", 3400, "Stability and comfort for every pose.", ["Set of 2 blocks", "23 × 15 × 7.5 cm", "Rounded edges"]),
+      p("d7", "Organic cotton strap", "Accessories", 1900, "Deepen your stretches gently.", ["2.5 m long", "Metal buckle", "Organic cotton"]),
+      p("d8", "Restorative yoga bolster", "Accessories", 5400, "Ideal support for gentle and restorative yoga.", ["Removable cover", "Cotton filling", "66 × 23 cm"]),
+      p("d9", "Essential oil diffuser", "Ambiance", 5900, "Fine mist and soft light to create your own bubble.", ["300 ml tank", "Automatic shut-off", "7 light colours"]),
+      p("d10", "Sage candle set", "Ambiance", 3900, "Three scented candles for your evening rituals.", ["Soy wax", "35 h burn time each", "Cotton wick"]),
     ],
   },
 
@@ -74,6 +75,7 @@ export const DEMO_STORES: Record<string, StoreWithProducts> = {
       theme: "bold",
       contactEmail: "team@voltgear.example",
       currency: "CAD",
+      language: "fr",
       config: {
         colors: { primary: "#ff3d00", accent: "#ffd600", background: "#0e0e10", text: "#f5f5f5" },
         fonts: { heading: "Bebas Neue", body: "Space Grotesk" },
@@ -120,6 +122,7 @@ export const DEMO_STORES: Record<string, StoreWithProducts> = {
       theme: "elegant",
       contactEmail: "contact@maisonlumen.example",
       currency: "CAD",
+      language: "fr",
       config: {
         colors: { primary: "#7a4b2a", accent: "#9c6b2f", background: "#fbf7f2", text: "#2b211b" },
         fonts: { heading: "Playfair Display", body: "Work Sans" },

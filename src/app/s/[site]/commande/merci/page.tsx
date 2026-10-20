@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { finalizePaidSession } from "@/lib/payments/events";
+import { fmt } from "@/lib/i18n/config";
+import { MESSAGES } from "@/lib/i18n/messages";
+import { rich } from "@/lib/i18n/rich";
 import { formatPrice } from "@/lib/store-config";
 import { getStoreBySite } from "@/lib/stores";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -9,7 +12,10 @@ import { getStripe } from "@/lib/stripe";
 import { ClearCart } from "@/storefront/cart";
 import { getStoreBase } from "@/storefront/components";
 
-export const metadata: Metadata = { title: { absolute: "Merci pour votre commande" }, robots: { index: false } };
+export async function generateMetadata({ params }: PageProps<"/s/[site]/commande/merci">): Promise<Metadata> {
+  const data = await getStoreBySite(decodeURIComponent((await params).site));
+  return { title: { absolute: MESSAGES[data?.store.language ?? "en"].storefront.thanks.metaTitle }, robots: { index: false } };
+}
 
 async function loadOrder(sessionId: string, storeId: string) {
   return createAdminClient()
@@ -42,17 +48,19 @@ export default async function ThankYouPage({ params, searchParams }: PageProps<"
   const base = await getStoreBase(decoded);
   const paid = order.status !== "pending" && order.status !== "cancelled";
   const items = (order.order_items ?? []) as { title: string; quantity: number; unit_price_cents: number }[];
+  const t = MESSAGES[data.store.language].storefront.thanks;
+  const price = (cents: number | string) => formatPrice(Number(cents), order.currency, data.store.language);
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-14 sm:px-6">
       {paid && <ClearCart storeId={data.store.id} />}
       <div className="text-center">
         <div aria-hidden className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[var(--store-primary)] text-2xl text-[var(--store-on-primary)]">✓</div>
-        <h1 className="sf-heading mt-5 text-3xl">{paid ? "Merci pour votre commande !" : "Paiement en cours de confirmation"}</h1>
+        <h1 className="sf-heading mt-5 text-3xl">{paid ? t.title : t.pendingTitle}</h1>
         <p className="mt-3 text-[var(--sf-muted)]">
           {paid
-            ? <>Commande <strong className="text-[var(--store-text)]">n° {order.order_number}</strong>{order.customer_email && <> · confirmation au {order.customer_email}</>}.</>
-            : "Votre paiement est en cours de vérification. Cette page se mettra à jour sous peu."}
+            ? <>{rich(t.order, { b: (s) => <strong className="text-[var(--store-text)]">{s}</strong> }, { number: order.order_number })}{order.customer_email && fmt(t.confirmation, { email: order.customer_email })}.</>
+            : t.pendingBody}
         </p>
       </div>
 
@@ -61,23 +69,22 @@ export default async function ThankYouPage({ params, searchParams }: PageProps<"
           {items.map((item) => (
             <li key={item.title} className="flex justify-between gap-4 py-3 text-sm">
               <span>{item.title} <span className="text-[var(--sf-muted)]">× {item.quantity}</span></span>
-              <span className="tabular-nums">{formatPrice(Number(item.unit_price_cents) * item.quantity, order.currency)}</span>
+              <span className="tabular-nums">{price(Number(item.unit_price_cents) * item.quantity)}</span>
             </li>
           ))}
         </ul>
         <dl className="mt-4 space-y-1.5 border-t border-[var(--sf-line)] pt-4 text-sm tabular-nums">
-          <div className="flex justify-between"><dt>Sous-total</dt><dd>{formatPrice(Number(order.subtotal_cents), order.currency)}</dd></div>
-          <div className="flex justify-between"><dt>Livraison</dt><dd>{Number(order.shipping_cents) === 0 ? "Gratuite" : formatPrice(Number(order.shipping_cents), order.currency)}</dd></div>
-          <div className="flex justify-between"><dt>Taxes</dt><dd>{formatPrice(Number(order.tax_cents), order.currency)}</dd></div>
-          <div className="flex justify-between pt-1 text-base font-semibold"><dt>Total</dt><dd>{formatPrice(Number(order.total_cents), order.currency)}</dd></div>
+          <div className="flex justify-between"><dt>{t.subtotal}</dt><dd>{price(order.subtotal_cents)}</dd></div>
+          <div className="flex justify-between"><dt>{t.shipping}</dt><dd>{Number(order.shipping_cents) === 0 ? t.free : price(order.shipping_cents)}</dd></div>
+          <div className="flex justify-between"><dt>{t.taxes}</dt><dd>{price(order.tax_cents)}</dd></div>
+          <div className="flex justify-between pt-1 text-base font-semibold"><dt>{t.total}</dt><dd>{price(order.total_cents)}</dd></div>
         </dl>
       </div>
 
-      <p className="mt-6 text-center text-sm text-[var(--sf-muted)]">
-        Votre commande sera expédiée avec un numéro de suivi. Délai habituel : 5 à 15 jours ouvrables.
-      </p>
-      <div className="mt-8 text-center">
-        <Link href={base || "/"} className="sf-btn px-6 py-3 text-sm">Continuer mes achats</Link>
+      <p className="mt-6 text-center text-sm text-[var(--sf-muted)]">{t.shippingNote}</p>
+      <div className="mt-8 flex flex-wrap justify-center gap-3">
+        <Link href={`${base}/suivi?commande=${encodeURIComponent(order.order_number)}`} className="sf-btn-outline px-6 py-3 text-sm">{t.trackLink}</Link>
+        <Link href={base || "/"} className="sf-btn px-6 py-3 text-sm">{t.continue}</Link>
       </div>
     </div>
   );
