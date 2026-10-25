@@ -14,6 +14,8 @@ export interface CjProductSummary {
   image: string | null;
   priceUsdCents: number;
   category: string | null;
+  /** Nombre de boutiques qui ont importé ce produit chez CJ (indicateur de demande ; 0 si absent). */
+  listedCount: number;
 }
 
 export interface CjVariant {
@@ -117,7 +119,15 @@ export function normalizeListItem(raw: unknown): CjProductSummary | null {
   const priceUsdCents = parseUsdCents(raw.sellPrice ?? raw.nowPrice ?? raw.productSellPrice ?? raw.price);
   if (!pid || !name || priceUsdCents === null) return null;
   const image = parseImages(raw.productImage ?? raw.bigImage ?? raw.image)[0] ?? null;
-  return { pid, name: name.slice(0, 300), image, priceUsdCents, category: firstString(raw, "categoryName", "threeCategoryName", "category") };
+  const listed = Number(raw.listedNum ?? raw.listingCount ?? raw.listedCount ?? 0);
+  return {
+    pid,
+    name: name.slice(0, 300),
+    image,
+    priceUsdCents,
+    category: firstString(raw, "categoryName", "threeCategoryName", "category"),
+    listedCount: Number.isFinite(listed) && listed > 0 ? Math.floor(listed) : 0,
+  };
 }
 
 /** Accepte `data.list`, `data.content[].productList`, `data.content` ou un tableau direct. */

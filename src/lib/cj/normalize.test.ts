@@ -51,15 +51,15 @@ describe("réponses CJ", () => {
     const items = normalizeListResponse({
       pageNum: 1, pageSize: 20, total: 2,
       list: [
-        { pid: "P1", productNameEn: "Manual Coffee Grinder", productImage: "https://cf.cj.com/1.jpg", sellPrice: "8.20", categoryName: "Kitchen" },
+        { pid: "P1", productNameEn: "Manual Coffee Grinder", productImage: "https://cf.cj.com/1.jpg", sellPrice: "8.20", categoryName: "Kitchen", listedNum: 1240 },
         { pid: "P2", productNameEn: "Milk Pitcher", productImage: '["https://cf.cj.com/2.jpg"]', sellPrice: "3.10 -- 4.00" },
         { pid: "P1", productNameEn: "Doublon", sellPrice: "1" },
         { productNameEn: "Sans identifiant", sellPrice: "1" },
       ],
     });
     assert.deepEqual(items, [
-      { pid: "P1", name: "Manual Coffee Grinder", image: "https://cf.cj.com/1.jpg", priceUsdCents: 820, category: "Kitchen" },
-      { pid: "P2", name: "Milk Pitcher", image: "https://cf.cj.com/2.jpg", priceUsdCents: 310, category: null },
+      { pid: "P1", name: "Manual Coffee Grinder", image: "https://cf.cj.com/1.jpg", priceUsdCents: 820, category: "Kitchen", listedCount: 1240 },
+      { pid: "P2", name: "Milk Pitcher", image: "https://cf.cj.com/2.jpg", priceUsdCents: 310, category: null, listedCount: 0 },
     ]);
   });
 

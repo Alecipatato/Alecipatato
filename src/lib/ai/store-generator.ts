@@ -23,6 +23,13 @@ export interface StoreBrief {
   storeName?: string;
   /** Langue de la boutique (textes générés). Absente des anciennes boutiques : français. */
   language?: Locale;
+  /**
+   * Produits déjà choisis (par le client dans les produits tendance, ou automatiquement) :
+   * l'IA construit la boutique autour d'eux et ne génère pas d'autres produits.
+   */
+  chosenProducts?: { name: string; category: string | null }[];
+  /** Thème des produits tendance choisis (id de TREND_THEMES). */
+  trendTheme?: string;
 }
 
 export function briefLanguage(brief: Partial<StoreBrief> | null | undefined): Locale {
@@ -140,22 +147,34 @@ const LANGUAGE_INSTRUCTIONS: Record<Locale, string> = {
   fr: "Store language: French. Use natural Québec French (vouvoiement, prices in CAD written like 24,99 $).",
 };
 
-function describeBrief(brief: StoreBrief): string {
+export function describeBrief(brief: StoreBrief): string {
   const themes = MESSAGES.en.common.themes;
-  const lines = [
-    LANGUAGE_INSTRUCTIONS[briefLanguage(brief)],
-    `Niche and target customers: ${brief.niche}`,
-    `Types of products to sell: ${brief.productTypes || "choose what fits the niche best"}`,
-  ];
+  const chosen = brief.chosenProducts ?? [];
+  // Ce qui guide le style quand le client ne l'impose pas : sa description, sinon les produits choisis.
+  const basis = chosen.length ? (brief.niche ? "the niche and the chosen products" : "the chosen products") : "the niche";
+  const lines = [LANGUAGE_INSTRUCTIONS[briefLanguage(brief)]];
+  if (brief.niche) lines.push(`Niche and target customers (from the owner, follow it): ${brief.niche}`);
+  else lines.push("Niche: not specified by the owner. Infer the niche and the target customers from the chosen products.");
+
+  if (chosen.length) {
+    lines.push(
+      `The owner already chose the products to sell. Build the store's name, identity, texts and style around them:\n${chosen
+        .map((p) => `- ${p.name}${p.category ? ` (${p.category})` : ""}`)
+        .join("\n")}`,
+      "Products and search_keywords are already settled: return an empty products array and an empty search_keywords array.",
+    );
+  } else {
+    lines.push(`Types of products to sell: ${brief.productTypes || "choose what fits the niche best"}`);
+  }
   if (brief.storeName) lines.push(`Store name requested by the owner (use it exactly): ${brief.storeName}`);
 
-  if (brief.theme === "auto") lines.push(`Style: choose the best fit among ${THEME_IDS.map((t) => `"${t}" (${themes[t].description})`).join(", ")}.`);
-  else lines.push(`Style: "${brief.theme}" (${themes[brief.theme].description}). Return this theme.`);
+  if (brief.theme === "auto") lines.push(`Style: choose the best fit for ${basis} among ${THEME_IDS.map((t) => `"${t}" (${themes[t].description})`).join(", ")}.`);
+  else lines.push(`Style: "${brief.theme}" (${themes[brief.theme].description}), chosen by the owner. Return this theme.`);
 
   const palette = PALETTES[brief.palette];
-  if (palette) lines.push(`Colors: use exactly this palette: ${JSON.stringify(palette.colors)}.`);
+  if (palette) lines.push(`Colors: use exactly this palette chosen by the owner: ${JSON.stringify(palette.colors)}.`);
   else if (brief.palette === "custom" && brief.primaryColor) lines.push(`Colors: the primary color must be ${brief.primaryColor}; choose matching accent, background and text colors.`);
-  else lines.push("Colors: choose a distinctive palette that fits the niche.");
+  else lines.push(`Colors: choose a distinctive palette that fits ${basis}.`);
 
   return lines.join("\n");
 }
@@ -203,7 +222,8 @@ export function parseGeneratedStore(raw: unknown, brief: StoreBrief): GeneratedS
     .filter((p) => p.title)
     .slice(0, 20);
 
-  if (products.length === 0) throw new StoreGenerationError("no_products");
+  // Produits déjà choisis : l'IA ne fournit que l'identité de la boutique.
+  if (products.length === 0 && !brief.chosenProducts?.length) throw new StoreGenerationError("no_products");
 
   const name = text(brief.storeName, 60) || text(r.name, 60) || (fr ? "Ma boutique" : "My store");
   return {

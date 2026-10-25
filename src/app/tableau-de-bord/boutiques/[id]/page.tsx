@@ -167,6 +167,7 @@ export default async function StoreAdminPage({ params, searchParams }: PageProps
                     storeId={store.id}
                     defaults={briefDefaults}
                     submitLabel={t.regenerateSubmit}
+                    nicheOptional={Boolean(brief.chosenProducts?.length)}
                   />
                 </div>
               </details>

@@ -12,6 +12,7 @@ import { marketingTools } from "./marketing-tools";
 import { sales } from "./sales";
 import { stats } from "./stats";
 import { storefront } from "./storefront";
+import { trends } from "./trends";
 
 function build(locale: Locale) {
   return {
@@ -27,6 +28,7 @@ function build(locale: Locale) {
     stats: stats[locale],
     marketingTools: marketingTools[locale],
     domains: domains[locale],
+    trends: trends[locale],
     moderation: admin[locale].moderation,
     admin: admin[locale].admin,
   };

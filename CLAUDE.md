@@ -190,6 +190,19 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
   (`stores.language`, en-tête interne `x-store-site` posé par le proxy). Les erreurs des modules (`StoreGenerationError`,
   `CheckoutError`, recherche CJ) sont des **codes** traduits à l'affichage. `formatPrice(cents, devise, langue)`.
   Courriels Supabase bilingues selon `user_metadata.locale`. Les adresses (/connexion, /tableau-de-bord…) restent en français.
+- **Produits tendance** (« produits gagnants », demande du propriétaire) : `src/lib/trends/` — `themes.ts` (6 thèmes +
+  mots-clés CJ), `score.ts` (pur, testé : score de demande 0-100 = boutiques CJ `listedNum` + ventes plateforme × 20,
+  échelle log ; thème auto ; vérification de la sélection 3 à 20 produits d'un même thème), `catalog.ts`
+  (`getTrendingProducts` : table `trending_products` avec CJ, sinon `samples.ts` = 36 exemples FR/EN, visuels
+  `/api/trends/image/<id>.svg` — l'extension `.svg` évite le proxy, donc l'image s'affiche aussi sur les vitrines),
+  `refresh.ts` + `/api/cron/trends` (découverte quotidienne, vérification par lots, score). Gain estimé :
+  `estimateProductEconomics` (`money.ts`). Création (`/tableau-de-bord/nouvelle`) : choix de la méthode →
+  `?mode=produits` (galerie `trend-picker.tsx` dans `BriefForm`, avis « prix du fournisseur et transport retirés
+  automatiquement » en haut à droite) ou `?mode=ia` (description facultative : sans description, 15 produits d'un des
+  3 thèmes les plus demandés). `StoreBrief.chosenProducts` → l'IA bâtit l'identité autour des produits ; elle suit
+  description/style/couleurs/nom s'ils sont donnés, sinon s'adapte aux produits. Avec CJ : `sourcing_jobs` démarré à
+  `processing` avec `auto_accept` (produits mis en vente sans validation) ; sans CJ : produits d'exemple insérés en
+  vente au prix conseillé. ⚠️ `listedNum` à valider avec une vraie clé ; les noms CJ restent en anglais dans la galerie.
 - Écran avec formulaire qui disparaît après l'action (produit refusé, commande remboursée) : afficher
   la confirmation en haut de page via un paramètre d'URL, pas dans le formulaire.
 - Le client Supabase admin désactive la mémorisation des GET de Next (signal par requête) : une relecture
@@ -214,4 +227,6 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
 - [x] Phase 10 — SEO (titres, descriptions, sitemap, données produit), pixels Meta/TikTok avec consentement, contenus IA
 - [x] Phase 11 — domaines personnalisés via Cloudflare for SaaS (instructions DNS, vérification auto, HTTPS)
 - [x] Phase 12 — tableau de bord admin : revenus plateforme, coûts IA, portefeuille CJ, versements dus, boutiques signalées
+- [x] Produits tendance — galerie de produits gagnants (image, demande, prix fournisseur, livraison, prix conseillé,
+      gain), choix des produits ou IA complète, boutique générée selon les critères ou adaptée aux produits
 - [ ] Prochaine étape — mise en production (déploiement Cloudflare, vraies clés en mode test, validation CJ)

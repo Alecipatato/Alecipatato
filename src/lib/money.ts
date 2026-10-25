@@ -237,3 +237,49 @@ export function marginBasisPoints(priceCents: number, costCents: number): number
   if (priceCents <= 0) return 0;
   return Math.floor(((priceCents - costCents) * 10_000) / priceCents);
 }
+
+export interface ProductEconomics {
+  /** Coût fournisseur converti en CAD. */
+  supplierCadCents: number;
+  /** Livraison convertie en CAD. */
+  shippingCadCents: number;
+  /** Coût total (fournisseur + livraison) en CAD. */
+  costCadCents: number;
+  /** Prix de vente (conseillé si aucun prix n'est fourni). */
+  priceCents: number;
+  grossMarginCents: number;
+  commissionCents: number;
+  /** Ce que garde le vendeur par vente : marge − commission (avant taxes et frais Stripe éventuels). */
+  ownerProfitCents: number;
+  marginBp: number;
+}
+
+/**
+ * Estimation pour une vente d'un produit du fournisseur : coûts en CAD, prix conseillé
+ * (marge minimale), commission de la plateforme et gain du vendeur.
+ * Le coût total est converti en une fois, comme pour les produits enregistrés.
+ */
+export function estimateProductEconomics(input: {
+  supplierCostUsdCents: number;
+  shippingUsdCents: number;
+  fxRateUsdCad: string;
+  minMarginRate: string;
+  commissionRate: string;
+  priceCents?: number;
+}): ProductEconomics {
+  const costCadCents = usdToCadCents(input.supplierCostUsdCents + input.shippingUsdCents, input.fxRateUsdCad);
+  const supplierCadCents = Math.min(usdToCadCents(input.supplierCostUsdCents, input.fxRateUsdCad), costCadCents);
+  const priceCents = input.priceCents ?? suggestRetailPriceCents(costCadCents, input.minMarginRate);
+  const grossMarginCents = priceCents - costCadCents;
+  const { commissionCents, storePayoutCents } = splitMargin({ grossMarginCents, commissionRate: input.commissionRate });
+  return {
+    supplierCadCents,
+    shippingCadCents: costCadCents - supplierCadCents,
+    costCadCents,
+    priceCents,
+    grossMarginCents,
+    commissionCents,
+    ownerProfitCents: storePayoutCents,
+    marginBp: marginBasisPoints(priceCents, costCadCents),
+  };
+}

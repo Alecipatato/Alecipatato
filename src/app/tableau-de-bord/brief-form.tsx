@@ -7,7 +7,11 @@ import { useI18n } from "@/lib/i18n/client";
 import { LOCALES } from "@/lib/i18n/config";
 import { PALETTES } from "@/lib/palettes";
 import { THEME_IDS } from "@/lib/store-config";
+import type { TrendCard } from "@/lib/trends/cards";
+import { fmt } from "@/lib/i18n/config";
+import { MIN_SELECTION } from "@/lib/trends/score";
 import type { ActionState } from "./actions";
+import { TrendPicker } from "./trend-picker";
 
 /** Mini-aperçu de chaque style. */
 function ThemeThumb({ theme }: { theme: (typeof THEME_IDS)[number] }) {
@@ -23,35 +27,68 @@ function ThemeThumb({ theme }: { theme: (typeof THEME_IDS)[number] }) {
   );
 }
 
+/**
+ * Formulaire de description de la boutique.
+ *  - mode « products » : galerie des produits tendance en tête ; tout le reste est facultatif ;
+ *  - mode « ai » : l'IA choisit les produits ; la description est facultative ;
+ *  - sans mode (régénération) : description obligatoire, sauf boutique construite autour de produits choisis.
+ */
 export function BriefForm({
   action,
   defaults,
   storeId,
   submitLabel,
+  mode,
+  trends,
+  nicheOptional = false,
 }: {
   action: (state: ActionState, formData: FormData) => Promise<ActionState>;
   defaults?: Partial<StoreBrief>;
   storeId?: string;
   submitLabel: string;
+  mode?: "products" | "ai";
+  trends?: { cards: TrendCard[]; commissionLabel: string; sample: boolean };
+  nicheOptional?: boolean;
 }) {
   const [state, formAction] = useActionState(action, {});
+  const [selected, setSelected] = useState<string[]>([]);
   const [palette, setPalette] = useState(defaults?.palette ?? "auto");
   const [productTypes, setProductTypes] = useState(defaults?.productTypes ?? "");
   const { locale, m } = useI18n();
   const t = m.dashboard.brief;
   const paletteName = (key: string) => m.common.palettes[key as keyof typeof m.common.palettes] ?? key;
 
+  const tb = m.trends.brief;
+  const optional = Boolean(mode) || nicheOptional;
+  const missingProducts = mode === "products" && selected.length < MIN_SELECTION;
+
   return (
     <form action={formAction} className="flex flex-col gap-8">
       {storeId && <input type="hidden" name="store_id" value={storeId} />}
+      {mode && <input type="hidden" name="mode" value={mode} />}
+      {selected.map((id) => <input key={id} type="hidden" name="product_ids" value={id} />)}
+      {mode === "products" && trends && (
+        <TrendPicker cards={trends.cards} selected={selected} onChange={setSelected} commissionLabel={trends.commissionLabel} sample={trends.sample} continueTarget="boutique" />
+      )}
       {state.error && <Alert kind="error">{state.error}</Alert>}
       {state.message && <Alert kind="success">{state.message}</Alert>}
 
-      <Field label={t.niche} id="niche" hint={t.nicheHint}>
+      {mode === "products" && (
+        <div id="boutique" className="scroll-mt-6 border-t border-line pt-8">
+          <h2 className="font-display text-2xl font-bold tracking-tight">{tb.storeTitle}</h2>
+          <p className="mt-1 text-sm text-muted">{tb.storeText}</p>
+        </div>
+      )}
+
+      <Field
+        label={optional ? tb.niche : t.niche}
+        id="niche"
+        hint={mode === "products" ? tb.nicheProductsHint : mode === "ai" ? tb.nicheAiHint : t.nicheHint}
+      >
         <textarea
           id="niche"
           name="niche"
-          required
+          required={!optional}
           minLength={10}
           maxLength={1000}
           rows={4}
@@ -61,7 +98,7 @@ export function BriefForm({
         />
       </Field>
 
-      <Field label={t.productTypes} id="product_types" hint={t.productTypesHint}>
+      {mode !== "products" && <Field label={t.productTypes} id="product_types" hint={t.productTypesHint}>
         <input
           id="product_types"
           name="product_types"
@@ -83,7 +120,7 @@ export function BriefForm({
             </button>
           ))}
         </div>
-      </Field>
+      </Field>}
 
       <fieldset>
         <legend className="text-sm font-medium">{t.style}</legend>
@@ -143,8 +180,8 @@ export function BriefForm({
       </div>
 
       <div className="flex flex-col gap-2 border-t border-line pt-6 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-muted">{t.duration}</p>
-        <SubmitButton pendingLabel={t.pending} className="px-6">{submitLabel}</SubmitButton>
+        <p className="text-sm text-muted">{missingProducts ? fmt(tb.chooseFirst, { min: MIN_SELECTION }) : t.duration}</p>
+        <SubmitButton pendingLabel={t.pending} className="px-6" disabled={missingProducts}>{mode === "products" ? tb.submitProducts : submitLabel}</SubmitButton>
       </div>
     </form>
   );

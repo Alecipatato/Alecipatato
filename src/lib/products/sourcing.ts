@@ -17,6 +17,8 @@ import { createAdminClient } from "../supabase/admin";
  *   2. selecting  : l'IA choisit et classe les meilleurs candidats
  *   3. processing : par lots — fiche CJ, livraison Canada ≤ 15 jours, rédaction, prix ≥ 40 % de marge
  *   4. done       : produits « proposés », à valider par le client ; les choix restants servent de remplaçants
+ * Produits tendance choisis par le client : la recherche commence directement à « processing »
+ * avec ses choix (auto_accept : les produits sont mis en vente sans validation).
  */
 
 export const MAX_DELIVERY_DAYS = 15;
@@ -42,6 +44,7 @@ type JobRow = {
   cursor: number;
   target: number;
   error: string | null;
+  auto_accept: boolean;
 };
 
 async function logAi(storeId: string, kind: "select_products" | "rewrite_products", usage: AiUsage) {
@@ -70,10 +73,20 @@ async function countSupplierProducts(storeId: string): Promise<number> {
   return count ?? 0;
 }
 
-export async function startSourcingJob(storeId: string, keywords: string[], target = 18): Promise<string> {
+export async function startSourcingJob(
+  storeId: string,
+  keywords: string[],
+  target = 18,
+  chosen?: { pids: string[] },
+): Promise<string> {
   const { data, error } = await createAdminClient()
     .from("sourcing_jobs")
-    .insert({ store_id: storeId, keywords: keywords.slice(0, 6), target })
+    .insert({
+      store_id: storeId,
+      keywords: keywords.slice(0, 6),
+      target,
+      ...(chosen && { status: "processing", picks: chosen.pids, cursor: 0, auto_accept: true }),
+    })
     .select("id")
     .single();
   if (error) throw new Error(`Création de la recherche impossible : ${error.message}`);
@@ -83,7 +96,7 @@ export async function startSourcingJob(storeId: string, keywords: string[], targ
 async function loadJob(jobId: string): Promise<JobRow | null> {
   const { data } = await createAdminClient()
     .from("sourcing_jobs")
-    .select("id, store_id, status, keywords, candidates, picks, cursor, target, error")
+    .select("id, store_id, status, keywords, candidates, picks, cursor, target, error, auto_accept")
     .eq("id", jobId)
     .maybeSingle<JobRow>();
   return data;
@@ -136,7 +149,7 @@ export async function advanceSourcing(jobId: string): Promise<SourcingState> {
     } else if (job.status === "processing") {
       const already = await countSupplierProducts(job.store_id);
       const batch = job.picks.slice(job.cursor, job.cursor + Math.min(BATCH_SIZE, Math.max(job.target - already, 0)));
-      if (batch.length > 0) await processPicks(job.store_id, batch);
+      if (batch.length > 0) await processPicks(job.store_id, batch, { autoAccept: job.auto_accept });
       const cursor = job.cursor + batch.length;
       const done = cursor >= job.picks.length || (await countSupplierProducts(job.store_id)) >= job.target;
       await updateJob(job.id, { cursor, ...(done && { status: "done" }) });
@@ -167,10 +180,11 @@ async function prepare(pid: string): Promise<Prepared | null> {
 }
 
 /**
- * Traite des choix de l'IA : vérifie chaque produit chez CJ, fait rédiger les
- * fiches dans la langue de la boutique et enregistre les produits « proposés ». Retourne le nombre ajouté.
+ * Traite des choix de l'IA (ou du client) : vérifie chaque produit chez CJ, fait rédiger les
+ * fiches dans la langue de la boutique et enregistre les produits « proposés » (ou « en vente »
+ * s'ils ont été choisis par le client). Retourne le nombre ajouté.
  */
-export async function processPicks(storeId: string, pids: string[]): Promise<number> {
+export async function processPicks(storeId: string, pids: string[], options: { autoAccept?: boolean } = {}): Promise<number> {
   const prepared: Prepared[] = [];
   for (const pid of pids) {
     try {
@@ -236,7 +250,7 @@ export async function processPicks(storeId: string, pids: string[]): Promise<num
       delivery_days_min: p.shipping.daysMin,
       delivery_days_max: p.shipping.daysMax,
       shipping_method: p.shipping.name,
-      status: "proposed",
+      status: options.autoAccept ? "active" : "proposed",
       position: position++,
       last_synced_at: new Date().toISOString(),
     };

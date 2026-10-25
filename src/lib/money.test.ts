@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   computeOrderFinancials,
+  estimateProductEconomics,
   DEFAULT_REFUND_RULES,
   mulDivRound,
   parseRefundRules,
@@ -183,5 +184,28 @@ describe("prix des produits (marge minimale)", () => {
   it("conversion USD → CAD", () => {
     assert.equal(usdToCadCents(1000, "1.38"), 1380);
     assert.equal(usdToCadCents(333, "1.3725"), 457);
+  });
+});
+
+describe("estimation pour un produit tendance", () => {
+  it("prix conseillé, commission de 15 % et gain du vendeur", () => {
+    // 10,00 $ US + 4,10 $ US de livraison au taux 1,38 → 19,46 $ CA de coût total.
+    const e = estimateProductEconomics({ supplierCostUsdCents: 1000, shippingUsdCents: 410, fxRateUsdCad: "1.38", minMarginRate: "0.40", commissionRate: "0.15" });
+    assert.equal(e.costCadCents, 1946);
+    assert.equal(e.supplierCadCents, 1380);
+    assert.equal(e.shippingCadCents, 566);
+    assert.equal(e.priceCents, 3299); // ≥ 1946 / 0,6 = 32,44 $ → 32,99 $
+    assert.equal(e.grossMarginCents, 1353);
+    assert.equal(e.commissionCents, 203);
+    assert.equal(e.ownerProfitCents, 1150);
+    assert.equal(e.commissionCents + e.ownerProfitCents, e.grossMarginCents);
+    assert.ok(e.marginBp >= 4000);
+  });
+
+  it("prix imposé sous le coût : aucune commission, gain nul", () => {
+    const e = estimateProductEconomics({ supplierCostUsdCents: 1000, shippingUsdCents: 0, fxRateUsdCad: "1.38", minMarginRate: "0.40", commissionRate: "0.15", priceCents: 1000 });
+    assert.equal(e.grossMarginCents, -380);
+    assert.equal(e.commissionCents, 0);
+    assert.equal(e.ownerProfitCents, 0);
   });
 });

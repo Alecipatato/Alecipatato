@@ -16,12 +16,28 @@ import { fmt, isLocale, plural } from "@/lib/i18n/config";
 import { getLocale, getMessages } from "@/lib/i18n/server";
 import { describeViolation, moderate } from "@/lib/moderation/rules";
 import type { ThemeId } from "@/lib/types";
+import { getUsdCadRate } from "@/lib/fx";
+import { estimateProductEconomics } from "@/lib/money";
+import { getTrendingProducts, type TrendProduct } from "@/lib/trends/catalog";
+import { pickAutoTheme, validateSelection } from "@/lib/trends/score";
+import { isTrendTheme } from "@/lib/trends/themes";
+import { MESSAGES } from "@/lib/i18n/messages";
 
 export type ActionState = { error?: string; message?: string };
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
 
-async function readBrief(formData: FormData): Promise<StoreBrief | string> {
+/** Description enregistrée : celle du client, sinon le thème des produits choisis (sert aux autres appels IA). */
+function nicheDescription(brief: StoreBrief): string | null {
+  if (brief.niche) return brief.niche;
+  const themes = MESSAGES[brief.language ?? "en"].trends.themes;
+  return isTrendTheme(brief.trendTheme) ? themes[brief.trendTheme] : null;
+}
+
+/** Nombre de produits tendance retenus quand l'IA choisit seule un thème. */
+const AUTO_PRODUCTS = 15;
+
+async function readBrief(formData: FormData, options: { nicheOptional?: boolean } = {}): Promise<StoreBrief | string> {
   const t = (await getMessages()).dashboard.actions;
   const niche = String(formData.get("niche") ?? "").trim();
   const productTypes = String(formData.get("product_types") ?? "").trim();
@@ -31,7 +47,7 @@ async function readBrief(formData: FormData): Promise<StoreBrief | string> {
   const storeName = String(formData.get("store_name") ?? "").trim();
   const languageRaw = formData.get("language");
 
-  if (niche.length < 10) return t.nicheTooShort;
+  if (niche.length < 10 && !(options.nicheOptional && niche.length === 0)) return t.nicheTooShort;
   if (niche.length > 1000 || productTypes.length > 500 || storeName.length > 60) return t.fieldTooLong;
   const violation = await moderate([niche, productTypes, storeName]);
   if (violation) return fmt(t.nicheBlocked, { term: describeViolation(violation, await getMessages()) });
@@ -126,6 +142,39 @@ async function productRows(storeId: string, products: GeneratedProduct[]) {
   }));
 }
 
+/** Produits tendance d'exemple (sans clé CJ) : mis en vente directement, au prix conseillé. */
+async function trendSampleRows(storeId: string, products: TrendProduct[]) {
+  const settings = await getPlatformSettings();
+  const fx = await getUsdCadRate(settings.usdCadFallbackRate);
+  return products.map((p, i) => {
+    const e = estimateProductEconomics({
+      supplierCostUsdCents: p.supplierCostUsdCents,
+      shippingUsdCents: p.shippingUsdCents,
+      fxRateUsdCad: fx.rate,
+      minMarginRate: settings.minMarginRate,
+      commissionRate: settings.commissionRate,
+    });
+    return {
+      store_id: storeId,
+      supplier: "sample",
+      supplier_product_id: p.supplierProductId,
+      title: p.name,
+      category: p.category,
+      description: p.description,
+      highlights: p.highlights,
+      images: p.images,
+      price_cents: e.priceCents,
+      suggested_price_cents: e.priceCents,
+      supplier_cost_usd_cents: p.supplierCostUsdCents,
+      shipping_cost_usd_cents: p.shippingUsdCents,
+      delivery_days_min: p.deliveryDaysMin,
+      delivery_days_max: p.deliveryDaysMax,
+      status: "active",
+      position: i,
+    };
+  });
+}
+
 async function getOwnedStore(storeId: string, userId: string) {
   const { data } = await createAdminClient()
     .from("stores")
@@ -136,10 +185,19 @@ async function getOwnedStore(storeId: string, userId: string) {
   return data;
 }
 
+/**
+ * Création d'une boutique, de deux façons :
+ *  - mode « products » : le client a choisi ses produits parmi les produits tendance ;
+ *  - mode « ai » : l'IA cherche les produits selon la description ; sans description,
+ *    elle prend les meilleurs produits d'un thème tendance très demandé.
+ * L'IA suit les critères donnés (description, style, couleurs, nom) ; sinon elle s'adapte aux produits.
+ */
 export async function createStore(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await requireUser();
-  const t = (await getMessages()).dashboard.actions;
-  const brief = await readBrief(formData);
+  const m = await getMessages();
+  const t = m.dashboard.actions;
+  const mode = formData.get("mode") === "products" ? "products" : "ai";
+  const brief = await readBrief(formData, { nicheOptional: true });
   if (typeof brief === "string") return { error: brief };
 
   const admin = createAdminClient();
@@ -147,6 +205,23 @@ export async function createStore(_prev: ActionState, formData: FormData): Promi
   const { count } = await admin.from("stores").select("id", { count: "exact", head: true }).eq("owner_id", user.id);
   const max = settings.freePlan.maxStores;
   if ((count ?? 0) >= max) return { error: fmt(plural(max, t.storeLimitOne, t.storeLimitOther), { max }) };
+
+  // Produits tendance : dans la langue de la boutique (noms des produits d'exemple).
+  let chosen: TrendProduct[] = [];
+  if (mode === "products") {
+    const selection = validateSelection(formData.getAll("product_ids").map(String), await getTrendingProducts(brief.language ?? "en"));
+    if (!selection.ok) return { error: m.trends.errors[selection.error] };
+    chosen = selection.products;
+  } else if (!brief.niche) {
+    const catalogue = await getTrendingProducts(brief.language ?? "en");
+    const theme = pickAutoTheme(catalogue);
+    if (!theme) return { error: m.trends.errors.no_trends };
+    chosen = catalogue.filter((p) => p.theme === theme).slice(0, AUTO_PRODUCTS);
+  }
+  if (chosen.length) {
+    brief.chosenProducts = chosen.map((p) => ({ name: p.name, category: p.category }));
+    brief.trendTheme = chosen[0].theme;
+  }
 
   const result = await runGeneration(user.id, "create_store", null, brief);
   if (typeof result === "string") return { error: result };
@@ -160,7 +235,7 @@ export async function createStore(_prev: ActionState, formData: FormData): Promi
       owner_id: user.id,
       subdomain,
       name: generated.name,
-      niche_description: brief.niche,
+      niche_description: nicheDescription(brief),
       theme: generated.theme,
       config: generated.config,
       // Avec le fournisseur CJ : hors ligne le temps de choisir les produits.
@@ -177,6 +252,17 @@ export async function createStore(_prev: ActionState, formData: FormData): Promi
   }
 
   await admin.from("ai_generations").update({ store_id: store.id }).eq("id", result.logId);
+
+  if (chosen.length) {
+    if (chosen[0].source === "cj") {
+      // Les fiches sont vérifiées et rédigées sur l'écran « Produits », par petits lots.
+      await startSourcingJob(store.id, [], chosen.length, { pids: chosen.map((p) => p.supplierProductId) });
+      redirect(`/tableau-de-bord/boutiques/${store.id}/produits?nouvelle=1`);
+    }
+    const { error: productsError } = await admin.from("products").insert(await trendSampleRows(store.id, chosen));
+    if (productsError) console.error("Insertion des produits :", productsError);
+    redirect(`/tableau-de-bord/boutiques/${store.id}?nouvelle=1`);
+  }
 
   if (withSupplier) {
     // Vrais produits : la recherche chez CJ se fait ensuite, étape par étape, sur l'écran « Produits ».
@@ -204,8 +290,12 @@ export async function regenerateStore(_prev: ActionState, formData: FormData): P
     return { error: fmt(t.regenerationsUsed, { max: settings.freePlan.maxRegenerationsPerStore }) };
   }
 
-  const brief = await readBrief(formData);
+  // Boutique construite autour de produits choisis : ces produits restent la base de la boutique.
+  const previous = (store.generation_brief as Partial<StoreBrief> | null) ?? {};
+  const chosenProducts = Array.isArray(previous.chosenProducts) ? previous.chosenProducts : undefined;
+  const brief = await readBrief(formData, { nicheOptional: Boolean(chosenProducts?.length) });
   if (typeof brief === "string") return { error: brief };
+  if (chosenProducts?.length) Object.assign(brief, { chosenProducts, trendTheme: previous.trendTheme });
 
   const result = await runGeneration(user.id, "regenerate_store", store.id, brief);
   if (typeof result === "string") return { error: result };
@@ -216,7 +306,7 @@ export async function regenerateStore(_prev: ActionState, formData: FormData): P
     .from("stores")
     .update({
       name: generated.name,
-      niche_description: brief.niche,
+      niche_description: nicheDescription(brief),
       theme: generated.theme,
       config: generated.config,
       language: brief.language,
@@ -226,9 +316,12 @@ export async function regenerateStore(_prev: ActionState, formData: FormData): P
     .eq("id", store.id);
   if (error) return { error: t.updateFailed };
 
-  // Les produits du fournisseur sont conservés ; seuls les produits d'exemple sont regénérés.
-  await admin.from("products").delete().eq("store_id", store.id).eq("supplier", "sample");
-  if (!isCjConfigured()) await admin.from("products").insert(await productRows(store.id, generated.products));
+  // Les produits du fournisseur et les produits choisis sont conservés ; seuls les produits d'exemple
+  // inventés par l'IA sont regénérés.
+  if (!chosenProducts?.length) {
+    await admin.from("products").delete().eq("store_id", store.id).eq("supplier", "sample").like("supplier_product_id", "sample-%");
+    if (!isCjConfigured()) await admin.from("products").insert(await productRows(store.id, generated.products));
+  }
 
   revalidatePath(`/tableau-de-bord/boutiques/${store.id}`);
   return { message: t.regenerated };

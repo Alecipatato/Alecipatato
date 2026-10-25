@@ -83,6 +83,10 @@ Limites du compte gratuit et nombre d'appels par heure : table `platform_setting
    (`min_margin_percent`). Le client accepte, remplace ou refuse chaque produit.
 3. **Synchronisation** : appelez `GET /api/cron/sync-products` toutes les heures avec
    `Authorization: Bearer <CRON_SECRET>` (prix, stock, produits retirés).
+   **Produits tendance** (« produits gagnants ») : appelez `GET /api/cron/trends` toutes les heures avec le même
+   en-tête. Une fois par jour, la tâche relève les produits les plus importés par les boutiques CJ dans 6 thèmes,
+   puis vérifie chaque produit par petits lots (livraison Canada ≤ 15 jours). Au lancement, `?limit=30` remplit
+   la galerie plus vite. Sans clé CJ, la galerie montre 36 produits d'exemple.
 
 4. **Commandes** (phase 6) : chaque commande payée est transmise à CJ (adresse, téléphone, produits,
    transporteur choisi) puis payée avec votre **portefeuille CJ** si `CJ_AUTO_PAY=true`. En cas d'échec :
