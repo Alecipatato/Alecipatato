@@ -58,7 +58,7 @@ export default async function ProductsPage({ params, searchParams }: PageProps<"
       .select("id, title, category, images, status, supplier, price_cents, supplier_cost_usd_cents, shipping_cost_usd_cents, delivery_days_min, delivery_days_max, stock, sync_status, sync_note, moderation_reason")
       .eq("store_id", store.id)
       .order("position"),
-    supabase.from("sourcing_jobs").select("id, status, target, error, keywords, picks, cursor").eq("store_id", store.id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+    supabase.from("sourcing_jobs").select("id, status, target, error, keywords, picks, cursor, auto_accept").eq("store_id", store.id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
     getPlatformSettings(),
   ]);
   const fx = await getUsdCadRate(settings.usdCadFallbackRate);
@@ -163,9 +163,10 @@ export default async function ProductsPage({ params, searchParams }: PageProps<"
       </div>
 
       {result && <Alert kind={RESULT_KINDS[result]}>{t.results[result]}</Alert>}
-      {sp.nouvelle && <Alert kind="success">{t.created}</Alert>}
+      {/* Produits choisis par le client dans les produits tendance : mis en vente sans validation. */}
+      {sp.nouvelle && <Alert kind="success">{job?.auto_accept ? t.createdChosen : t.created}</Alert>}
       {!isCjConfigured() && <Alert kind="info">{t.noSupplier}</Alert>}
-      {store.status === "draft" && !suspended && <Alert kind="info">{t.draft}</Alert>}
+      {store.status === "draft" && !suspended && <Alert kind="info">{job?.auto_accept ? t.draftChosen : t.draft}</Alert>}
 
       {jobState && <SourcingRunner key={jobState.id} storeId={store.id} initial={jobState} />}
 

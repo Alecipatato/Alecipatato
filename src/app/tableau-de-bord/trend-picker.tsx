@@ -111,14 +111,17 @@ export function TrendPicker({
             );
           })}
         </div>
-        <div className="flex gap-2 lg:shrink-0">
+        <div className="flex gap-2 lg:shrink-0">{/* recherche + tri, côte à côte */}
           <input
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && e.preventDefault()} // la galerie est dans le formulaire : Entrée ne doit pas l'envoyer
-            placeholder={t.search} aria-label={t.search} className={`${inputClasses} min-w-0 flex-1 lg:w-56`} />
-          <select value={sort} onChange={(e) => setSort(e.target.value as Sort)} aria-label={t.sort} className={`${inputClasses} w-auto shrink-0`}>
+            placeholder={t.search}
+            aria-label={t.search}
+            className={`${inputClasses} min-w-0 lg:w-56!`}
+          />
+          <select value={sort} onChange={(e) => setSort(e.target.value as Sort)} aria-label={t.sort} className={`${inputClasses} w-auto! shrink-0`}>
             {(Object.keys(t.sorts) as Sort[]).map((s) => <option key={s} value={s}>{t.sort} : {t.sorts[s]}</option>)}
           </select>
         </div>
