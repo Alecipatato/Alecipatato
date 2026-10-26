@@ -121,7 +121,7 @@ export async function advanceSourcing(jobId: string): Promise<SourcingState> {
       const found = new Map<string, CjProductSummary>();
       for (const keyword of job.keywords) {
         try {
-          for (const p of await searchProducts(keyword, 20)) {
+          for (const p of await searchProducts(keyword, 20, { byPopularity: true })) {
             // Écarte les produits sans image ou hors des prix raisonnables (1 $ à 80 $ US).
             if (p.image && p.priceUsdCents >= 100 && p.priceUsdCents <= 8000) found.set(p.pid, p);
           }

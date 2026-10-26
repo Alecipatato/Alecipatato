@@ -36,7 +36,7 @@ async function discover(): Promise<number> {
     const found = new Map<string, CjProductSummary>();
     for (const keyword of theme.keywords) {
       try {
-        for (const p of await searchProducts(keyword, 20)) {
+        for (const p of await searchProducts(keyword, 20, { byPopularity: true })) {
           if (p.image && p.priceUsdCents >= 100 && p.priceUsdCents <= 8000 && !findViolation(rules, [p.name], [p.category])) found.set(p.pid, p);
         }
       } catch (err) {

@@ -86,6 +86,14 @@ describe("réponses CJ", () => {
     assert.equal(p.description, "Ceramic burr");
     assert.equal(p.images.length, 2);
     assert.deepEqual(p.variants.map((v) => [v.vid, v.priceUsdCents]), [["V1", 820], ["V2", 820]]);
+    assert.equal(p.onSale, true); // statut absent : considéré en vente
+  });
+
+  it("fiche produit : statut de vente et image principale (doc CJ)", () => {
+    const base = { pid: "P2", productNameEn: "Lamp", sellPrice: "3", variants: [{ vid: "V1" }], bigImage: "https://cf.cj.com/big.jpg" };
+    assert.equal(normalizeProductDetail({ ...base, status: "3" })?.onSale, true);
+    assert.equal(normalizeProductDetail({ ...base, status: "2" })?.onSale, false);
+    assert.deepEqual(normalizeProductDetail(base)?.images, ["https://cf.cj.com/big.jpg"]);
   });
 
   it("options de livraison et choix sous 15 jours", () => {
@@ -101,13 +109,21 @@ describe("réponses CJ", () => {
 
   it("stock : somme des entrepôts", () => {
     assert.equal(normalizeStock([{ areaEn: "China", storageNum: 120 }, { areaEn: "US", storageNum: 30 }]), 150);
+    // Format documenté : entrepôts avec pays ; seuls ceux de Chine comptent (livraison calculée depuis la Chine).
+    assert.equal(normalizeStock([{ countryCode: "CN", totalInventoryNum: 80, storageNum: 1 }, { countryCode: "US", totalInventoryNum: 40 }]), 80);
+    assert.equal(normalizeStock([{ countryCode: "US", totalInventoryNum: 40 }]), 0);
     assert.equal(normalizeStock([]), null);
   });
 });
 
 describe("commandes CJ", () => {
   it("lit l'identifiant de la commande créée (plusieurs formes)", () => {
-    assert.deepEqual(normalizeCreatedOrder({ orderId: "2103221234567", orderAmount: "12.30" }), { orderId: "2103221234567", amountUsdCents: 1230 });
+    assert.deepEqual(normalizeCreatedOrder({ orderId: "2103221234567", orderAmount: "12.30" }), { orderId: "2103221234567", shipmentOrderId: null, amountUsdCents: 1230 });
+    // Réponse documentée de createOrderV2 : montant réel et identifiant d'expédition (paiement V2).
+    assert.deepEqual(
+      normalizeCreatedOrder({ orderId: "CJ1", shipmentOrderId: "SH1", actualPayment: "15.80", orderAmount: "16.00", productAmount: "9.00" }),
+      { orderId: "CJ1", shipmentOrderId: "SH1", amountUsdCents: 1580 },
+    );
     assert.equal(normalizeCreatedOrder("2103221234567")?.orderId, "2103221234567");
     assert.equal(normalizeCreatedOrder({ id: 42 })?.orderId, "42");
     assert.equal(normalizeCreatedOrder({}), null);

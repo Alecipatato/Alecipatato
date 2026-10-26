@@ -1,9 +1,9 @@
 import { createAdminClient } from "../supabase/admin";
 
 /**
- * Client HTTP de l'API CJ Dropshipping v2.0.
- *  - Jeton d'accès mémorisé en base (15 jours ; création limitée par CJ).
- *  - Au plus ~1 appel par seconde (limite des comptes CJ standards).
+ * Client HTTP de l'API CJ Dropshipping v2.0 (doc : developers.cjdropshipping.com, vérifiée le 2026-10-26).
+ *  - Jeton d'accès mémorisé en base (180 jours ; CJ renvoie le même jeton pendant 24 h).
+ *  - Au plus ~1 appel par seconde (QPS = 1 par défaut ; limite réelle du compte : GET /setting/get).
  *  - Nouvel essai automatique si CJ demande de ralentir.
  * CJ_API_BASE permet de viser un serveur simulé pour les tests locaux.
  */
@@ -11,6 +11,11 @@ import { createAdminClient } from "../supabase/admin";
 const DEFAULT_BASE = "https://developers.cjdropshipping.com/api2.0/v1";
 const MIN_INTERVAL_MS = 1100;
 const RATE_LIMIT_CODES = new Set([1600200, 429]);
+/** Jeton invalide ou expiré (1600001) ou absent (1600002) : on en redemande un. */
+const TOKEN_CODES = new Set([1600001, 1600002]);
+
+/** Valeur de paramètre : un tableau répète la clé (`features=a&features=b`), comme le demande CJ. */
+type QueryValue = string | number | string[];
 
 export class CjError extends Error {
   constructor(message: string, readonly code?: number) {
@@ -47,9 +52,11 @@ interface Envelope {
   data?: unknown;
 }
 
-async function rawCall(method: "GET" | "POST", path: string, opts: { query?: Record<string, string | number>; body?: unknown; token?: string }) {
+async function rawCall(method: "GET" | "POST", path: string, opts: { query?: Record<string, QueryValue>; body?: unknown; token?: string }) {
   const url = new URL(`${base()}${path}`);
-  for (const [k, v] of Object.entries(opts.query ?? {})) url.searchParams.set(k, String(v));
+  for (const [k, v] of Object.entries(opts.query ?? {})) {
+    for (const item of Array.isArray(v) ? v : [v]) url.searchParams.append(k, String(item));
+  }
   await throttle();
   const response = await fetch(url, {
     method,
@@ -90,7 +97,7 @@ async function saveToken(data: unknown): Promise<string> {
   const row = {
     provider: "cj",
     access_token: d.accessToken,
-    access_expires_at: parseDate(d.accessTokenExpiryDate, 14 * 86_400_000).toISOString(),
+    access_expires_at: parseDate(d.accessTokenExpiryDate, 170 * 86_400_000).toISOString(),
     refresh_token: typeof d.refreshToken === "string" ? d.refreshToken : null,
     refresh_expires_at: d.refreshToken ? parseDate(d.refreshTokenExpiryDate, 170 * 86_400_000).toISOString() : null,
     updated_at: new Date().toISOString(),
@@ -126,7 +133,7 @@ async function getAccessToken(forceNew = false): Promise<string> {
 export async function cjRequest(
   method: "GET" | "POST",
   path: string,
-  opts: { query?: Record<string, string | number>; body?: unknown } = {},
+  opts: { query?: Record<string, QueryValue>; body?: unknown } = {},
 ): Promise<unknown> {
   let token = await getAccessToken();
   for (let attempt = 0; attempt < 4; attempt++) {
@@ -137,7 +144,7 @@ export async function cjRequest(
       await sleep(1500 * (attempt + 1));
       continue;
     }
-    if (status === 401 && attempt === 0) {
+    if ((status === 401 || TOKEN_CODES.has(json.code ?? 0)) && attempt === 0) {
       token = await getAccessToken(true); // jeton révoqué ou expiré : on en redemande un
       continue;
     }

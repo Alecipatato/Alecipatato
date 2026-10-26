@@ -79,7 +79,7 @@ export async function transmitOrder(orderId: string): Promise<TransmitResult> {
 
     if (cjAutoPayEnabled()) {
       try {
-        await payCjOrder(created.orderId);
+        await payCjOrder(created);
         await admin.from("orders").update({ cj_paid: true }).eq("id", order.id);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);

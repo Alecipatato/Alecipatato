@@ -3,8 +3,7 @@ import { type CjCreatedOrder, type CjOrderDetail, normalizeBalance, normalizeCre
 
 /**
  * Commandes CJ : création, paiement depuis le portefeuille CJ, suivi.
- * ⚠️ Écrit sans accès à la documentation CJ : noms de champs à valider avec une vraie clé
- * (seul normalize.ts lit les réponses).
+ * Conforme à la doc CJ (vérifiée le 2026-10-26) ; à valider avec une vraie clé (seul normalize.ts lit les réponses).
  */
 
 export interface CjOrderInput {
@@ -28,23 +27,34 @@ export function cjAutoPayEnabled(): boolean {
   return process.env.CJ_AUTO_PAY === "true";
 }
 
+/** Commandes « sandbox » chez CJ (aucun vrai débit) tant que CJ_SANDBOX n'est pas explicitement "false". */
+export function cjSandbox(): boolean {
+  return process.env.CJ_SANDBOX !== "false";
+}
+
+// Longueurs maximales acceptées par createOrderV2.
+const cut = (value: string, max: number) => value.trim().slice(0, max);
+
 export async function createCjOrder(input: CjOrderInput): Promise<CjCreatedOrder> {
   const data = await cjRequest("POST", "/shopping/order/createOrderV2", {
     body: {
-      orderNumber: input.orderNumber,
+      orderNumber: cut(input.orderNumber, 50),
       shippingCountryCode: input.address.country,
       shippingCountry: input.address.country === "CA" ? "Canada" : input.address.country,
-      shippingProvince: input.address.province,
-      shippingCity: input.address.city,
-      shippingAddress: input.address.line1,
-      shippingAddress2: input.address.line2 ?? "",
-      shippingZip: input.address.postalCode,
-      shippingCustomerName: input.customerName,
-      shippingPhone: input.phone,
-      email: input.email ?? "",
+      shippingProvince: cut(input.address.province, 50),
+      shippingCity: cut(input.address.city, 50),
+      shippingAddress: cut(input.address.line1, 200),
+      shippingAddress2: cut(input.address.line2 ?? "", 200),
+      shippingZip: cut(input.address.postalCode, 20),
+      shippingCustomerName: cut(input.customerName, 50),
+      shippingPhone: cut(input.phone, 20),
+      email: cut(input.email ?? "", 50),
       logisticName: input.logisticName,
       fromCountryCode: "CN",
       remark: "",
+      // 3 = créer seulement (le paiement se fait ensuite avec payBalanceV2) ; 1/absent = page de paiement (déprécié).
+      payType: 3,
+      isSandbox: cjSandbox() ? 1 : 0,
       products: input.items.map((i) => ({ vid: i.vid, quantity: i.quantity })),
     },
   });
@@ -53,9 +63,13 @@ export async function createCjOrder(input: CjOrderInput): Promise<CjCreatedOrder
   return order;
 }
 
-/** Paie la commande avec le solde du portefeuille CJ. */
-export async function payCjOrder(cjOrderId: string): Promise<void> {
-  await cjRequest("POST", "/shopping/pay/payBalance", { body: { orderId: cjOrderId } });
+/**
+ * Paie la commande avec le solde du portefeuille CJ : payBalanceV2 avec l'identifiant d'expédition
+ * (obligatoire quand une commande est découpée en plusieurs envois), sinon l'ancienne méthode par orderId.
+ */
+export async function payCjOrder(order: Pick<CjCreatedOrder, "orderId" | "shipmentOrderId">): Promise<void> {
+  if (order.shipmentOrderId) await cjRequest("POST", "/shopping/pay/payBalanceV2", { body: { shipmentOrderId: order.shipmentOrderId } });
+  else await cjRequest("POST", "/shopping/pay/payBalance", { body: { orderId: order.orderId } });
 }
 
 export async function getCjOrder(cjOrderId: string): Promise<CjOrderDetail | null> {

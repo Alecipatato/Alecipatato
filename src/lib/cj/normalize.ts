@@ -33,6 +33,8 @@ export interface CjProductDetail {
   category: string | null;
   images: string[];
   variants: CjVariant[];
+  /** Faux si CJ indique que le produit n'est plus en vente (status ≠ "3"). Vrai si le statut est absent. */
+  onSale: boolean;
 }
 
 export interface CjShippingOption {
@@ -169,7 +171,8 @@ export function normalizeProductDetail(data: unknown): CjProductDetail | null {
     })
     .filter((v): v is CjVariant => v !== null);
 
-  const images = parseImages(data.productImageSet).length ? parseImages(data.productImageSet) : parseImages(data.productImage);
+  const images = parseImages(data.productImageSet).length ? parseImages(data.productImageSet) : parseImages(data.bigImage ?? data.productImage);
+  const status = firstString(data, "status");
   return {
     pid,
     name: name.slice(0, 300),
@@ -177,6 +180,7 @@ export function normalizeProductDetail(data: unknown): CjProductDetail | null {
     category: firstString(data, "categoryName", "category"),
     images: images.slice(0, 8),
     variants,
+    onSale: status === null || status === "3",
   };
 }
 
@@ -199,13 +203,21 @@ export function bestShippingOption(options: CjShippingOption[], maxDays: number)
   return options.filter((o) => o.daysMax <= maxDays).sort((a, b) => a.priceUsdCents - b.priceUsdCents || a.daysMax - b.daysMax)[0] ?? null;
 }
 
-/** Stock total d'une variante (somme des entrepôts). null si la réponse est illisible. */
-export function normalizeStock(data: unknown): number | null {
-  const rows = Array.isArray(data) ? data : isObject(data) ? [data] : [];
+/**
+ * Stock d'une variante dans les entrepôts de Chine (les frais de livraison sont calculés depuis la Chine) ;
+ * si aucun entrepôt n'indique son pays, somme de tous. null si la réponse est illisible.
+ * `totalInventoryNum` d'abord (`storageNum` est déprécié).
+ */
+export function normalizeStock(data: unknown, originCountry = "CN"): number | null {
+  const all = (Array.isArray(data) ? data : isObject(data) ? [data] : []).filter(isObject);
+  const fromOrigin = all.filter((r) => r.countryCode === originCountry);
+  // Entrepôts identifiés, mais aucun en Chine : rien d'expédiable depuis la Chine.
+  if (!fromOrigin.length && all.some((r) => typeof r.countryCode === "string")) return 0;
+  const rows = fromOrigin.length ? fromOrigin : all;
   let total = 0;
   let found = false;
-  for (const r of rows.filter(isObject)) {
-    const n = Number(r.storageNum ?? r.totalInventoryNum ?? r.inventoryNum ?? r.inventory);
+  for (const r of rows) {
+    const n = Number(r.totalInventoryNum ?? r.storageNum ?? r.inventoryNum ?? r.inventory);
     if (Number.isFinite(n) && n >= 0) {
       total += Math.floor(n);
       found = true;
@@ -220,6 +232,8 @@ export function normalizeStock(data: unknown): number | null {
 
 export interface CjCreatedOrder {
   orderId: string;
+  /** Identifiant d'expédition, nécessaire au paiement (payBalanceV2). */
+  shipmentOrderId: string | null;
   /** Montant total facturé par CJ (produits + livraison), si renvoyé. */
   amountUsdCents: number | null;
 }
@@ -240,7 +254,8 @@ export function normalizeCreatedOrder(data: unknown): CjCreatedOrder | null {
   if (!d) return null;
   const orderId = firstString(d, "orderId", "id", "cjOrderId", "orderNum");
   if (!orderId) return null;
-  return { orderId, amountUsdCents: parseUsdCents(d.orderAmount ?? d.productAmount ?? d.totalAmount ?? null) };
+  const amount = [d.actualPayment, d.orderAmount, d.totalAmount, d.productAmount].map(parseUsdCents).find((v) => v !== null && v > 0);
+  return { orderId, shipmentOrderId: firstString(d, "shipmentOrderId"), amountUsdCents: amount ?? null };
 }
 
 /** Statuts CJ (CREATED, IN_CART, UNPAID, UNSHIPPED, SHIPPED, DELIVERED, CANCELLED…) → étape simplifiée. */

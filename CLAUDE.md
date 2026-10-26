@@ -118,8 +118,14 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
 - **Produits CJ** (phase 3) : adaptateur `src/lib/cj/` — `normalize.ts` (lecture TOLÉRANTE des réponses,
   testée ; seul endroit à corriger si un champ CJ diffère), `client.ts` (jeton en table
   `integration_tokens`, ~1 appel/s, nouvel essai sur code 1600200/429), `catalog.ts` (`/product/list`,
-  `/product/query`, `/logistic/freightCalculate`, `/product/stock/queryByVid`). ⚠️ Écrit SANS accès à
-  la doc CJ (domaine bloqué dans l'environnement) : à valider avec une vraie clé.
+  `/product/query`, `/logistic/freightCalculate`, `/product/stock/queryByVid`). Comparé à la doc officielle
+  le 2026-10-26 (developers.cjdropshipping.com) : recherche via `/product/listV2` (`keyWord`, `page`, `size`,
+  `features=enable_category`, tri popularité `orderBy=1&sort=desc`), produit hors vente si `status ≠ "3"`, stock =
+  `totalInventoryNum` des entrepôts CN, commande `createOrderV2` avec `payType: 3` + `isSandbox` (`CJ_SANDBOX`, vrai par
+  défaut) puis paiement `payBalanceV2 {shipmentOrderId}`, reconnexion sur codes 1600001/1600002. Pistes pour plus tard
+  (doc) : webhooks produit/stock/commande (`/webhook/set` + abonnement par produit, signature HMAC), filtres tendance
+  `productFlag=0` / `zonePlatform=tiktok`, fiche riche (`productWeight`, `materialNameEnSet`, `variantKey`, dimensions,
+  `inventories`). ⚠️ Reste à valider avec une vraie clé (dans une session où `CJ_API_KEY` est définie).
 - **Recherche de produits** : `src/lib/products/sourcing.ts`, table `sourcing_jobs`, en petites étapes
   (searching → selecting → processing → done) appelées en boucle par l'écran Produits via
   `POST /api/sourcing/advance`. IA : `src/lib/ai/product-curator.ts` (sélection + rédaction FR, appels

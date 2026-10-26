@@ -14,8 +14,20 @@ import {
  * Lecture seule : aucune commande ni aucun paiement n'est effectué ici.
  */
 
-export async function searchProducts(keyword: string, pageSize = 20): Promise<CjProductSummary[]> {
-  const data = await cjRequest("GET", "/product/list", { query: { productNameEn: keyword, pageNum: 1, pageSize } });
+/**
+ * Recherche dans le catalogue (Product List V2 ; l'ancienne /product/list est dépréciée et limitée à
+ * 1000 appels/jour). `byPopularity` : les produits les plus importés par les boutiques CJ en premier.
+ */
+export async function searchProducts(keyword: string, pageSize = 20, options: { byPopularity?: boolean } = {}): Promise<CjProductSummary[]> {
+  const data = await cjRequest("GET", "/product/listV2", {
+    query: {
+      keyWord: keyword,
+      page: 1,
+      size: Math.min(pageSize, 100),
+      features: ["enable_category"],
+      ...(options.byPopularity && { orderBy: 1, sort: "desc" }), // 1 = nombre d'importations (listedNum)
+    },
+  });
   return normalizeListResponse(data);
 }
 
@@ -26,11 +38,11 @@ export async function searchProducts(keyword: string, pageSize = 20): Promise<Cj
  */
 const PRODUCT_GONE = /not\s*(found|exist)|does\s*not\s*exist|offline|removed|delisted|unavailable|下架|不存在/i;
 
-/** Fiche produit, ou null si le produit n'existe plus chez CJ. */
+/** Fiche produit, ou null si le produit n'existe plus chez CJ ou n'est plus en vente. */
 export async function getProductDetail(pid: string): Promise<CjProductDetail | null> {
   try {
-    const data = await cjRequest("GET", "/product/query", { query: { pid } });
-    return normalizeProductDetail(data);
+    const detail = normalizeProductDetail(await cjRequest("GET", "/product/query", { query: { pid } }));
+    return detail?.onSale === false ? null : detail;
   } catch (err) {
     if (err instanceof CjError && err.code !== undefined && PRODUCT_GONE.test(err.message)) return null;
     throw err;
