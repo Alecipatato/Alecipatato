@@ -250,8 +250,14 @@ Ne pas commencer sans sa validation explicite ; proposer d'abord un ordre de ré
 4. *(pas de point 4)*
 5. **Fiche produit comme Amazon** : grande image + vignettes, zoom, titre, prix, points forts, description
    détaillée, caractéristiques, variantes, livraison, produits similaires. Le vendeur NE modifie PAS la fiche
-   (ni textes, ni ordre des images) ; il peut **ajouter lui-même des produits** choisis dans la liste des
-   produits, et l'IA crée la fiche complète (description, images, etc.). Jamais de faux avis.
+   (ni textes, ni ordre des images). Pour ajouter des produits, il a le choix : les **choisir lui-même** dans la
+   liste des produits, OU **laisser l'IA les choisir** pour lui ; dans les deux cas, l'IA crée la fiche complète
+   (description, images, etc.). Jamais de faux avis.
+
+**Ordre validé par le propriétaire** : A. brancher le vrai CJ (validation) → B. fiches complètes + page
+« comme Amazon » + ajout de produits (par le vendeur ou par l'IA) → C. centaines de produits populaires
+(TikTok) → D. données toujours à jour → E. publicités (a. guides, b. campagnes Meta/TikTok) → F. sécurité +
+commission dégressive. Sans clé CJ : B (avec produits d'exemple), E-a et F peuvent commencer avant A.
 6. **Beaucoup d'informations par produit** : toutes les images, description, caractéristiques (dimensions,
    matériaux, poids, contenu), variantes — uniquement depuis les données du fournisseur (l'IA n'invente rien).
 7. **Sécurité de l'argent** : aucun argent stocké sur le site (déjà le cas : Stripe garde l'argent et les
