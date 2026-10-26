@@ -230,3 +230,31 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
 - [x] Produits tendance — galerie de produits gagnants (image, demande, prix fournisseur, livraison, prix conseillé,
       gain), choix des produits ou IA complète, boutique générée selon les critères ou adaptée aux produits
 - [ ] Prochaine étape — mise en production (déploiement Cloudflare, vraies clés en mode test, validation CJ)
+
+## Prochaines étapes (demandées par le propriétaire le 2026-10-26, NON commencées)
+
+Ne pas commencer sans sa validation explicite ; proposer d'abord un ordre de réalisation.
+
+1. **Des centaines de produits prêts à vendre**, branchés à un fournisseur : priorité aux produits qui
+   marchent bien et sont **populaires sur TikTok**. Nécessite une vraie clé CJ (aujourd'hui : 72 produits
+   découverts par la tâche `/api/cron/trends`, 36 exemples sans clé). Vérifier quelles sources de popularité
+   TikTok sont accessibles légalement (indicateurs CJ, TikTok Creative Center…) sans rien inventer.
+2. **Données toujours à jour** : demande, prix fournisseur et prix conseillé mis à jour en continu ; un produit
+   que le fournisseur n'a plus est retiré **instantanément** de la galerie et de toutes les boutiques.
+   Aujourd'hui : prix/stock toutes les heures, demande une fois par jour. Pistes : notifications CJ (webhooks)
+   si elles existent, sinon relecture fréquente (limite CJ ~1 appel/s) ; revérifier le stock au paiement.
+3. **Publicités** : laisser au vendeur le choix entre (a) guides/formation pas à pas dans le tableau de bord
+   et (b) lancer ses campagnes Meta/TikTok depuis la plateforme (compte publicitaire relié, campagne créée par
+   l'IA ; approbation Meta/TikTok requise). (c) Service « on s'en occupe pour vous » : idée pour plus tard,
+   si la plateforme rapporte.
+4. *(pas de point 4)*
+5. **Fiche produit comme Amazon** : grande image + vignettes, zoom, titre, prix, points forts, description
+   détaillée, caractéristiques, variantes, livraison, produits similaires. Le vendeur NE modifie PAS la fiche
+   (ni textes, ni ordre des images) ; il peut **ajouter lui-même des produits** choisis dans la liste des
+   produits, et l'IA crée la fiche complète (description, images, etc.). Jamais de faux avis.
+6. **Beaucoup d'informations par produit** : toutes les images, description, caractéristiques (dimensions,
+   matériaux, poids, contenu), variantes — uniquement depuis les données du fournisseur (l'IA n'invente rien).
+7. **Sécurité de l'argent** : aucun argent stocké sur le site (déjà le cas : Stripe garde l'argent et les
+   cartes ; le site ne garde que des montants) ; renforcer (double authentification admin, alertes, limites).
+   **Commission dégressive** : au-delà d'un certain profit, les 15 % pourraient baisser un peu, et peut-être
+   d'autres avantages — à préciser par le propriétaire (paliers, montants, avantages).
