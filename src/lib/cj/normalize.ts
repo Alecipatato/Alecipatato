@@ -148,6 +148,14 @@ export function normalizeListResponse(data: unknown): CjProductSummary[] {
     .filter((p): p is CjProductSummary => p !== null && !seen.has(p.pid) && Boolean(seen.add(p.pid)));
 }
 
+/**
+ * CJ renvoie souvent le chemin complet de la catégorie, sous plusieurs formes :
+ * « Sports & Outdoors / … / Fitness & Bodybuilding », « Home & Garden， Furniture > Kitchen > … ». On garde le dernier niveau.
+ */
+export function lastCategoryLevel(value: string | null): string | null {
+  return value?.split(/\s*[>/]\s*/).pop()?.trim() || null;
+}
+
 export function normalizeProductDetail(data: unknown): CjProductDetail | null {
   if (!isObject(data)) return null;
   const pid = firstString(data, "pid", "id", "productId");
@@ -177,7 +185,7 @@ export function normalizeProductDetail(data: unknown): CjProductDetail | null {
     pid,
     name: name.slice(0, 300),
     description: stripHtml(data.description ?? data.productDescription),
-    category: firstString(data, "categoryName", "category"),
+    category: lastCategoryLevel(firstString(data, "categoryName", "category")),
     images: images.slice(0, 8),
     variants,
     onSale: status === null || status === "3",

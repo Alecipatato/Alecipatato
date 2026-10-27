@@ -125,7 +125,11 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
   défaut) puis paiement `payBalanceV2 {shipmentOrderId}`, reconnexion sur codes 1600001/1600002. Pistes pour plus tard
   (doc) : webhooks produit/stock/commande (`/webhook/set` + abonnement par produit, signature HMAC), filtres tendance
   `productFlag=0` / `zonePlatform=tiktok`, fiche riche (`productWeight`, `materialNameEnSet`, `variantKey`, dimensions,
-  `inventories`). ⚠️ Reste à valider avec une vraie clé (dans une session où `CJ_API_KEY` est définie).
+  `inventories`). **Validé avec la vraie clé le 2026-10-27** (lecture seule) : jeton, `/setting/get` (qpsLimit 100,
+  quotas affichés 1000/endpoint mais `requestedNum` reste à 0), `listV2` trié par popularité, fiche, stock, frais vers le
+  Canada, solde, tâche `/api/cron/trends` (72 produits réels, 12 par thème) et création d'une boutique avec 3 vrais produits.
+  Catégories CJ = chemin complet sous plusieurs formes → `lastCategoryLevel`. Commandes sandbox pas encore testées.
+  En local derrière le proxy de l'environnement cloud, lancer Node avec `NODE_USE_ENV_PROXY=1` (inutile en production).
 - **Recherche de produits** : `src/lib/products/sourcing.ts`, table `sourcing_jobs`, en petites étapes
   (searching → selecting → processing → done) appelées en boucle par l'écran Produits via
   `POST /api/sourcing/advance`. IA : `src/lib/ai/product-curator.ts` (sélection + rédaction FR, appels
