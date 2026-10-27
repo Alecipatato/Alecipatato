@@ -262,8 +262,12 @@ export function normalizeCreatedOrder(data: unknown): CjCreatedOrder | null {
   if (!d) return null;
   const orderId = firstString(d, "orderId", "id", "cjOrderId", "orderNum");
   if (!orderId) return null;
-  const amount = [d.actualPayment, d.orderAmount, d.totalAmount, d.productAmount].map(parseUsdCents).find((v) => v !== null && v > 0);
-  return { orderId, shipmentOrderId: firstString(d, "shipmentOrderId"), amountUsdCents: amount ?? null };
+  // Total facturé ; à la création (payType 3), CJ ne donne souvent que les produits et la livraison séparément.
+  const total = [d.actualPayment, d.orderAmount, d.totalAmount].map(parseUsdCents).find((v) => v !== null && v > 0);
+  const products = parseUsdCents(d.productAmount ?? null);
+  const postage = parseUsdCents(d.postageAmount ?? null);
+  const amount = total ?? (products !== null ? products + (postage ?? 0) : null);
+  return { orderId, shipmentOrderId: firstString(d, "shipmentOrderId"), amountUsdCents: amount };
 }
 
 /** Statuts CJ (CREATED, IN_CART, UNPAID, UNSHIPPED, SHIPPED, DELIVERED, CANCELLED…) → étape simplifiée. */

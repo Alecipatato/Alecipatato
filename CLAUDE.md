@@ -128,7 +128,13 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
   `inventories`). **Validé avec la vraie clé le 2026-10-27** (lecture seule) : jeton, `/setting/get` (qpsLimit 100,
   quotas affichés 1000/endpoint mais `requestedNum` reste à 0), `listV2` trié par popularité, fiche, stock, frais vers le
   Canada, solde, tâche `/api/cron/trends` (72 produits réels, 12 par thème) et création d'une boutique avec 3 vrais produits.
-  Catégories CJ = chemin complet sous plusieurs formes → `lastCategoryLevel`. Commandes sandbox pas encore testées.
+  Catégories CJ = chemin complet sous plusieurs formes → `lastCategoryLevel`. **Commande sandbox testée** (2026-10-27) :
+  `createOrderV2` (payType 3) renvoie `orderId` « SD… », `shipmentOrderId` null, statut CREATED, montants séparés
+  (`productAmount` + `postageAmount`) → il faut `PATCH /shopping/order/confirmOrder {orderId}` (→ UNPAID) avant
+  `payBalance {orderId}` (sandbox : paiement simulé) ; `getOrderDetail` accepte le « SD… » ; statuts et `trackNumber`
+  lus correctement. Outils sandbox : `/shopping/sandbox/simulatePay`, `updateStatus` (300→400→500→600), `updateTrackNumber`.
+  **Décision du propriétaire** : les produits « compatibles avec » une marque (ex. chargeur pour iPhone) sont acceptés ;
+  les noms de marque restent bloqués dans les titres/textes rédigés par l'IA et les vraies contrefaçons restent interdites.
   En local derrière le proxy de l'environnement cloud, lancer Node avec `NODE_USE_ENV_PROXY=1` (inutile en production).
 - **Recherche de produits** : `src/lib/products/sourcing.ts`, table `sourcing_jobs`, en petites étapes
   (searching → selecting → processing → done) appelées en boucle par l'écran Produits via
@@ -154,7 +160,7 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
   (`getCjBalance`, `/shopping/pay/getBalance`, à valider) ; boutiques à surveiller (`flagReasons` : suspendue, produits
   bloqués, texte, remboursements ≥ 10 % sur 3 commandes, litiges, commandes CJ en échec).
 - **Commandes CJ** (phase 6) : `src/lib/orders/fulfillment.ts` + adaptateur `src/lib/cj/orders.ts`
-  (`createOrderV2`, `payBalance`, `getOrderDetail` ; réponses lues par `normalize.ts`). Transmission juste après
+  (`createOrderV2` → `confirmOrder` → `payBalance`/`payBalanceV2`, `getOrderDetail` ; réponses lues par `normalize.ts`). Transmission juste après
   le paiement (`after()` dans `finalizePaidSession`) et par `/api/cron/orders` (nouveaux essais : 15 min, 1 h, 3 h,
   6 h ; `MAX_CJ_ATTEMPTS` = 5). Verrou `orders.cj_status = 'sending'`, `orderNumber` CJ = id de la commande.
   Activée seulement si `CJ_ORDERS_ENABLED=true` ; paiement portefeuille si `CJ_AUTO_PAY=true`. Produits

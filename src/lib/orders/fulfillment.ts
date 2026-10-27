@@ -1,6 +1,6 @@
 import { isCjConfigured } from "../cj/client";
 import { trackingUrl } from "../cj/normalize";
-import { cjAutoPayEnabled, cjOrdersEnabled, createCjOrder, getCjOrder, payCjOrder } from "../cj/orders";
+import { cjAutoPayEnabled, cjOrdersEnabled, confirmCjOrder, createCjOrder, getCjOrder, payCjOrder } from "../cj/orders";
 import { sendBuyerEmail, sendMissedBuyerEmails } from "../email/order-emails";
 import { alertAdmin } from "../email/resend";
 import { createAdminClient } from "../supabase/admin";
@@ -76,6 +76,19 @@ export async function transmitOrder(orderId: string): Promise<TransmitResult> {
       .from("orders")
       .update({ cj_status: "sent", cj_order_id: created.orderId, status: "sent_to_supplier", cj_attempts: attempts, cj_error: null })
       .eq("id", order.id);
+
+    // Confirmation obligatoire chez CJ (sinon la commande reste en attente et ne peut pas être payée).
+    try {
+      await confirmCjOrder(created.orderId);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await admin.from("orders").update({ cj_error: `Confirmation CJ : ${message}`.slice(0, 500) }).eq("id", order.id);
+      await alertAdmin(
+        `Confirmation CJ impossible — commande ${order.order_number}`,
+        `La commande ${order.order_number} (${order.stores?.name ?? ""}) a été créée chez CJ (${created.orderId}) mais n'a pas pu être confirmée.\n\nErreur : ${message}\n\nConfirmez-la puis payez-la dans l'espace CJ.`,
+      );
+      return "sent";
+    }
 
     if (cjAutoPayEnabled()) {
       try {

@@ -131,6 +131,11 @@ describe("commandes CJ", () => {
       normalizeCreatedOrder({ orderId: "CJ1", shipmentOrderId: "SH1", actualPayment: "15.80", orderAmount: "16.00", productAmount: "9.00" }),
       { orderId: "CJ1", shipmentOrderId: "SH1", amountUsdCents: 1580 },
     );
+    // Réponse réelle (sandbox, 2026-10-27) : total absent, produits + livraison séparés.
+    assert.deepEqual(
+      normalizeCreatedOrder({ orderId: "SD2610272340430647000", shipmentOrderId: null, productAmount: 3.41, postageAmount: 25.65, actualPayment: null, orderAmount: null }),
+      { orderId: "SD2610272340430647000", shipmentOrderId: null, amountUsdCents: 2906 },
+    );
     assert.equal(normalizeCreatedOrder("2103221234567")?.orderId, "2103221234567");
     assert.equal(normalizeCreatedOrder({ id: 42 })?.orderId, "42");
     assert.equal(normalizeCreatedOrder({}), null);

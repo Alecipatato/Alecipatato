@@ -64,6 +64,14 @@ export async function createCjOrder(input: CjOrderInput): Promise<CjCreatedOrder
 }
 
 /**
+ * Confirme la commande : sans cette étape, une commande créée avec payType 3 reste « CREATED » (non payable).
+ * Après confirmation, elle passe à « UNPAID » (vérifié en sandbox le 2026-10-27).
+ */
+export async function confirmCjOrder(cjOrderId: string): Promise<void> {
+  await cjRequest("PATCH", "/shopping/order/confirmOrder", { body: { orderId: cjOrderId } });
+}
+
+/**
  * Paie la commande avec le solde du portefeuille CJ : payBalanceV2 avec l'identifiant d'expédition
  * (obligatoire quand une commande est découpée en plusieurs envois), sinon l'ancienne méthode par orderId.
  */

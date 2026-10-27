@@ -52,7 +52,7 @@ interface Envelope {
   data?: unknown;
 }
 
-async function rawCall(method: "GET" | "POST", path: string, opts: { query?: Record<string, QueryValue>; body?: unknown; token?: string }) {
+async function rawCall(method: "GET" | "POST" | "PATCH", path: string, opts: { query?: Record<string, QueryValue>; body?: unknown; token?: string }) {
   const url = new URL(`${base()}${path}`);
   for (const [k, v] of Object.entries(opts.query ?? {})) {
     for (const item of Array.isArray(v) ? v : [v]) url.searchParams.append(k, String(item));
@@ -131,7 +131,7 @@ async function getAccessToken(forceNew = false): Promise<string> {
 
 /** Appel authentifié à l'API CJ. Retourne le champ `data` de la réponse. */
 export async function cjRequest(
-  method: "GET" | "POST",
+  method: "GET" | "POST" | "PATCH",
   path: string,
   opts: { query?: Record<string, QueryValue>; body?: unknown } = {},
 ): Promise<unknown> {
