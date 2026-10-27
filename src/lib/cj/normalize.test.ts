@@ -94,6 +94,12 @@ describe("réponses CJ", () => {
     const base = { pid: "P2", productNameEn: "Lamp", sellPrice: "3", variants: [{ vid: "V1" }], bigImage: "https://cf.cj.com/big.jpg" };
     assert.equal(normalizeProductDetail({ ...base, status: "3" })?.onSale, true);
     assert.equal(normalizeProductDetail({ ...base, status: "2" })?.onSale, false);
+    // Réponses réelles : chemin complet de catégorie, sous plusieurs formes.
+    assert.equal(normalizeProductDetail({ ...base, categoryName: "Sports & Outdoors / Other Sports Equipment / Fitness & Bodybuilding" })?.category, "Fitness & Bodybuilding");
+    assert.equal(lastCategoryLevel("Home & Garden， Furniture > Kitchen， Dining & Bar > Kitchen Knives & Accessories"), "Kitchen Knives & Accessories");
+    assert.equal(lastCategoryLevel("Home & Garden, Furniture/Kitchen, Dining & Bar/Cooking Tools"), "Cooking Tools");
+    assert.equal(lastCategoryLevel("Chargers"), "Chargers");
+    assert.equal(lastCategoryLevel(null), null);
     assert.deepEqual(normalizeProductDetail(base)?.images, ["https://cf.cj.com/big.jpg"]);
   });
 
