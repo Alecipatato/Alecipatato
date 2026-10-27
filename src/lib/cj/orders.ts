@@ -3,7 +3,8 @@ import { type CjCreatedOrder, type CjOrderDetail, normalizeBalance, normalizeCre
 
 /**
  * Commandes CJ : création, paiement depuis le portefeuille CJ, suivi.
- * Conforme à la doc CJ (vérifiée le 2026-10-26) ; à valider avec une vraie clé (seul normalize.ts lit les réponses).
+ * Conforme à la doc CJ (vérifiée le 2026-10-26) et validé en sandbox avec la vraie API le 2026-10-27
+ * (création, confirmation, paiement, suivi). Seul normalize.ts lit les réponses.
  */
 
 export interface CjOrderInput {
@@ -66,8 +67,11 @@ export async function createCjOrder(input: CjOrderInput): Promise<CjCreatedOrder
 /**
  * Paie la commande avec le solde du portefeuille CJ : payBalanceV2 avec l'identifiant d'expédition
  * (obligatoire quand une commande est découpée en plusieurs envois), sinon l'ancienne méthode par orderId.
+ * Une commande créée avec payType 3 reste « CREATED » : il faut d'abord la confirmer (→ « UNPAID »),
+ * sinon CJ répond « Order not found » (vérifié en sandbox le 2026-10-27).
  */
 export async function payCjOrder(order: Pick<CjCreatedOrder, "orderId" | "shipmentOrderId">): Promise<void> {
+  await cjRequest("PATCH", "/shopping/order/confirmOrder", { body: { orderId: order.orderId } });
   if (order.shipmentOrderId) await cjRequest("POST", "/shopping/pay/payBalanceV2", { body: { shipmentOrderId: order.shipmentOrderId } });
   else await cjRequest("POST", "/shopping/pay/payBalance", { body: { orderId: order.orderId } });
 }

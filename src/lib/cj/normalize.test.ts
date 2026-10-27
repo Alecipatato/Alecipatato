@@ -130,6 +130,29 @@ describe("commandes CJ", () => {
     assert.equal(normalizeCreatedOrder(null), null);
   });
 
+  it("réponses réelles de CJ (sandbox, 2026-10-27)", () => {
+    // createOrderV2 avec payType 3 : totaux à null → produits + livraison.
+    assert.deepEqual(
+      normalizeCreatedOrder({ orderNumber: "kreo-1", orderId: "SD2610272250130654500", shipmentOrderId: null, postageAmount: 8.81, productAmount: 11.85, actualPayment: null, orderAmount: null }),
+      { orderId: "SD2610272250130654500", shipmentOrderId: null, amountUsdCents: 2066 },
+    );
+    // getOrderDetail : cycle CREATED → UNPAID (après confirmOrder) → UNSHIPPED → SHIPPED → DELIVERED.
+    const detail = (orderStatus: string, trackNumber: string | null) =>
+      normalizeOrderDetail({ orderId: "2610272250150655400", cjOrderCode: "SD2610272250130654500", orderStatus, trackNumber, logisticName: "CJPacket JYSP Sensitive" });
+    assert.equal(detail("CREATED", null)?.stage, "unpaid");
+    assert.equal(detail("UNPAID", null)?.stage, "unpaid");
+    assert.equal(detail("UNSHIPPED", null)?.stage, "processing");
+    assert.equal(detail("SHIPPED", "SBXKREO0001")?.stage, "shipped");
+    assert.equal(detail("DELIVERED", "SBXKREO0001")?.stage, "delivered");
+    assert.equal(detail("SHIPPED", "SBXKREO0001")?.carrier, "CJPacket JYSP Sensitive");
+    // freightCalculate : totalPostageFee (transport + frais) préféré à logisticPrice.
+    assert.deepEqual(normalizeShippingOptions([{ logisticAging: "7-15", logisticPrice: 8.81, logisticName: "CJPacket JYSP Sensitive", taxesFee: 0, totalPostageFee: 9.1 }]), [
+      { name: "CJPacket JYSP Sensitive", priceUsdCents: 910, daysMin: 7, daysMax: 15 },
+    ]);
+    // getBalance
+    assert.deepEqual(normalizeBalance({ amount: 0.0, noWithdrawalAmount: 0.0, freezeAmount: 0.0 }), { availableUsdCents: 0, frozenUsdCents: 0 });
+  });
+
   it("traduit les statuts CJ", () => {
     assert.equal(orderStage("UNPAID"), "unpaid");
     assert.equal(orderStage("CREATED"), "unpaid");

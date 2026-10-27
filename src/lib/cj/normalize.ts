@@ -190,7 +190,7 @@ export function normalizeShippingOptions(data: unknown): CjShippingOption[] {
     .filter(isObject)
     .map((r): CjShippingOption | null => {
       const name = firstString(r, "logisticName", "name");
-      const price = parseUsdCents(r.logisticPrice ?? r.price);
+      const price = parseUsdCents(r.totalPostageFee ?? r.logisticPrice ?? r.price); // total = transport + taxes/frais éloignés
       const aging = parseAging(r.logisticAging ?? r.aging);
       if (!name || price === null || !aging) return null;
       return { name, priceUsdCents: price, daysMin: aging.min, daysMax: aging.max };
@@ -254,8 +254,11 @@ export function normalizeCreatedOrder(data: unknown): CjCreatedOrder | null {
   if (!d) return null;
   const orderId = firstString(d, "orderId", "id", "cjOrderId", "orderNum");
   if (!orderId) return null;
-  const amount = [d.actualPayment, d.orderAmount, d.totalAmount, d.productAmount].map(parseUsdCents).find((v) => v !== null && v > 0);
-  return { orderId, shipmentOrderId: firstString(d, "shipmentOrderId"), amountUsdCents: amount ?? null };
+  // createOrderV2 (payType 3) laisse les totaux à null : produits + livraison.
+  const parts = [d.productAmount, d.postageAmount].map(parseUsdCents);
+  const sum = parts[0] !== null && parts[1] !== null ? parts[0] + parts[1] : null;
+  const amount = [d.actualPayment, d.orderAmount, d.totalAmount].map(parseUsdCents).find((v) => v !== null && v > 0) ?? sum ?? parts[0];
+  return { orderId, shipmentOrderId: firstString(d, "shipmentOrderId"), amountUsdCents: amount !== null && amount > 0 ? amount : null };
 }
 
 /** Statuts CJ (CREATED, IN_CART, UNPAID, UNSHIPPED, SHIPPED, DELIVERED, CANCELLED…) → étape simplifiée. */

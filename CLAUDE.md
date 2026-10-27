@@ -125,7 +125,17 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
   défaut) puis paiement `payBalanceV2 {shipmentOrderId}`, reconnexion sur codes 1600001/1600002. Pistes pour plus tard
   (doc) : webhooks produit/stock/commande (`/webhook/set` + abonnement par produit, signature HMAC), filtres tendance
   `productFlag=0` / `zonePlatform=tiktok`, fiche riche (`productWeight`, `materialNameEnSet`, `variantKey`, dimensions,
-  `inventories`). ⚠️ Reste à valider avec une vraie clé (dans une session où `CJ_API_KEY` est définie).
+  `inventories`).
+  **Validé avec la vraie API en sandbox le 2026-10-27** (compte « Kreo », 50 000 points/jour, quota 1000 appels/jour
+  par adresse, `qpsLimit` 100 ; `GET /setting/get`) : authentification, `listV2` (+ tri popularité, `listedNum` présent),
+  `product/query` (produit absent → code 1602001 « Product not found » → `null`), `freightCalculate` (prix =
+  `totalPostageFee`), `stock/queryByVid`, `getBalance`, et le cycle de commande. ⚠️ Avec `payType: 3`, la commande
+  reste `CREATED` : `payCjOrder` appelle d'abord `PATCH /shopping/order/confirmOrder` (→ `UNPAID`), sinon le paiement
+  répond « Order not found ». `createOrderV2` renvoie l'id `SD…` (accepté par getOrderDetail/confirm/pay ;
+  `shipmentOrderId` null → `payBalance`), totaux null → montant = produits + livraison. getOrderDetail : `CREATED` →
+  `UNPAID` → `UNSHIPPED` (sous-statut `PROCESSING`) → `SHIPPED` → `DELIVERED`. Outils sandbox CJ :
+  `/shopping/sandbox/simulatePay`, `/updateStatus` (300→400→500→600→700), `/updateTrackNumber`. Pas encore testé
+  avec la vraie clé : les tâches qui ont besoin de Supabase (`/api/cron/trends`, recherche de produits, synchro).
 - **Recherche de produits** : `src/lib/products/sourcing.ts`, table `sourcing_jobs`, en petites étapes
   (searching → selecting → processing → done) appelées en boucle par l'écran Produits via
   `POST /api/sourcing/advance`. IA : `src/lib/ai/product-curator.ts` (sélection + rédaction FR, appels
@@ -147,7 +157,7 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
   revenu net estimé = commissions − part des remboursements/litiges payée par la plateforme **hors taxes**
   (`refundPlatformCostCents`) − frais Stripe à sa charge ; coûts IA = jetons de `ai_generations` × tarifs
   `platform_settings.ai_pricing` (cents US / million de jetons ; Claude Opus 5.5 : 400 / 2000) ; solde du portefeuille CJ
-  (`getCjBalance`, `/shopping/pay/getBalance`, à valider) ; boutiques à surveiller (`flagReasons` : suspendue, produits
+  (`getCjBalance`, `/shopping/pay/getBalance`, validé) ; boutiques à surveiller (`flagReasons` : suspendue, produits
   bloqués, texte, remboursements ≥ 10 % sur 3 commandes, litiges, commandes CJ en échec).
 - **Commandes CJ** (phase 6) : `src/lib/orders/fulfillment.ts` + adaptateur `src/lib/cj/orders.ts`
   (`createOrderV2`, `payBalance`, `getOrderDetail` ; réponses lues par `normalize.ts`). Transmission juste après
@@ -222,11 +232,11 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
 - [x] Phase 5 — Stripe Connect Express, checkout + Stripe Tax, commission 15 %, réserve 7 jours,
       versements, remboursements et rétrofacturations selon règles configurables
 - [x] Phase 3 — produits CJ : recherche, sélection et rédaction par l'IA, livraison ≤ 15 jours,
-      prix ≥ 40 % de marge, écran de validation, synchro horaire (adaptateur CJ à valider avec une vraie clé)
+      prix ≥ 40 % de marge, écran de validation, synchro horaire (adaptateur CJ validé en sandbox le 2026-10-27)
 - [x] Langues — anglais par défaut, français selon la région, sélecteur ; langue propre à chaque boutique
 - [x] Phase 4 — modération (règles configurables, filtrage produits/textes, vérification, suspension admin)
 - [x] Phase 6 — commandes CJ : transmission auto, paiement portefeuille, nouveaux essais, alertes admin,
-      suivi de livraison, page publique de suivi (adaptateur CJ à valider avec une vraie clé)
+      suivi de livraison, page publique de suivi (cycle de commande validé en sandbox le 2026-10-27)
 - [x] Phase 7 — courriels acheteurs (confirmation, expédition, livraison), avis de vente, page « Nous joindre »
 - [x] Phase 8 — pages légales par boutique (CGV, retours, livraison, confidentialité Loi 25) et de la plateforme
 - [x] Phase 9 — tableau de bord : ventes, commandes, marge, commissions, versements, visites, conversion
@@ -260,7 +270,8 @@ Ne pas commencer sans sa validation explicite ; proposer d'abord un ordre de ré
    liste des produits, OU **laisser l'IA les choisir** pour lui ; dans les deux cas, l'IA crée la fiche complète
    (description, images, etc.). Jamais de faux avis.
 
-**Ordre validé par le propriétaire** : A. brancher le vrai CJ (validation) → B. fiches complètes + page
+**Ordre validé par le propriétaire** : A. brancher le vrai CJ (validation — adaptateur validé en sandbox le
+2026-10-27 ; reste à tester les tâches avec Supabase) → B. fiches complètes + page
 « comme Amazon » + ajout de produits (par le vendeur ou par l'IA) → C. centaines de produits populaires
 (TikTok) → D. données toujours à jour → E. publicités (a. guides, b. campagnes Meta/TikTok) → F. sécurité +
 commission dégressive. Sans clé CJ : B (avec produits d'exemple), E-a et F peuvent commencer avant A.
