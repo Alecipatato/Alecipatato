@@ -110,7 +110,15 @@ export async function syncSupplierProducts(limit = 25): Promise<SyncReport> {
           .update(
             removed
               ? { status: "rejected", sync_status: "unavailable", sync_note: null, last_synced_at: now }
-              : { stock: 0, sync_status: "out_of_stock", sync_note: null, variant_costs: costs, last_synced_at: now },
+              : {
+                  stock: 0,
+                  sync_status: "out_of_stock",
+                  sync_note: null,
+                  variant_costs: costs,
+                  // Toutes les variantes sont épuisées : la fiche doit l'afficher, quelle que soit la variante.
+                  variants: publicVariants.map((v) => ({ ...v, inStock: false })),
+                  last_synced_at: now,
+                },
           )
           .eq("id", product.id);
         if (removed) report.unavailable++;
