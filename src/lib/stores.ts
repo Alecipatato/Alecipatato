@@ -5,10 +5,10 @@ import { parseLegalInfo } from "./legal/store-legal";
 import { parsePixels, parseSeo } from "./marketing/settings";
 import { parseStoreConfig, parseTheme } from "./store-config";
 import { createPublicClient } from "./supabase/public";
-import type { StoreWithProducts } from "./types";
+import type { StoreVariant, StoreWithProducts } from "./types";
 
 const STORE_COLUMNS = "id, subdomain, custom_domain, name, theme, config, contact_email, currency, language, legal_info, seo, pixels, domain_status";
-const PRODUCT_COLUMNS = "id, title, description, category, highlights, images, price_cents, stock, delivery_days_min, delivery_days_max";
+const PRODUCT_COLUMNS = "id, title, description, category, highlights, images, price_cents, stock, delivery_days_min, delivery_days_max, long_description, specs, description_images, variants";
 
 /**
  * Charge une boutique active et ses produits actifs.
@@ -67,6 +67,30 @@ export const getStoreBySite = cache(async (site: string): Promise<StoreWithProdu
       stock: p.stock,
       deliveryDaysMin: p.delivery_days_min,
       deliveryDaysMax: p.delivery_days_max,
+      longDescription: p.long_description,
+      specs: parseSpecs(p.specs),
+      descriptionImages: stringList(p.description_images),
+      variants: parseVariants(p.variants),
     })),
   };
 });
+
+const stringList = (value: unknown): string[] => (Array.isArray(value) ? value.filter((x): x is string => typeof x === "string") : []);
+
+function parseSpecs(value: unknown): { label: string; value: string }[] {
+  return (Array.isArray(value) ? value : [])
+    .filter((x): x is Record<string, unknown> => typeof x === "object" && x !== null && typeof x.label === "string" && typeof x.value === "string")
+    .map((x) => ({ label: String(x.label), value: String(x.value) }));
+}
+
+function parseVariants(value: unknown): StoreVariant[] {
+  return (Array.isArray(value) ? value : [])
+    .filter((x): x is Record<string, unknown> => typeof x === "object" && x !== null && typeof x.vid === "string" && Number.isInteger(x.priceCents))
+    .map((x) => ({
+      vid: String(x.vid),
+      label: typeof x.label === "string" ? x.label : String(x.vid),
+      priceCents: Number(x.priceCents),
+      image: typeof x.image === "string" ? x.image : null,
+      inStock: x.inStock !== false,
+    }));
+}

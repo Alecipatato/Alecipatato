@@ -29,6 +29,9 @@ export function TrendPicker({
   commissionLabel,
   sample,
   continueTarget,
+  minSelection = MIN_SELECTION,
+  sameTheme = true,
+  subtitle,
 }: {
   cards: TrendCard[];
   selected: string[];
@@ -36,6 +39,10 @@ export function TrendPicker({
   commissionLabel: string;
   sample: boolean;
   continueTarget: string;
+  /** Création : 3 produits d'un même thème ; ajout à une boutique : à partir d'un produit, tous thèmes. */
+  minSelection?: number;
+  sameTheme?: boolean;
+  subtitle?: string;
 }) {
   const { locale, m } = useI18n();
   const t = m.trends.picker;
@@ -46,7 +53,7 @@ export function TrendPicker({
   const number = (n: number) => new Intl.NumberFormat(intlLocale(locale)).format(n);
   const percent = (bp: number) => new Intl.NumberFormat(intlLocale(locale), { style: "percent", maximumFractionDigits: 0 }).format(bp / 10_000);
 
-  const selectedTheme = cards.find((c) => c.id === selected[0])?.theme ?? null;
+  const selectedTheme = sameTheme ? (cards.find((c) => c.id === selected[0])?.theme ?? null) : null;
   const counts = useMemo(() => {
     const map = new Map<string, number>();
     for (const c of cards) map.set(c.theme, (map.get(c.theme) ?? 0) + 1);
@@ -65,7 +72,7 @@ export function TrendPicker({
       onChange(selected.filter((id) => id !== card.id));
       return;
     }
-    if (selected.length === 0) setTheme(card.theme); // la suite du choix se fait dans ce thème
+    if (sameTheme && selected.length === 0) setTheme(card.theme); // la suite du choix se fait dans ce thème
     onChange([...selected, card.id]);
   }
 
@@ -76,7 +83,7 @@ export function TrendPicker({
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="max-w-xl">
           <h2 id="trends-title" className="font-display text-2xl font-bold tracking-tight">{t.title}</h2>
-          <p className="mt-1 text-sm text-muted">{fmt(t.subtitle, { min: MIN_SELECTION, max: MAX_SELECTION })}</p>
+          <p className="mt-1 text-sm text-muted">{subtitle ?? fmt(t.subtitle, { min: minSelection, max: MAX_SELECTION })}</p>
         </div>
         <aside data-cost-notice className="flex max-w-sm gap-3 rounded-xl border border-brand/20 bg-brand-soft px-4 py-3 text-sm lg:shrink-0">
           <svg aria-hidden viewBox="0 0 20 20" className="mt-0.5 h-5 w-5 shrink-0 text-brand" fill="currentColor">
@@ -206,13 +213,13 @@ export function TrendPicker({
           <p className="text-sm">
             <span className="font-semibold tabular-nums">{fmt(t.selectedCount, { n: selected.length, max: MAX_SELECTION })}</span>
             {selectedTheme && <span className="text-muted"> · {fmt(t.theme, { theme: themeName(selectedTheme) })}</span>}
-            {selected.length < MIN_SELECTION && <span className="text-muted"> · {fmt(t.minHint, { min: MIN_SELECTION })}</span>}
+            {selected.length < minSelection && <span className="text-muted"> · {fmt(t.minHint, { min: minSelection })}</span>}
           </p>
           <div className="flex gap-2">
             <button type="button" onClick={() => onChange([])} className="rounded-xl border border-line px-4 py-2 text-sm font-medium hover:border-ink/30">{t.clear}</button>
             <a
               href={`#${continueTarget}`}
-              aria-disabled={selected.length < MIN_SELECTION}
+              aria-disabled={selected.length < minSelection}
               className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-strong aria-disabled:pointer-events-none aria-disabled:opacity-50"
             >
               {t.continue} ↓

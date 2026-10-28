@@ -24,6 +24,14 @@ export interface CjVariant {
   sku: string | null;
   image: string | null;
   priceUsdCents: number;
+  /** Options de la variante (« Olive green 40cm »), sans le nom du produit. */
+  key: string | null;
+  /** Poids en grammes (sert au calcul de la livraison). */
+  weightG: number | null;
+  /** Dimensions en millimètres. */
+  dimensionsMm: { length: number; width: number; height: number } | null;
+  /** Stock dans les entrepôts de Chine, si la fiche le donne. */
+  stock: number | null;
 }
 
 export interface CjProductDetail {
@@ -32,6 +40,14 @@ export interface CjProductDetail {
   description: string;
   category: string | null;
   images: string[];
+  /** Photos intégrées à la description du fournisseur (souvent des visuels détaillés). */
+  descriptionImages: string[];
+  materials: string[];
+  packaging: string[];
+  /** Poids du produit tel que donné par CJ, en grammes (ex. « 336.00-3000.00 »). */
+  weightText: string | null;
+  /** Noms des options des variantes (ex. « Color-Size »). */
+  optionNames: string | null;
   variants: CjVariant[];
   /** Faux si CJ indique que le produit n'est plus en vente (status ≠ "3"). Vrai si le statut est absent. */
   onSale: boolean;
@@ -149,6 +165,57 @@ export function normalizeListResponse(data: unknown): CjProductSummary[] {
 }
 
 /**
+ * Stock de chaque variante dans les entrepôts de Chine (`/product/stock/getInventoryByPid`, vérifié le 2026-10-28) :
+ * `variantInventories[].vid` + `inventory[]` (countryCode, totalInventory).
+ */
+export function normalizeVariantInventories(data: unknown): Map<string, number> {
+  const stock = new Map<string, number>();
+  const rows = isObject(data) && Array.isArray(data.variantInventories) ? data.variantInventories : [];
+  for (const row of rows.filter(isObject)) {
+    const vid = firstString(row, "vid");
+    if (!vid || !Array.isArray(row.inventory)) continue;
+    const total = row.inventory
+      .filter(isObject)
+      .filter((i) => i.countryCode === "CN")
+      .reduce((sum, i) => sum + Math.max(Math.floor(Number(i.totalInventory ?? 0)) || 0, 0), 0);
+    stock.set(vid, total);
+  }
+  return stock;
+}
+
+/** Images gardées par fiche (galerie et photos de description). */
+export const MAX_IMAGES = 12;
+
+/** Liste de textes : tableau, tableau JSON en texte (CJ envoie les deux) ou texte seul. */
+export function parseStringList(value: unknown): string[] {
+  let list: unknown[] = [];
+  if (Array.isArray(value)) list = value;
+  else if (typeof value === "string" && value.trim()) {
+    try {
+      const parsed: unknown = JSON.parse(value);
+      list = Array.isArray(parsed) ? parsed : [value];
+    } catch {
+      list = [value];
+    }
+  }
+  return [...new Set(list.map((x) => (typeof x === "string" ? x.trim() : "")).filter(Boolean))].slice(0, 10);
+}
+
+/** Adresses https des images d'une description HTML. */
+export function imagesInHtml(html: string): string[] {
+  const urls = [...html.matchAll(/<img[^>]+src=["']([^"']+)["']/gi)].map((m) => m[1]);
+  return parseImages(urls);
+}
+
+/** Stock d'une variante dans les entrepôts de Chine (`inventories[]` de la fiche). null si absent. */
+function variantStock(inventories: unknown): number | null {
+  if (!Array.isArray(inventories)) return null;
+  const rows = inventories.filter(isObject).filter((r) => r.countryCode === "CN");
+  if (rows.length === 0) return inventories.length ? 0 : null;
+  return rows.reduce((sum, r) => sum + Math.max(Math.floor(Number(r.totalInventory ?? r.totalInventoryNum ?? 0)) || 0, 0), 0);
+}
+
+/**
  * CJ renvoie souvent le chemin complet de la catégorie, sous plusieurs formes :
  * « Sports & Outdoors / … / Fitness & Bodybuilding », « Home & Garden， Furniture > Kitchen > … ». On garde le dernier niveau.
  */
@@ -169,24 +236,36 @@ export function normalizeProductDetail(data: unknown): CjProductDetail | null {
       const vid = firstString(v, "vid", "variantId", "id");
       const price = parseUsdCents(v.variantSellPrice ?? v.sellPrice ?? v.price) ?? productPrice;
       if (!vid || price === null) return null;
+      const num = (x: unknown) => (Number.isFinite(Number(x)) && Number(x) > 0 ? Number(x) : null);
+      const [length, width, height] = [v.variantLength, v.variantWidth, v.variantHeight].map(num);
       return {
         vid,
         name: firstString(v, "variantNameEn", "variantName", "variantKey"),
         sku: firstString(v, "variantSku", "sku"),
         image: parseImages(v.variantImage)[0] ?? null,
         priceUsdCents: price,
+        key: firstString(v, "variantKey"),
+        weightG: num(v.variantWeight),
+        dimensionsMm: length && width && height ? { length, width, height } : null,
+        stock: variantStock(v.inventories),
       };
     })
     .filter((v): v is CjVariant => v !== null);
 
   const images = parseImages(data.productImageSet).length ? parseImages(data.productImageSet) : parseImages(data.bigImage ?? data.productImage);
   const status = firstString(data, "status");
+  const descriptionHtml = typeof data.description === "string" ? data.description : "";
   return {
     pid,
     name: name.slice(0, 300),
     description: stripHtml(data.description ?? data.productDescription),
     category: lastCategoryLevel(firstString(data, "categoryName", "category")),
-    images: images.slice(0, 8),
+    images: images.slice(0, MAX_IMAGES),
+    descriptionImages: imagesInHtml(descriptionHtml).filter((u) => !images.includes(u)).slice(0, MAX_IMAGES),
+    materials: parseStringList(data.materialNameEnSet ?? data.materialNameEn),
+    packaging: parseStringList(data.packingNameEnSet ?? data.packingNameEn),
+    weightText: firstString(data, "productWeight"),
+    optionNames: firstString(data, "productKeyEn"),
     variants,
     onSale: status === null || status === "3",
   };

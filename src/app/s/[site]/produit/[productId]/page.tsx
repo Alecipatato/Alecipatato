@@ -4,11 +4,10 @@ import { notFound } from "next/navigation";
 import { fmt } from "@/lib/i18n/config";
 import { MESSAGES } from "@/lib/i18n/messages";
 import { productJsonLd, productMetadata } from "@/lib/marketing/seo";
-import { formatPrice } from "@/lib/store-config";
 import { getStoreBySite } from "@/lib/stores";
-import { BuyBox } from "@/storefront/cart";
 import { TrackEvent } from "@/storefront/pixels";
-import { categoryHref, getStoreBase, ProductGrid, ProductImage } from "@/storefront/components";
+import { categoryHref, getStoreBase, ProductGrid } from "@/storefront/components";
+import { ProductView } from "@/storefront/product-view";
 
 async function load(params: PageProps<"/s/[site]/produit/[productId]">["params"]) {
   const { site, productId } = await params;
@@ -25,17 +24,23 @@ export async function generateMetadata({ params }: PageProps<"/s/[site]/produit/
   return productMetadata(data.store, data.product);
 }
 
-/** Fiche produit : galerie, prix, points forts, ajout au panier, produits similaires. */
-export default async function ProductPage({ params }: PageProps<"/s/[site]/produit/[productId]">) {
+/**
+ * Fiche produit « comme Amazon » : galerie (vignettes, zoom, visionneuse), variantes, encadré d'achat,
+ * puis description détaillée avec les photos du fournisseur, caractéristiques et produits similaires.
+ * Le vendeur ne modifie pas la fiche : elle est rédigée par l'IA à partir des données du fournisseur.
+ */
+export default async function ProductPage({ params, searchParams }: PageProps<"/s/[site]/produit/[productId]">) {
   const data = await load(params);
   if (!data) notFound();
   const { store, product, products } = data;
   const base = await getStoreBase(data.site);
-  const inStock = product.stock === null || product.stock > 0;
+  const variantParam = (await searchParams).v;
   const t = MESSAGES[store.language].storefront;
-  const price = formatPrice(product.priceCents, store.currency, store.language);
   const { deliveryDaysMin: min, deliveryDaysMax: max } = product;
   const delivery = max ? fmt(min && min !== max ? t.deliveryRange : t.deliveryExact, { min: min ?? max, max }) : t.deliveryGeneric;
+  const paragraphs = (product.longDescription ?? "").split(/\n\s*\n/).map((x) => x.trim()).filter(Boolean);
+  const specs = product.specs ?? [];
+  const descriptionImages = product.descriptionImages ?? [];
 
   const related = products
     .filter((p) => p.id !== product.id)
@@ -61,51 +66,51 @@ export default async function ProductPage({ params }: PageProps<"/s/[site]/produ
         </ol>
       </nav>
 
-      <div className="mt-6 grid gap-10 lg:grid-cols-[1.1fr_1fr_300px]">
-        <div className="flex flex-col gap-3">
-          <ProductImage product={product} className="aspect-square w-full rounded-[var(--sf-radius)] border border-[var(--sf-line)]" />
-          {product.images.length > 1 && (
-            <div className="grid grid-cols-5 gap-2">
-              {product.images.slice(1, 6).map((_, i) => (
-                <ProductImage key={i} product={product} index={i + 1} className="aspect-square w-full rounded-[var(--sf-radius)] border border-[var(--sf-line)]" />
-              ))}
-            </div>
+      <ProductView
+        storeId={store.id}
+        storeName={store.name}
+        currency={store.currency}
+        product={product}
+        categoryHref={product.category ? categoryHref(base, product.category) : null}
+        delivery={delivery}
+        initialVariant={typeof variantParam === "string" ? variantParam : null}
+      />
+
+      {(paragraphs.length > 0 || descriptionImages.length > 0 || specs.length > 0) && (
+        <div className="mt-16 grid gap-12 border-t border-[var(--sf-line)] pt-10 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+          {(paragraphs.length > 0 || descriptionImages.length > 0) && (
+            <section data-long-description>
+              <h2 className="sf-heading text-2xl">{t.product.description}</h2>
+              <div className="mt-4 max-w-[68ch] space-y-4 leading-relaxed">
+                {paragraphs.map((para, i) => <p key={i}>{para}</p>)}
+              </div>
+              {descriptionImages.length > 0 && (
+                <div className="mt-8 flex flex-col gap-4">
+                  {descriptionImages.map((src) => (
+                    // eslint-disable-next-line @next/next/no-img-element -- photos du fournisseur
+                    <img key={src} src={src} alt="" loading="lazy" className="w-full max-w-3xl rounded-[var(--sf-radius)] border border-[var(--sf-line)]" />
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+          {specs.length > 0 && (
+            <section data-specs className="min-w-0">
+              <h2 className="sf-heading text-2xl">{t.product.specs}</h2>
+              <table className="mt-4 w-full overflow-hidden rounded-[var(--sf-radius)] border border-[var(--sf-line)] text-sm">
+                <tbody>
+                  {specs.map((spec, i) => (
+                    <tr key={`${spec.label}-${i}`} className="border-b border-[var(--sf-line)] last:border-0">
+                      <th scope="row" className="w-2/5 bg-[var(--sf-surface)] px-4 py-2.5 text-left align-top font-medium">{spec.label}</th>
+                      <td className="px-4 py-2.5">{spec.value}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
           )}
         </div>
-
-        <div className="min-w-0">
-          {product.category && (
-            <Link href={categoryHref(base, product.category)} className="text-sm font-medium text-[var(--store-primary)] hover:underline">
-              {product.category}
-            </Link>
-          )}
-          <h1 className="sf-heading mt-1 text-3xl leading-tight sm:text-4xl">{product.title}</h1>
-          <p className="mt-4 text-3xl font-semibold tabular-nums text-[var(--store-price)]">{price}</p>
-          {product.description && <p className="mt-4 leading-relaxed text-[var(--sf-muted)]">{product.description}</p>}
-
-          {product.highlights.length > 0 && (
-            <div className="mt-6 border-t border-[var(--sf-line)] pt-6">
-              <h2 className="font-semibold">{t.aboutItem}</h2>
-              <ul className="mt-3 list-disc space-y-1.5 pl-5 text-sm leading-relaxed">
-                {product.highlights.map((h) => <li key={h}>{h}</li>)}
-              </ul>
-            </div>
-          )}
-        </div>
-
-        <aside className="h-fit rounded-[var(--sf-radius)] border border-[var(--sf-line)] p-5 lg:sticky lg:top-32">
-          <p className="text-2xl font-semibold tabular-nums">{price}</p>
-          <p className="mt-2 flex items-center gap-2 text-sm font-medium">
-            <span aria-hidden className={`h-2.5 w-2.5 rounded-full ${inStock ? "bg-emerald-500" : "bg-red-500"}`} />
-            {inStock ? t.inStock : t.outOfStock}
-          </p>
-          <p className="mt-1 text-sm text-[var(--sf-muted)]">{delivery}</p>
-          <div className="mt-5">
-            {inStock && <BuyBox storeId={store.id} product={{ id: product.id, title: product.title, priceCents: product.priceCents }} />}
-          </div>
-          <p className="mt-4 text-xs text-[var(--sf-muted)]">{fmt(t.soldBy, { store: store.name })}</p>
-        </aside>
-      </div>
+      )}
 
       {related.length > 0 && (
         <section className="mt-16 border-t border-[var(--sf-line)] pt-10">

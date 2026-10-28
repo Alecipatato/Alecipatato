@@ -16,9 +16,8 @@ import { fmt, isLocale, plural } from "@/lib/i18n/config";
 import { getLocale, getMessages } from "@/lib/i18n/server";
 import { describeViolation, moderate } from "@/lib/moderation/rules";
 import type { ThemeId } from "@/lib/types";
-import { getUsdCadRate } from "@/lib/fx";
-import { estimateProductEconomics } from "@/lib/money";
 import { getTrendingProducts, type TrendProduct } from "@/lib/trends/catalog";
+import { trendSampleRows } from "@/lib/trends/sample-rows";
 import { pickAutoTheme, validateSelection } from "@/lib/trends/score";
 import { isTrendTheme } from "@/lib/trends/themes";
 import { MESSAGES } from "@/lib/i18n/messages";
@@ -142,39 +141,6 @@ async function productRows(storeId: string, products: GeneratedProduct[]) {
   }));
 }
 
-/** Produits tendance d'exemple (sans clé CJ) : mis en vente directement, au prix conseillé. */
-async function trendSampleRows(storeId: string, products: TrendProduct[]) {
-  const settings = await getPlatformSettings();
-  const fx = await getUsdCadRate(settings.usdCadFallbackRate);
-  return products.map((p, i) => {
-    const e = estimateProductEconomics({
-      supplierCostUsdCents: p.supplierCostUsdCents,
-      shippingUsdCents: p.shippingUsdCents,
-      fxRateUsdCad: fx.rate,
-      minMarginRate: settings.minMarginRate,
-      commissionRate: settings.commissionRate,
-    });
-    return {
-      store_id: storeId,
-      supplier: "sample",
-      supplier_product_id: p.supplierProductId,
-      title: p.name,
-      category: p.category,
-      description: p.description,
-      highlights: p.highlights,
-      images: p.images,
-      price_cents: e.priceCents,
-      suggested_price_cents: e.priceCents,
-      supplier_cost_usd_cents: p.supplierCostUsdCents,
-      shipping_cost_usd_cents: p.shippingUsdCents,
-      delivery_days_min: p.deliveryDaysMin,
-      delivery_days_max: p.deliveryDaysMax,
-      status: "active",
-      position: i,
-    };
-  });
-}
-
 async function getOwnedStore(storeId: string, userId: string) {
   const { data } = await createAdminClient()
     .from("stores")
@@ -256,7 +222,7 @@ export async function createStore(_prev: ActionState, formData: FormData): Promi
   if (chosen.length) {
     if (chosen[0].source === "cj") {
       // Les fiches sont vérifiées et rédigées sur l'écran « Produits », par petits lots.
-      await startSourcingJob(store.id, [], chosen.length, { pids: chosen.map((p) => p.supplierProductId) });
+      await startSourcingJob(store.id, [], chosen.length, { pids: chosen.map((p) => p.supplierProductId), autoAccept: true });
       redirect(`/tableau-de-bord/boutiques/${store.id}/produits?nouvelle=1`);
     }
     const { error: productsError } = await admin.from("products").insert(await trendSampleRows(store.id, chosen));

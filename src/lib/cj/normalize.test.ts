@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   bestShippingOption,
+  imagesInHtml,
+  normalizeVariantInventories,
+  parseStringList,
   lastCategoryLevel,
   normalizeBalance,
   normalizeCreatedOrder,
@@ -171,5 +174,38 @@ describe("solde du portefeuille CJ", () => {
     assert.deepEqual(normalizeBalance({ balance: "99.5" }), { availableUsdCents: 9950, frozenUsdCents: 0 });
     assert.deepEqual(normalizeBalance(12), { availableUsdCents: 1200, frozenUsdCents: 0 });
     assert.equal(normalizeBalance({}), null);
+  });
+
+  it("fiche riche : variantes, matériaux, photos de la description (réponse réelle simplifiée)", () => {
+    const p = normalizeProductDetail({
+      pid: "P9", productNameEn: "Pet bed", sellPrice: "4.70 -- 7.49", status: "3", productKeyEn: "Color",
+      productImageSet: ["https://cf.cjdropshipping.com/a.jpg"],
+      description: '<p><b>Overview:</b><br/>Warm</p><img src="https://cf.cjdropshipping.com/d1.jpg" style="x"/><img src="https://cf.cjdropshipping.com/a.jpg"/>',
+      materialNameEn: '["Cloth"]', materialNameEnSet: ["Cloth"], packingNameEn: '["Plastic bags"]', productWeight: "336.00-3000.00",
+      variants: [{ vid: "V1", variantKey: "Olive green 40cm", variantSellPrice: 4.7, variantWeight: 1085, variantLength: 400, variantWidth: 400, variantHeight: 80, inventories: [{ countryCode: "CN", totalInventory: 12 }, { countryCode: "US", totalInventory: 3 }] }],
+    });
+    assert.ok(p);
+    assert.deepEqual(p.descriptionImages, ["https://cf.cjdropshipping.com/d1.jpg"]); // l'image déjà dans la galerie est ignorée
+    assert.deepEqual(p.materials, ["Cloth"]);
+    assert.deepEqual(p.packaging, ["Plastic bags"]);
+    assert.equal(p.weightText, "336.00-3000.00");
+    assert.equal(p.optionNames, "Color");
+    assert.deepEqual(p.variants[0], { vid: "V1", name: "Olive green 40cm", sku: null, image: null, priceUsdCents: 470, key: "Olive green 40cm", weightG: 1085, dimensionsMm: { length: 400, width: 400, height: 80 }, stock: 12 });
+  });
+
+  it("listes et images de description", () => {
+    assert.deepEqual(parseStringList('["A","B","A"]'), ["A", "B"]);
+    assert.deepEqual(parseStringList("Cloth"), ["Cloth"]);
+    assert.deepEqual(parseStringList(null), []);
+    assert.deepEqual(imagesInHtml('<img src="http://x.com/a.jpg"><img src=\'https://x.com/b.jpg\'>'), ["https://x.com/b.jpg"]);
+  });
+
+  it("stock par variante (getInventoryByPid, réponse réelle simplifiée)", () => {
+    const stock = normalizeVariantInventories({ inventories: [], variantInventories: [
+      { vid: "A", inventory: [{ countryCode: "CN", totalInventory: 14108 }] },
+      { vid: "B", inventory: [{ countryCode: "US", totalInventory: 5 }] },
+      { inventory: [] },
+    ] });
+    assert.deepEqual(Object.fromEntries(stock), { A: 14108, B: 0 });
   });
 });

@@ -15,7 +15,7 @@ import { getStoreBase } from "./components";
 /** Bouton « Passer à la caisse » : renvoie l'adresse de la page de paiement Stripe. */
 export async function startCheckout(
   site: string,
-  lines: { productId: string; quantity: number }[],
+  lines: { productId: string; variantId?: string; quantity: number }[],
 ): Promise<{ url?: string; error?: string }> {
   const data = await getStoreBySite(site);
   const t = (await getMessages(data?.store.language)).storefront.errors;

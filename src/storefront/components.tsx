@@ -177,7 +177,12 @@ export function ProductCard({ product, store, base }: { product: StoreProduct; s
           {formatPrice(product.priceCents, store.currency, store.language)}
         </p>
         <div className="mt-auto pt-3">
-          <AddToCartButton storeId={store.id} product={{ id: product.id, title: product.title, priceCents: product.priceCents }} compact />
+          {product.variants && product.variants.length > 1 ? (
+            // Plusieurs versions (couleur, taille…) : le choix se fait sur la fiche.
+            <Link href={href} className="sf-btn px-3 py-2 text-xs">{MESSAGES[store.language].storefront.product.chooseOptions}</Link>
+          ) : (
+            <AddToCartButton storeId={store.id} product={{ id: product.id, title: product.title, priceCents: product.priceCents }} compact />
+          )}
         </div>
       </div>
     </article>

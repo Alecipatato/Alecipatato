@@ -283,3 +283,20 @@ export function estimateProductEconomics(input: {
     marginBp: marginBasisPoints(priceCents, costCadCents),
   };
 }
+
+/**
+ * Synchro d'un prix quand le coût du fournisseur change : prix conseillé recalculé ; le prix de vente
+ * n'est relevé que s'il ne respecte plus la marge minimale (jamais baissé automatiquement).
+ */
+export function repriceForCost(input: {
+  currentPriceCents: number;
+  supplierCostUsdCents: number;
+  shippingUsdCents: number;
+  fxRateUsdCad: string;
+  minMarginRate: string;
+}): { suggestedCents: number; priceCents: number; raised: boolean } {
+  const cost = usdToCadCents(input.supplierCostUsdCents + input.shippingUsdCents, input.fxRateUsdCad);
+  const suggestedCents = suggestRetailPriceCents(cost, input.minMarginRate);
+  const raised = input.currentPriceCents < minimumPriceCents(cost, input.minMarginRate);
+  return { suggestedCents, priceCents: raised ? suggestedCents : input.currentPriceCents, raised };
+}

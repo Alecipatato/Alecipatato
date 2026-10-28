@@ -7,6 +7,7 @@ import {
   normalizeProductDetail,
   normalizeShippingOptions,
   normalizeStock,
+  normalizeVariantInventories,
 } from "./normalize";
 
 /**
@@ -60,4 +61,9 @@ export async function getShippingOptions(vid: string, countryCode = "CA", quanti
 export async function getVariantStock(vid: string): Promise<number | null> {
   const data = await cjRequest("GET", "/product/stock/queryByVid", { query: { vid } });
   return normalizeStock(data);
+}
+
+/** Stock (entrepôts de Chine) de toutes les variantes d'un produit, en un seul appel. */
+export async function getVariantInventories(pid: string): Promise<Map<string, number>> {
+  return normalizeVariantInventories(await cjRequest("GET", "/product/stock/getInventoryByPid", { query: { pid } }));
 }

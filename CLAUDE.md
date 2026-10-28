@@ -219,6 +219,22 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
   description/style/couleurs/nom s'ils sont donnés, sinon s'adapte aux produits. Avec CJ : `sourcing_jobs` démarré à
   `processing` avec `auto_accept` (produits mis en vente sans validation) ; sans CJ : produits d'exemple insérés en
   vente au prix conseillé. ⚠️ `listedNum` à valider avec une vraie clé ; les noms CJ restent en anglais dans la galerie.
+- **Fiches complètes et variantes** (étape B, 2026-10-28) : `normalize.ts` lit images (≤ 12), photos de la description,
+  matériaux, emballage, poids, options et variantes (clé, poids, dimensions) ; stock par variante via
+  `/product/stock/getInventoryByPid` (`getVariantInventories`, vérifié avec la vraie clé). `src/lib/products/variants.ts`
+  (pur, testé) : ≤ 6 variantes en stock, les moins chères, une par combinaison ; livraison calculée une fois par tranche
+  de 100 g (variante la plus lourde). Colonnes `products.long_description`, `specs`, `description_images`, `variants`
+  (publiques : vid, label, priceCents, image, inStock) et `variant_costs` (PRIVÉES : coût, livraison, délais, stock par vid) ;
+  `order_items.variant_label`. Prix par variante = `estimateProductEconomics` ; synchro par variante (`repriceForCost`,
+  bascule de la variante par défaut si épuisée). L'IA (`rewriteProducts`) rédige aussi description détaillée,
+  caractéristiques et libellés de variantes, uniquement à partir des données du fournisseur. Vitrine :
+  `src/storefront/product-view.tsx` (galerie vignettes + zoom au survol + visionneuse, choix de variante `?v=`, encadré
+  d'achat) + sections description/caractéristiques ; grille : « Voir les options » si plusieurs variantes. Panier : ligne =
+  produit + variante ; checkout relit prix/coût/livraison de la variante en base. Le vendeur ne modifie pas la fiche.
+  **Ajout de produits** : `/tableau-de-bord/boutiques/[id]/produits/ajouter` (`add-products-actions.ts`) — « Choisir dans
+  la liste » (produits tendance, tous thèmes, 1 à 20, sauf ceux déjà en vente) ou « Laisser l'IA choisir » (3/5/10, mots-clés
+  de la dernière recherche ou du thème) ; avec CJ : `sourcing_jobs` avec `auto_accept` (en vente directement) ; sans CJ :
+  produits d'exemple insérés (`trendSampleRows`). Une seule recherche à la fois par boutique.
 - Écran avec formulaire qui disparaît après l'action (produit refusé, commande remboursée) : afficher
   la confirmation en haut de page via un paramètre d'URL, pas dans le formulaire.
 - Le client Supabase admin désactive la mémorisation des GET de Next (signal par requête) : une relecture
@@ -245,9 +261,12 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
 - [x] Phase 12 — tableau de bord admin : revenus plateforme, coûts IA, portefeuille CJ, versements dus, boutiques signalées
 - [x] Produits tendance — galerie de produits gagnants (image, demande, prix fournisseur, livraison, prix conseillé,
       gain), choix des produits ou IA complète, boutique générée selon les critères ou adaptée aux produits
+- [x] Étape A — adaptateur CJ validé avec la vraie clé (lecture, commande sandbox complète)
+- [x] Étape B — fiches complètes « comme Amazon » (galerie, zoom, variantes, description, caractéristiques),
+      panier/paiement par variante, ajout de produits par le vendeur ou par l'IA
 - [ ] Prochaine étape — mise en production (déploiement Cloudflare, vraies clés en mode test, validation CJ)
 
-## Prochaines étapes (demandées par le propriétaire le 2026-10-26, NON commencées)
+## Prochaines étapes (demandées par le propriétaire le 2026-10-26 ; A et B faites, C à F NON commencées)
 
 Ne pas commencer sans sa validation explicite ; proposer d'abord un ordre de réalisation.
 

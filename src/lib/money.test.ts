@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   computeOrderFinancials,
   estimateProductEconomics,
+  repriceForCost,
   DEFAULT_REFUND_RULES,
   mulDivRound,
   parseRefundRules,
@@ -207,5 +208,19 @@ describe("estimation pour un produit tendance", () => {
     assert.equal(e.grossMarginCents, -380);
     assert.equal(e.commissionCents, 0);
     assert.equal(e.ownerProfitCents, 0);
+  });
+});
+
+describe("synchro du prix d'une variante", () => {
+  const base = { shippingUsdCents: 410, fxRateUsdCad: "1.38", minMarginRate: "0.40" };
+  it("garde le prix si la marge reste suffisante", () => {
+    const r = repriceForCost({ ...base, currentPriceCents: 3299, supplierCostUsdCents: 1000 });
+    assert.deepEqual(r, { suggestedCents: 3299, priceCents: 3299, raised: false });
+  });
+  it("relève le prix si le coût augmente", () => {
+    const r = repriceForCost({ ...base, currentPriceCents: 3299, supplierCostUsdCents: 1500 });
+    assert.equal(r.raised, true);
+    assert.equal(r.priceCents, r.suggestedCents);
+    assert.ok(r.priceCents > 3299);
   });
 });

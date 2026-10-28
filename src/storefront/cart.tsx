@@ -16,10 +16,16 @@ import { track } from "./pixels";
 
 interface CartItem {
   id: string;
+  /** Variante choisie (couleur, taille…), si le produit en a. */
+  variantId?: string;
+  variantLabel?: string;
   title: string;
   priceCents: number;
   quantity: number;
 }
+
+/** Une ligne de panier = un produit dans une variante. */
+const lineKey = (i: { id: string; variantId?: string }) => `${i.id}|${i.variantId ?? ""}`;
 
 const EVENT = "store-cart-change";
 const storageKey = (storeId: string) => `cart:${storeId}`;
@@ -39,7 +45,8 @@ function parse(raw: string): CartItem[] {
     return data.filter(
       (i): i is CartItem =>
         typeof i?.id === "string" && typeof i?.title === "string" &&
-        Number.isInteger(i?.priceCents) && Number.isInteger(i?.quantity) && i.quantity > 0,
+        Number.isInteger(i?.priceCents) && Number.isInteger(i?.quantity) && i.quantity > 0 &&
+        (i.variantId === undefined || typeof i.variantId === "string"),
     );
   } catch {
     return [];
@@ -74,14 +81,14 @@ function useCart(storeId: string) {
     subtotalCents: items.reduce((n, i) => n + i.priceCents * i.quantity, 0),
     add(item: Omit<CartItem, "quantity">, quantity = 1) {
       const current = parse(readRaw(storeId));
-      const existing = current.find((i) => i.id === item.id);
+      const existing = current.find((i) => lineKey(i) === lineKey(item));
       if (existing) existing.quantity = Math.min(existing.quantity + quantity, 20);
       else current.push({ ...item, quantity });
       save(storeId, current);
     },
-    setQuantity(id: string, quantity: number) {
+    setQuantity(key: string, quantity: number) {
       const current = parse(readRaw(storeId));
-      save(storeId, quantity <= 0 ? current.filter((i) => i.id !== id) : current.map((i) => (i.id === id ? { ...i, quantity } : i)));
+      save(storeId, quantity <= 0 ? current.filter((i) => lineKey(i) !== key) : current.map((i) => (lineKey(i) === key ? { ...i, quantity } : i)));
     },
   };
 }
@@ -112,7 +119,7 @@ export function CartLink({ storeId, href }: { storeId: string; href: string }) {
   );
 }
 
-type ProductRef = { id: string; title: string; priceCents: number };
+type ProductRef = { id: string; title: string; priceCents: number; variantId?: string; variantLabel?: string };
 
 export function AddToCartButton({ storeId, product, compact = false }: { storeId: string; product: ProductRef; compact?: boolean }) {
   const { add } = useCart(storeId);
@@ -134,7 +141,7 @@ export function AddToCartButton({ storeId, product, compact = false }: { storeId
   );
 }
 
-export function BuyBox({ storeId, product }: { storeId: string; product: ProductRef }) {
+export function BuyBox({ storeId, product, disabled = false }: { storeId: string; product: ProductRef; disabled?: boolean }) {
   const { add } = useCart(storeId);
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
@@ -161,7 +168,8 @@ export function BuyBox({ storeId, product }: { storeId: string; product: Product
           setAdded(true);
           setTimeout(() => setAdded(false), 1800);
         }}
-        className="sf-btn w-full px-6 py-3.5 text-sm"
+        disabled={disabled}
+        className="sf-btn w-full px-6 py-3.5 text-sm disabled:cursor-not-allowed disabled:opacity-50"
       >
         {added ? t.addedToCart : t.add}
       </button>
@@ -193,7 +201,7 @@ export function CartView({
     setError(null);
     track("InitiateCheckout", { content_ids: items.map((i) => i.id), num_items: items.reduce((n, i) => n + i.quantity, 0), value: subtotalCents / 100, currency });
     startTransition(async () => {
-      const result = await startCheckout(site, items.map((i) => ({ productId: i.id, quantity: i.quantity })));
+      const result = await startCheckout(site, items.map((i) => ({ productId: i.id, variantId: i.variantId, quantity: i.quantity })));
       if (result.url) window.location.assign(result.url);
       else setError(result.error ?? t.checkoutFailed);
     });
@@ -213,15 +221,16 @@ export function CartView({
     <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
       <ul className="divide-y divide-[var(--sf-line)] border-y border-[var(--sf-line)]">
         {items.map((item) => (
-          <li key={item.id} className="flex flex-wrap items-center gap-4 py-5">
+          <li key={lineKey(item)} data-cart-line={lineKey(item)} className="flex flex-wrap items-center gap-4 py-5">
             <div className="min-w-0 flex-1">
-              <Link href={`${base}/produit/${item.id}`} className="font-medium hover:underline">{item.title}</Link>
+              <Link href={`${base}/produit/${item.id}${item.variantId ? `?v=${encodeURIComponent(item.variantId)}` : ""}`} className="font-medium hover:underline">{item.title}</Link>
+              {item.variantLabel && <p className="mt-0.5 text-sm">{item.variantLabel}</p>}
               <p className="mt-1 text-sm text-[var(--sf-muted)]">{fmt(t.each, { price: price(item.priceCents) })}</p>
             </div>
             <select
               aria-label={fmt(t.quantityFor, { title: item.title })}
               value={item.quantity}
-              onChange={(e) => setQuantity(item.id, Number(e.target.value))}
+              onChange={(e) => setQuantity(lineKey(item), Number(e.target.value))}
               className="rounded-[var(--sf-radius)] border border-[var(--sf-line)] bg-[var(--store-bg)] px-3 py-2 text-sm"
             >
               {Array.from({ length: 20 }, (_, i) => i + 1).map((n) => (
@@ -229,7 +238,7 @@ export function CartView({
               ))}
             </select>
             <span className="w-24 text-right font-semibold tabular-nums">{price(item.priceCents * item.quantity)}</span>
-            <button type="button" onClick={() => setQuantity(item.id, 0)} className="text-sm text-[var(--sf-muted)] underline hover:text-[var(--store-text)]">
+            <button type="button" onClick={() => setQuantity(lineKey(item), 0)} className="text-sm text-[var(--sf-muted)] underline hover:text-[var(--store-text)]">
               {t.remove}
             </button>
           </li>

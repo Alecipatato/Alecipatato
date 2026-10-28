@@ -26,8 +26,13 @@ export class CheckoutError extends Error {
 
 export interface CartLine {
   productId: string;
+  /** Variante choisie (couleur, taille…) ; absente pour un produit sans variantes. */
+  variantId?: string;
   quantity: number;
 }
+
+type VariantCost = { costUsdCents?: number; shippingUsdCents?: number };
+type PublicVariant = { vid?: string; label?: string; priceCents?: number; inStock?: boolean };
 
 const MAX_QUANTITY = 20;
 const MAX_LINES = 50;
@@ -65,43 +70,57 @@ export async function createCheckoutSession(params: {
     throw new CheckoutError("notAccepting");
   }
 
-  // Regroupe les doublons et valide les quantités.
-  const quantities = new Map<string, number>();
+  // Regroupe les doublons (même produit, même variante) et valide les quantités.
+  const wanted = new Map<string, { productId: string; variantId: string | null; quantity: number }>();
   for (const line of params.lines.slice(0, MAX_LINES)) {
     if (typeof line.productId !== "string" || !Number.isInteger(line.quantity) || line.quantity < 1) continue;
-    quantities.set(line.productId, Math.min((quantities.get(line.productId) ?? 0) + line.quantity, MAX_QUANTITY));
+    const variantId = typeof line.variantId === "string" && line.variantId ? line.variantId : null;
+    const key = `${line.productId}|${variantId ?? ""}`;
+    const quantity = Math.min((wanted.get(key)?.quantity ?? 0) + line.quantity, MAX_QUANTITY);
+    wanted.set(key, { productId: line.productId, variantId, quantity });
   }
-  if (quantities.size === 0) throw new CheckoutError("emptyCart");
+  if (wanted.size === 0) throw new CheckoutError("emptyCart");
 
+  const productIds = [...new Set([...wanted.values()].map((w) => w.productId))];
   const { data: products, error } = await admin
     .from("products")
-    .select("id, title, price_cents, supplier, supplier_product_id, supplier_variant_id, supplier_cost_usd_cents, shipping_cost_usd_cents, stock, status")
+    .select("id, title, price_cents, supplier, supplier_product_id, supplier_variant_id, supplier_cost_usd_cents, shipping_cost_usd_cents, stock, status, variants, variant_costs")
     .eq("store_id", store.id)
-    .in("id", [...quantities.keys()]);
+    .in("id", productIds);
   if (error) throw new Error(`Lecture des produits impossible : ${error.message}`);
 
-  const available = (products ?? []).filter((p) => p.status === "active");
-  if (available.length !== quantities.size) {
-    throw new CheckoutError("itemGone");
-  }
-  for (const p of available) {
-    if (p.stock !== null && p.stock < (quantities.get(p.id) ?? 0)) {
-      throw new CheckoutError("outOfStock", p.title);
+  const byId = new Map((products ?? []).filter((p) => p.status === "active").map((p) => [p.id, p]));
+  // Prix, coût et livraison de chaque ligne, toujours relus en base (variante choisie ou version par défaut).
+  const lines = [...wanted.values()].map((w) => {
+    const p = byId.get(w.productId);
+    if (!p) throw new CheckoutError("itemGone");
+    const variants = (Array.isArray(p.variants) ? p.variants : []) as PublicVariant[];
+    const costs = (p.variant_costs ?? {}) as Record<string, VariantCost>;
+    if (w.variantId && w.variantId !== p.supplier_variant_id) {
+      const v = variants.find((x) => x.vid === w.variantId);
+      const c = costs[w.variantId];
+      if (!v || !c || !Number.isInteger(v.priceCents) || !Number.isInteger(c.costUsdCents) || !Number.isInteger(c.shippingUsdCents)) throw new CheckoutError("itemGone");
+      if (v.inStock === false) throw new CheckoutError("outOfStock", `${p.title} (${v.label})`);
+      return {
+        product: p, quantity: w.quantity, variantId: w.variantId, variantLabel: v.label ?? null,
+        unitPriceCents: Number(v.priceCents), unitSupplierCostUsdCents: Number(c.costUsdCents), unitShippingUsdCents: Number(c.shippingUsdCents),
+      };
     }
-  }
-  if (isLiveMode() && available.some((p) => p.supplier === "sample")) {
+    // Version par défaut (ou produit sans variantes).
+    const v = variants.find((x) => x.vid === p.supplier_variant_id);
+    if (v?.inStock === false || (p.stock !== null && p.stock < w.quantity)) throw new CheckoutError("outOfStock", p.title);
+    return {
+      product: p, quantity: w.quantity, variantId: p.supplier_variant_id, variantLabel: v?.label ?? null,
+      unitPriceCents: Number(p.price_cents), unitSupplierCostUsdCents: Number(p.supplier_cost_usd_cents), unitShippingUsdCents: Number(p.shipping_cost_usd_cents),
+    };
+  });
+  if (isLiveMode() && lines.some((l) => l.product.supplier === "sample")) {
     throw new CheckoutError("samples");
   }
 
   const settings = await getPlatformSettings();
   const fx = await getUsdCadRate(settings.usdCadFallbackRate);
-  const lines = available.map((p) => ({
-    product: p,
-    quantity: quantities.get(p.id)!,
-    unitPriceCents: Number(p.price_cents),
-    unitSupplierCostUsdCents: Number(p.supplier_cost_usd_cents),
-  }));
-  const supplierShippingUsdCents = lines.reduce((sum, l) => sum + Number(l.product.shipping_cost_usd_cents) * l.quantity, 0);
+  const supplierShippingUsdCents = lines.reduce((sum, l) => sum + l.unitShippingUsdCents * l.quantity, 0);
 
   // Calcul provisoire (avant taxes et frais Stripe) ; recalculé à la confirmation du paiement.
   const financials = computeOrderFinancials({
@@ -136,9 +155,11 @@ export async function createCheckoutSession(params: {
     lines.map((l) => ({
       order_id: order.id,
       product_id: l.product.id,
-      title: l.product.title,
+      // Le libellé de la variante suit le titre partout (merci, courriels, tableaux de bord).
+      title: l.variantLabel ? `${l.product.title} — ${l.variantLabel}` : l.product.title,
+      variant_label: l.variantLabel,
       supplier_product_id: l.product.supplier_product_id,
-      supplier_variant_id: l.product.supplier_variant_id,
+      supplier_variant_id: l.variantId,
       quantity: l.quantity,
       unit_price_cents: l.unitPriceCents,
       unit_supplier_cost_usd_cents: l.unitSupplierCostUsdCents,
@@ -161,7 +182,7 @@ export async function createCheckoutSession(params: {
           unit_amount: l.unitPriceCents,
           tax_behavior: "exclusive",
           product_data: {
-            name: l.product.title,
+            name: l.variantLabel ? `${l.product.title} — ${l.variantLabel}` : l.product.title,
             tax_code: "txcd_99999999", // biens corporels (général)
             metadata: { product_id: l.product.id },
           },

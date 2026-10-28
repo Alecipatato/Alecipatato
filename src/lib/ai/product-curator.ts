@@ -20,6 +20,16 @@ export interface RewriteInput {
   name: string;
   description: string;
   variantName: string | null;
+  /** Données du fournisseur (facultatives) : la fiche complète ne s'appuie que sur elles. */
+  materials?: string[];
+  packaging?: string[];
+  weightText?: string | null;
+  optionNames?: string | null;
+  /** Options des variantes proposées (ex. « Olive green 40cm ») à traduire. */
+  variantKeys?: string[];
+  /** Dimensions (mm) et poids (g) de la variante par défaut. */
+  dimensionsMm?: { length: number; width: number; height: number } | null;
+  weightG?: number | null;
 }
 
 export interface ProductCopy {
@@ -28,6 +38,12 @@ export interface ProductCopy {
   description: string;
   highlights: string[];
   category: string;
+  /** Description détaillée (paragraphes séparés par une ligne vide). */
+  longDescription: string;
+  /** Caractéristiques : uniquement des faits fournis par le fournisseur. */
+  specs: { label: string; value: string }[];
+  /** Options de variante (texte du fournisseur) → libellé traduit. */
+  variantLabels: Record<string, string>;
 }
 
 const str = { type: "string" } as const;
@@ -110,7 +126,11 @@ const rewriteSystem = (language: Locale) => `You write product pages for a small
 - title: a clear, descriptive product name under 70 characters, no brand names, no ALL CAPS, no keyword stuffing.
 - description: 1 or 2 sentences that say what the product is and why it is useful.
 - highlights: 3 to 5 short factual bullet points taken ONLY from the supplier data (material, dimensions, capacity, compatibility, contents). Never invent specifications, certifications, health claims, reviews or origin claims. Convert inches/pounds to metric when given.
-- category: a short store category (1-3 words) — reuse one of the existing categories when it fits.`;
+- category: a short store category (1-3 words) — reuse one of the existing categories when it fits.
+- long_description: 2 to 4 short paragraphs (separated by a blank line) for the product page: what it is, how it is used, what is in the box. Only facts present in the supplier data; no invented features, materials, dimensions, certifications, health claims, reviews or origin claims.
+- specs: up to 10 label/value pairs for a specifications table (e.g. material, dimensions, weight, capacity, colours available, package contents), translated, taken ONLY from the supplier data. Convert units to metric. Omit anything not given.
+- variant_labels: for each supplier variant option text given, a short natural label (e.g. "Olive green 40cm" → "Vert olive · 40 cm"). Return exactly one entry per given option, with "key" copied unchanged.
+Brand names: never put a brand in the title; for accessories that are compatible with a brand's device, you may say "compatible with <device>" in the description or specs only.`;
 
 /** Rédige les fiches produits dans la langue de la boutique. */
 export async function rewriteProducts(
@@ -121,7 +141,13 @@ export async function rewriteProducts(
     pid: p.pid,
     name: p.name,
     variant: p.variantName,
-    supplier_description: p.description.slice(0, 1500),
+    supplier_description: p.description.slice(0, 2500),
+    materials: p.materials ?? [],
+    packaging: p.packaging ?? [],
+    weight_grams: p.weightG ?? p.weightText ?? null,
+    dimensions_mm: p.dimensionsMm ?? null,
+    option_names: p.optionNames ?? null,
+    variant_options: p.variantKeys ?? [],
   }));
   const { data: raw, usage } = await callJson(
     rewriteSystem(storeContext.language),
@@ -136,13 +162,28 @@ export async function rewriteProducts(
           items: {
             type: "object",
             additionalProperties: false,
-            required: ["pid", "title", "description", "highlights", "category"],
-            properties: { pid: str, title: str, description: str, highlights: { type: "array", items: str }, category: str },
+            required: ["pid", "title", "description", "highlights", "category", "long_description", "specs", "variant_labels"],
+            properties: {
+              pid: str,
+              title: str,
+              description: str,
+              highlights: { type: "array", items: str },
+              category: str,
+              long_description: str,
+              specs: {
+                type: "array",
+                items: { type: "object", additionalProperties: false, required: ["label", "value"], properties: { label: str, value: str } },
+              },
+              variant_labels: {
+                type: "array",
+                items: { type: "object", additionalProperties: false, required: ["key", "label"], properties: { key: str, label: str } },
+              },
+            },
           },
         },
       },
     },
-    6000,
+    12000,
   );
 
   const wanted = new Set(products.map((p) => p.pid));
@@ -155,6 +196,18 @@ export async function rewriteProducts(
       description: String(p.description ?? "").trim().slice(0, 1000),
       highlights: (Array.isArray(p.highlights) ? p.highlights : []).map((h) => String(h).trim().slice(0, 200)).filter(Boolean).slice(0, 6),
       category: String(p.category ?? "").trim().slice(0, 40) || (storeContext.language === "fr" ? "Divers" : "Miscellaneous"),
+      longDescription: String(p.long_description ?? "").trim().slice(0, 3000),
+      specs: (Array.isArray(p.specs) ? p.specs : [])
+        .filter((x): x is Record<string, unknown> => typeof x === "object" && x !== null)
+        .map((x) => ({ label: String(x.label ?? "").trim().slice(0, 60), value: String(x.value ?? "").trim().slice(0, 200) }))
+        .filter((x) => x.label && x.value)
+        .slice(0, 12),
+      variantLabels: Object.fromEntries(
+        (Array.isArray(p.variant_labels) ? p.variant_labels : [])
+          .filter((x): x is Record<string, unknown> => typeof x === "object" && x !== null)
+          .map((x) => [String(x.key ?? ""), String(x.label ?? "").trim().slice(0, 60)])
+          .filter(([key, label]) => key && label),
+      ),
     }))
     .filter((p) => p.title);
   return { copies, usage };

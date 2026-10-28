@@ -152,19 +152,29 @@ export default async function ProductsPage({ params, searchParams }: PageProps<"
             <h1 className="font-display text-4xl font-bold tracking-tight">{t.title}</h1>
             <p className="mt-1 max-w-2xl text-muted">{fmt(t.intro, { pct: minMarginPct })}</p>
           </div>
-          {store.status === "draft" && active.length > 0 && !suspended && (
-            <form action={setStoreOnline}>
-              <input type="hidden" name="store_id" value={store.id} />
-              <input type="hidden" name="online" value="1" />
-              <button type="submit" className={buttonClasses.primary}>{t.goOnline}</button>
-            </form>
-          )}
+          <div className="flex flex-wrap gap-2">
+            {!suspended && (
+              <Link href={`/tableau-de-bord/boutiques/${store.id}/produits/ajouter`} className={buttonClasses.secondary}>{m.trends.add.button}</Link>
+            )}
+            {store.status === "draft" && active.length > 0 && !suspended && (
+              <form action={setStoreOnline}>
+                <input type="hidden" name="store_id" value={store.id} />
+                <input type="hidden" name="online" value="1" />
+                <button type="submit" className={buttonClasses.primary}>{t.goOnline}</button>
+              </form>
+            )}
+          </div>
         </div>
       </div>
 
       {result && <Alert kind={RESULT_KINDS[result]}>{t.results[result]}</Alert>}
       {/* Produits choisis par le client dans les produits tendance : mis en vente sans validation. */}
       {sp.nouvelle && <Alert kind="success">{job?.auto_accept ? t.createdChosen : t.created}</Alert>}
+      {/* Ajout de produits : directement en vente (produits d'exemple) ou fiches en préparation (CJ). */}
+      {typeof sp.ajoutes === "string" && Number(sp.ajoutes) > 0 && (
+        <Alert kind="success">{Number(sp.ajoutes) === 1 ? m.trends.add.addedOne : fmt(m.trends.add.added, { n: Number(sp.ajoutes) })}</Alert>
+      )}
+      {sp.ajout && <Alert kind="success">{m.trends.add.preparing}</Alert>}
       {!isCjConfigured() && <Alert kind="info">{t.noSupplier}</Alert>}
       {store.status === "draft" && !suspended && <Alert kind="info">{job?.auto_accept ? t.draftChosen : t.draft}</Alert>}
 

@@ -59,6 +59,20 @@ export interface StoreProduct {
   /** Délai de livraison au Canada (jours), quand le fournisseur le fournit. */
   deliveryDaysMin: number | null;
   deliveryDaysMax: number | null;
+  /** Fiche complète (étape B) — absente des boutiques de démonstration. */
+  longDescription?: string | null;
+  specs?: { label: string; value: string }[];
+  descriptionImages?: string[];
+  /** Variantes à vendre (couleur, taille…) ; vide = une seule version. */
+  variants?: StoreVariant[];
+}
+
+export interface StoreVariant {
+  vid: string;
+  label: string;
+  priceCents: number;
+  image: string | null;
+  inStock: boolean;
 }
 
 export interface StoreWithProducts {

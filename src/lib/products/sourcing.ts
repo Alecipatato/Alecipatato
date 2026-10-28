@@ -3,12 +3,13 @@ import { AI_MODEL, StoreGenerationError } from "../ai/store-generator";
 import { isLocale } from "../i18n/config";
 import { findViolation } from "../moderation/match";
 import { getModerationRules } from "../moderation/rules";
-import { getProductDetail, getShippingOptions, searchProducts } from "../cj/catalog";
-import { bestShippingOption, type CjProductDetail, type CjProductSummary, type CjShippingOption, type CjVariant } from "../cj/normalize";
+import { getProductDetail, getShippingOptions, getVariantInventories, searchProducts } from "../cj/catalog";
+import { bestShippingOption, type CjProductDetail, type CjProductSummary, type CjShippingOption, type CjVariant, MAX_IMAGES } from "../cj/normalize";
 import { getUsdCadRate } from "../fx";
-import { suggestRetailPriceCents, usdToCadCents } from "../money";
+import { estimateProductEconomics } from "../money";
 import { getPlatformSettings } from "../settings";
 import { createAdminClient } from "../supabase/admin";
+import { freightRepresentatives, pickVariants, weightBucket } from "./variants";
 
 /**
  * Recherche de produits pour une boutique, en petites étapes (chaque appel de
@@ -22,7 +23,7 @@ import { createAdminClient } from "../supabase/admin";
  */
 
 export const MAX_DELIVERY_DAYS = 15;
-const BATCH_SIZE = 4;
+const BATCH_SIZE = 3; // ~6 appels CJ par produit (fiche, stock, livraison par tranche de poids)
 const MAX_CANDIDATES = 90;
 const EXTRA_PICKS = 12; // remplaçants
 
@@ -77,7 +78,7 @@ export async function startSourcingJob(
   storeId: string,
   keywords: string[],
   target = 18,
-  chosen?: { pids: string[] },
+  options: { pids?: string[]; autoAccept?: boolean } = {},
 ): Promise<string> {
   const { data, error } = await createAdminClient()
     .from("sourcing_jobs")
@@ -85,7 +86,9 @@ export async function startSourcingJob(
       store_id: storeId,
       keywords: keywords.slice(0, 6),
       target,
-      ...(chosen && { status: "processing", picks: chosen.pids, cursor: 0, auto_accept: true }),
+      // Produits déjà choisis : on passe directement au traitement.
+      ...(options.pids && { status: "processing", picks: options.pids, cursor: 0 }),
+      auto_accept: options.autoAccept ?? false,
     })
     .select("id")
     .single();
@@ -138,8 +141,15 @@ export async function advanceSourcing(jobId: string): Promise<SourcingState> {
         await updateJob(job.id, { status: "selecting", candidates });
       }
     } else if (job.status === "selecting") {
-      const { data: store } = await createAdminClient().from("stores").select("niche_description, name").eq("id", job.store_id).single();
-      const { pids, usage } = await selectProducts(store?.niche_description || store?.name || "", job.candidates, job.target + EXTRA_PICKS);
+      const admin = createAdminClient();
+      const [{ data: store }, { data: existing }] = await Promise.all([
+        admin.from("stores").select("niche_description, name").eq("id", job.store_id).single(),
+        admin.from("products").select("supplier_product_id").eq("store_id", job.store_id),
+      ]);
+      // Produits déjà dans la boutique (ajout de produits) : pas proposés une seconde fois.
+      const owned = new Set((existing ?? []).map((p) => p.supplier_product_id));
+      const fresh = job.candidates.filter((c) => !owned.has(c.pid));
+      const { pids, usage } = await selectProducts(store?.niche_description || store?.name || "", fresh, job.target + EXTRA_PICKS);
       await logAi(job.store_id, "select_products", usage);
       if (pids.length === 0) {
         await updateJob(job.id, { status: "failed", error: "no_products_suitable" });
@@ -164,19 +174,45 @@ export async function advanceSourcing(jobId: string): Promise<SourcingState> {
   return toState((await loadJob(jobId)) ?? job);
 }
 
-interface Prepared {
-  detail: CjProductDetail;
+interface PreparedVariant {
   variant: CjVariant;
   shipping: CjShippingOption;
 }
 
-/** Fiche CJ + livraison Canada ≤ 15 jours. null si le produit ne convient pas. */
+interface Prepared {
+  detail: CjProductDetail;
+  /** Variantes à vendre ; la première (la moins chère, livraison comprise) est celle par défaut. */
+  variants: PreparedVariant[];
+  /** Variante par défaut (raccourci). */
+  variant: CjVariant;
+  shipping: CjShippingOption;
+}
+
+/**
+ * Fiche CJ, stock par variante, choix des variantes (≤ 6, en stock) et livraison Canada ≤ 15 jours
+ * (un calcul par tranche de poids). null si le produit ne convient pas.
+ */
 async function prepare(pid: string): Promise<Prepared | null> {
   const detail = await getProductDetail(pid);
   if (!detail || detail.variants.length === 0 || detail.images.length === 0) return null;
-  const variant = [...detail.variants].sort((a, b) => a.priceUsdCents - b.priceUsdCents)[0];
-  const shipping = bestShippingOption(await getShippingOptions(variant.vid, "CA"), MAX_DELIVERY_DAYS);
-  return shipping ? { detail, variant, shipping } : null;
+  let stock = new Map<string, number>();
+  try {
+    stock = await getVariantInventories(pid);
+  } catch (err) {
+    console.warn(`Stock des variantes de ${pid} indisponible :`, err); // on garde le stock de la fiche
+  }
+  const picked = pickVariants(detail.variants.map((v) => ({ ...v, stock: stock.get(v.vid) ?? v.stock })));
+  const shippingByBucket = new Map<string, CjShippingOption>();
+  for (const [bucket, vid] of freightRepresentatives(picked)) {
+    const option = bestShippingOption(await getShippingOptions(vid, "CA"), MAX_DELIVERY_DAYS);
+    if (option) shippingByBucket.set(bucket, option);
+  }
+  const variants = picked
+    .map((variant) => ({ variant, shipping: shippingByBucket.get(weightBucket(variant.weightG)) }))
+    .filter((v): v is PreparedVariant => v.shipping !== undefined)
+    .sort((a, b) => a.variant.priceUsdCents + a.shipping.priceUsdCents - (b.variant.priceUsdCents + b.shipping.priceUsdCents));
+  if (variants.length === 0) return null;
+  return { detail, variants, variant: variants[0].variant, shipping: variants[0].shipping };
 }
 
 /**
@@ -208,7 +244,19 @@ export async function processPicks(storeId: string, pids: string[], options: { a
 
   const { copies, usage } = await rewriteProducts(
     { niche: store?.niche_description || store?.name || "", categories, language },
-    prepared.map((p) => ({ pid: p.detail.pid, name: p.detail.name, description: p.detail.description, variantName: p.variant.name })),
+    prepared.map((p) => ({
+      pid: p.detail.pid,
+      name: p.detail.name,
+      description: p.detail.description,
+      variantName: p.variant.name,
+      materials: p.detail.materials,
+      packaging: p.detail.packaging,
+      weightText: p.detail.weightText,
+      optionNames: p.detail.optionNames,
+      variantKeys: p.variants.map((v) => v.variant.key).filter((k): k is string => Boolean(k)),
+      dimensionsMm: p.variant.dimensionsMm,
+      weightG: p.variant.weightG,
+    })),
   );
   await logAi(storeId, "rewrite_products", usage);
   const copyByPid = new Map(copies.map((c) => [c.pid, c]));
@@ -230,9 +278,20 @@ export async function processPicks(storeId: string, pids: string[], options: { a
 
   const rows = allowed.map((p) => {
     const copy = copyByPid.get(p.detail.pid);
-    const costCadCents = usdToCadCents(p.variant.priceUsdCents + p.shipping.priceUsdCents, fx.rate);
-    const price = suggestRetailPriceCents(costCadCents, settings.minMarginRate);
-    const images = [...new Set([...(p.variant.image ? [p.variant.image] : []), ...p.detail.images])].slice(0, 8);
+    // Prix conseillé par variante (marge minimale sur son propre coût + sa livraison).
+    const priced = p.variants.map((v) => ({
+      ...v,
+      priceCents: estimateProductEconomics({
+        supplierCostUsdCents: v.variant.priceUsdCents,
+        shippingUsdCents: v.shipping.priceUsdCents,
+        fxRateUsdCad: fx.rate,
+        minMarginRate: settings.minMarginRate,
+        commissionRate: settings.commissionRate,
+      }).priceCents,
+    }));
+    const price = priced[0].priceCents;
+    const images = [...new Set([...p.variants.map((v) => v.variant.image).filter((i): i is string => Boolean(i)), ...p.detail.images])].slice(0, MAX_IMAGES);
+    const label = (key: string | null) => (key ? copy?.variantLabels[key] || key : null);
     return {
       store_id: storeId,
       supplier: "cj",
@@ -250,6 +309,19 @@ export async function processPicks(storeId: string, pids: string[], options: { a
       delivery_days_min: p.shipping.daysMin,
       delivery_days_max: p.shipping.daysMax,
       shipping_method: p.shipping.name,
+      stock: p.variant.stock,
+      long_description: copy?.longDescription || null,
+      specs: copy?.specs ?? [],
+      description_images: p.detail.descriptionImages,
+      variants: priced.length > 1
+        ? priced.map((v) => ({ vid: v.variant.vid, label: label(v.variant.key) ?? v.variant.vid, priceCents: v.priceCents, image: v.variant.image, inStock: true }))
+        : [],
+      variant_costs: Object.fromEntries(
+        priced.map((v) => [
+          v.variant.vid,
+          { costUsdCents: v.variant.priceUsdCents, shippingUsdCents: v.shipping.priceUsdCents, shippingMethod: v.shipping.name, daysMin: v.shipping.daysMin, daysMax: v.shipping.daysMax, stock: v.variant.stock },
+        ]),
+      ),
       status: options.autoAccept ? "active" : "proposed",
       position: position++,
       last_synced_at: new Date().toISOString(),
