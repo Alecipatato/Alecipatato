@@ -20,6 +20,8 @@ export interface TrendCard {
   priceCents: number;
   profitCents: number;
   marginBp: number;
+  tiktok: boolean;
+  rising: boolean;
 }
 
 export function toTrendCards(
@@ -50,6 +52,8 @@ export function toTrendCards(
       priceCents: e.priceCents,
       profitCents: e.ownerProfitCents,
       marginBp: e.marginBp,
+      tiktok: p.tiktok,
+      rising: p.rising,
     };
   });
 }

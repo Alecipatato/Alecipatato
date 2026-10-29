@@ -201,3 +201,8 @@ export const SAMPLE_TRENDS: SampleTrend[] = [
     ["Oreiller de voyage en mousse à mémoire", "Voyage", "Un oreiller cervical en mousse à mémoire avec housse lavable pour les longs trajets.", ["Mousse à mémoire de forme", "Housse lavable", "Sac de compression"]],
     830, 640, [8, 13], 3780),
 ];
+
+/** Exemples présentés comme populaires sur TikTok (démo du filtre « Tendance TikTok »). */
+export const SAMPLE_TIKTOK = new Set(["s-kitchen-2", "s-fitness-1", "s-fitness-3", "s-pets-1", "s-pets-2", "s-home-2", "s-tech-1", "s-outdoor-3"]);
+/** Exemples présentés comme « en hausse » (indicateur « tendance » de CJ). */
+export const SAMPLE_RISING = new Set(["s-kitchen-2", "s-pets-1", "s-home-4", "s-tech-3"]);

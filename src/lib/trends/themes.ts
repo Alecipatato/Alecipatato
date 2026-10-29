@@ -9,6 +9,11 @@ export const TREND_THEMES = [
   { id: "home", emoji: "🕯️", keywords: ["home decor", "led night light", "storage basket"] },
   { id: "tech", emoji: "🔌", keywords: ["phone stand", "wireless charger", "desk organizer"] },
   { id: "outdoor", emoji: "🏕️", keywords: ["camping gear", "travel organizer", "water bottle"] },
+  { id: "beauty", emoji: "💄", keywords: ["makeup brush", "hair accessories", "nail art"] },
+  { id: "fashion", emoji: "👜", keywords: ["women bag", "jewelry", "sunglasses"] },
+  { id: "kids", emoji: "🧸", keywords: ["kids toy", "baby accessories", "educational toy"] },
+  { id: "car", emoji: "🚗", keywords: ["car accessories", "car organizer", "car phone holder"] },
+  { id: "garden", emoji: "🌿", keywords: ["garden tools", "plant pot", "solar light"] },
 ] as const;
 
 export type TrendThemeId = (typeof TREND_THEMES)[number]["id"];

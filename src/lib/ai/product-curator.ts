@@ -212,3 +212,76 @@ export async function rewriteProducts(
     .filter((p) => p.title);
   return { copies, usage };
 }
+
+export interface TrendCandidate {
+  pid: string;
+  name: string;
+  category: string | null;
+  /** Thème du mot-clé qui a trouvé le produit, s'il y en a un (simple indice). */
+  hint: string | null;
+}
+
+export interface TrendClassification {
+  pid: string;
+  /** null : produit refusé. */
+  theme: string | null;
+  reason: string | null;
+  nameEn: string;
+  nameFr: string;
+}
+
+const CLASSIFY_SYSTEM = `You sort trending products from a dropshipping supplier catalogue for a platform that builds online stores in Canada. For each product (English supplier name and category), decide:
+- theme: exactly one of the given theme ids, the one a shopper would expect. A "hint" is the theme of the search keyword that found the product; ignore it when it does not fit.
+- or reject it (theme "reject") with a short reject_reason when it is: a medical device or a product making health, slimming, anti-ageing or therapeutic claims (light therapy, EMS muscle stimulators, posture correctors sold as medical, acne lasers…), a supplement, cosmetic or skin product applied to the body (creams, concealers, serums), underwear or intimate items, adult items, weapons or self-defence items, drugs or paraphernalia, vaping, alcohol, a counterfeit or a product named after a brand or licensed character (generic accessories "compatible with" a device are fine), live animals or plants, hazardous goods, or something that fits none of the themes.
+- name_en and name_fr: a short, clear product name (3 to 7 words) in natural English and in natural Québec French, without brand names, sizes lists or keyword stuffing.
+Never invent features. reject_reason is an empty string when the product is kept. Return one entry per product, with "pid" copied unchanged.`;
+
+/** Classe les produits tendance par thème (ou les refuse) et leur donne un nom court en anglais et en français. */
+export async function classifyTrends(candidates: TrendCandidate[], themeIds: readonly string[]): Promise<{ results: TrendClassification[]; usage: AiUsage }> {
+  const lines = candidates.map((c) => `${c.pid} | ${c.name}${c.category ? ` | ${c.category}` : " |"}${c.hint ? ` | hint: ${c.hint}` : ""}`);
+  const { data: raw, usage } = await callJson(
+    CLASSIFY_SYSTEM,
+    `Theme ids: ${themeIds.join(", ")}\n\nProducts (pid | name | category | hint):\n${lines.join("\n")}`,
+    {
+      type: "object",
+      additionalProperties: false,
+      required: ["products"],
+      properties: {
+        products: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: ["pid", "theme", "reject_reason", "name_en", "name_fr"],
+            properties: {
+              pid: str,
+              theme: { type: "string", enum: [...themeIds, "reject"] },
+              reject_reason: str,
+              name_en: str,
+              name_fr: str,
+            },
+          },
+        },
+      },
+    },
+    Math.min(16000, 400 + candidates.length * 120),
+  );
+  const wanted = new Set(candidates.map((c) => c.pid));
+  const allowed = new Set(themeIds);
+  const list = (raw as { products?: unknown }).products;
+  const seen = new Set<string>();
+  const results = (Array.isArray(list) ? list : [])
+    .filter((p): p is Record<string, unknown> => typeof p === "object" && p !== null)
+    .filter((p) => wanted.has(String(p.pid)) && !seen.has(String(p.pid)) && Boolean(seen.add(String(p.pid))))
+    .map((p) => {
+      const theme = typeof p.theme === "string" && allowed.has(p.theme) ? p.theme : null;
+      return {
+        pid: String(p.pid),
+        theme,
+        reason: theme ? null : String(p.reject_reason ?? "").trim().slice(0, 120) || "no_theme",
+        nameEn: String(p.name_en ?? "").trim().slice(0, 80),
+        nameFr: String(p.name_fr ?? "").trim().slice(0, 80),
+      };
+    });
+  return { results, usage };
+}

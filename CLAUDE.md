@@ -218,7 +218,18 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
   3 thèmes les plus demandés). `StoreBrief.chosenProducts` → l'IA bâtit l'identité autour des produits ; elle suit
   description/style/couleurs/nom s'ils sont donnés, sinon s'adapte aux produits. Avec CJ : `sourcing_jobs` démarré à
   `processing` avec `auto_accept` (produits mis en vente sans validation) ; sans CJ : produits d'exemple insérés en
-  vente au prix conseillé. ⚠️ `listedNum` à valider avec une vraie clé ; les noms CJ restent en anglais dans la galerie.
+  vente au prix conseillé.
+  **Étape C (2026-10-29) — des centaines de produits, priorité TikTok** : 11 thèmes (+ beauté, mode, enfants, auto, jardin).
+  `refresh.ts` traite UNE source par passage (la plus ancienne, table `trend_sources`, chacune ≈ 1 fois/jour) : « tiktok »
+  (zone TikTok CJ `zonePlatform=tiktok` + `productFlag=0`, pages de 100) ou un thème (par mot-clé : zone TikTok, « tendance »,
+  tout le catalogue ; tri popularité ; 40 produits/thème, TikTok et tendance d'abord). Colonnes `trending_products.tiktok`,
+  `trending` (indicateurs CJ, jamais inventés), `name_fr`/`name_en`, `classified_at`, `theme` nullable avant tri.
+  Tri IA `classifyTrends` (`product-curator.ts`, lots de 40, `ai_generations.kind = 'classify_trends'`, `user_id` null =
+  appel plateforme) : thème ou refus `ai:<raison>` (santé/thérapie, cosmétiques appliqués sur la peau, sous-vêtements, marques…)
+  + nom court FR/EN. Sans `ANTHROPIC_API_KEY` : thème du mot-clé gardé, zone TikTok seule refusée (`unclassified`).
+  Vérification 25/passage (`?limit=` ≤ 100), revérification quotidienne. ⚠️ Écritures groupées (`upsert`) : toutes les
+  lignes doivent avoir les MÊMES colonnes (sinon `null`) et inclure les colonnes NOT NULL. Galerie : filtre « Populaires sur
+  TikTok », badges TikTok / « En hausse », 48 produits à la fois (« Afficher plus »). `CJ_MIN_INTERVAL_MS` (défaut 1100).
 - **Fiches complètes et variantes** (étape B, 2026-10-28) : `normalize.ts` lit images (≤ 12), photos de la description,
   matériaux, emballage, poids, options et variantes (clé, poids, dimensions) ; stock par variante via
   `/product/stock/getInventoryByPid` (`getVariantInventories`, vérifié avec la vraie clé). `src/lib/products/variants.ts`
@@ -264,9 +275,11 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
 - [x] Étape A — adaptateur CJ validé avec la vraie clé (lecture, commande sandbox complète)
 - [x] Étape B — fiches complètes « comme Amazon » (galerie, zoom, variantes, description, caractéristiques),
       panier/paiement par variante, ajout de produits par le vendeur ou par l'IA
+- [x] Étape C — catalogue tendance élargi : zone TikTok et produits « tendance » de CJ, 11 thèmes, ≈ 40 produits par
+      thème, tri et noms FR/EN par l'IA, filtre TikTok et affichage par pages dans la galerie
 - [ ] Prochaine étape — mise en production (déploiement Cloudflare, vraies clés en mode test, validation CJ)
 
-## Prochaines étapes (demandées par le propriétaire le 2026-10-26 ; A et B faites, C à F NON commencées)
+## Prochaines étapes (demandées par le propriétaire le 2026-10-26 ; A, B et C faites, D à F NON commencées)
 
 Ne pas commencer sans sa validation explicite ; proposer d'abord un ordre de réalisation.
 

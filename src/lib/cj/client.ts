@@ -6,10 +6,11 @@ import { createAdminClient } from "../supabase/admin";
  *  - Au plus ~1 appel par seconde (QPS = 1 par défaut ; limite réelle du compte : GET /setting/get).
  *  - Nouvel essai automatique si CJ demande de ralentir.
  * CJ_API_BASE permet de viser un serveur simulé pour les tests locaux.
+ * CJ_MIN_INTERVAL_MS : délai entre deux appels (1100 ms par défaut ; à réduire si la limite du compte le permet).
  */
 
 const DEFAULT_BASE = "https://developers.cjdropshipping.com/api2.0/v1";
-const MIN_INTERVAL_MS = 1100;
+const DEFAULT_INTERVAL_MS = 1100;
 const RATE_LIMIT_CODES = new Set([1600200, 429]);
 /** Jeton invalide ou expiré (1600001) ou absent (1600002) : on en redemande un. */
 const TOKEN_CODES = new Set([1600001, 1600002]);
@@ -36,11 +37,16 @@ export function isCjConfigured(): boolean {
 const base = () => (process.env.CJ_API_BASE || DEFAULT_BASE).replace(/\/$/, "");
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+function minInterval(): number {
+  const ms = Number(process.env.CJ_MIN_INTERVAL_MS);
+  return Number.isFinite(ms) && ms >= 100 ? ms : DEFAULT_INTERVAL_MS;
+}
+
 let nextSlot = 0;
 async function throttle() {
   const now = Date.now();
   const wait = Math.max(nextSlot - now, 0);
-  nextSlot = Math.max(now, nextSlot) + MIN_INTERVAL_MS;
+  nextSlot = Math.max(now, nextSlot) + minInterval();
   if (wait > 0) await sleep(wait);
 }
 

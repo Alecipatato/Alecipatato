@@ -18,15 +18,23 @@ import {
 /**
  * Recherche dans le catalogue (Product List V2 ; l'ancienne /product/list est dépréciée et limitée à
  * 1000 appels/jour). `byPopularity` : les produits les plus importés par les boutiques CJ en premier.
+ * `tiktok` : seulement la zone TikTok de CJ (zonePlatform=tiktok) ; `trending` : produits marqués
+ * « tendance » par CJ (productFlag=0). Mot-clé vide : tout le catalogue (avec ces filtres).
  */
-export async function searchProducts(keyword: string, pageSize = 20, options: { byPopularity?: boolean } = {}): Promise<CjProductSummary[]> {
+export async function searchProducts(
+  keyword: string,
+  pageSize = 20,
+  options: { byPopularity?: boolean; tiktok?: boolean; trending?: boolean; page?: number } = {},
+): Promise<CjProductSummary[]> {
   const data = await cjRequest("GET", "/product/listV2", {
     query: {
-      keyWord: keyword,
-      page: 1,
+      ...(keyword && { keyWord: keyword }),
+      page: options.page ?? 1,
       size: Math.min(pageSize, 100),
       features: ["enable_category"],
       ...(options.byPopularity && { orderBy: 1, sort: "desc" }), // 1 = nombre d'importations (listedNum)
+      ...(options.tiktok && { zonePlatform: "tiktok" }),
+      ...(options.trending && { productFlag: 0 }),
     },
   });
   return normalizeListResponse(data);

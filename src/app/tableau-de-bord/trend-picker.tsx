@@ -11,6 +11,9 @@ import { TREND_THEMES, type TrendThemeId } from "@/lib/trends/themes";
 
 type Sort = "demand" | "profit" | "price";
 
+/** Produits affichés à la fois (« Afficher plus » ajoute la suite) : la liste compte des centaines de produits. */
+const PAGE_SIZE = 48;
+
 const LEVEL_STYLES = {
   very_high: "bg-brand text-white",
   high: "bg-brand-soft text-brand-strong",
@@ -49,6 +52,13 @@ export function TrendPicker({
   const [theme, setTheme] = useState<TrendThemeId | "all">("all");
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<Sort>("demand");
+  const [tiktokOnly, setTiktokOnly] = useState(false);
+  const [shown, setShown] = useState(PAGE_SIZE);
+  // Nouveau filtre ou nouveau tri : on revient à la première page.
+  const filter = <T,>(set: (v: T) => void) => (v: T) => {
+    set(v);
+    setShown(PAGE_SIZE);
+  };
   const price = (cents: number) => formatPrice(cents, "CAD", locale);
   const number = (n: number) => new Intl.NumberFormat(intlLocale(locale)).format(n);
   const percent = (bp: number) => new Intl.NumberFormat(intlLocale(locale), { style: "percent", maximumFractionDigits: 0 }).format(bp / 10_000);
@@ -62,17 +72,18 @@ export function TrendPicker({
 
   const visible = useMemo(() => {
     const q = query.trim().toLocaleLowerCase(locale);
-    const list = cards.filter((c) => (theme === "all" || c.theme === theme) && (!q || c.name.toLocaleLowerCase(locale).includes(q)));
+    const list = cards.filter((c) => (theme === "all" || c.theme === theme) && (!tiktokOnly || c.tiktok) && (!q || c.name.toLocaleLowerCase(locale).includes(q)));
     const key: Record<Sort, (c: TrendCard) => number> = { demand: (c) => c.demandScore, profit: (c) => c.profitCents, price: (c) => -c.priceCents };
     return [...list].sort((a, b) => key[sort](b) - key[sort](a));
-  }, [cards, theme, query, sort, locale]);
+  }, [cards, theme, query, sort, locale, tiktokOnly]);
+  const tiktokCount = useMemo(() => cards.filter((c) => c.tiktok).length, [cards]);
 
   function toggle(card: TrendCard) {
     if (selected.includes(card.id)) {
       onChange(selected.filter((id) => id !== card.id));
       return;
     }
-    if (sameTheme && selected.length === 0) setTheme(card.theme); // la suite du choix se fait dans ce thème
+    if (sameTheme && selected.length === 0) filter(setTheme)(card.theme); // la suite du choix se fait dans ce thème
     onChange([...selected, card.id]);
   }
 
@@ -109,7 +120,7 @@ export function TrendPicker({
                 key={id}
                 type="button"
                 aria-pressed={theme === id}
-                onClick={() => setTheme(id)}
+                onClick={() => filter(setTheme)(id)}
                 className="rounded-full border border-line bg-white px-3 py-1.5 text-sm text-muted transition hover:border-brand hover:text-brand aria-pressed:border-brand aria-pressed:bg-brand aria-pressed:text-white"
               >
                 {emoji && <span aria-hidden className="mr-1">{emoji}</span>}
@@ -117,18 +128,31 @@ export function TrendPicker({
               </button>
             );
           })}
+          {tiktokCount > 0 && (
+            <button
+              type="button"
+              data-tiktok-filter
+              aria-pressed={tiktokOnly}
+              title={t.tiktokHint}
+              onClick={() => filter(setTiktokOnly)(!tiktokOnly)}
+              className="rounded-full border border-ink/15 bg-ink/5 px-3 py-1.5 text-sm font-medium text-ink transition hover:border-ink aria-pressed:border-ink aria-pressed:bg-ink aria-pressed:text-white"
+            >
+              <span aria-hidden className="mr-1">♪</span>
+              {t.tiktokFilter} <span className="tabular-nums opacity-70">{tiktokCount}</span>
+            </button>
+          )}
         </div>
         <div className="flex gap-2 lg:shrink-0">{/* recherche + tri, côte à côte */}
           <input
             type="search"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => filter(setQuery)(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && e.preventDefault()} // la galerie est dans le formulaire : Entrée ne doit pas l'envoyer
             placeholder={t.search}
             aria-label={t.search}
             className={`${inputClasses} min-w-0 lg:w-56!`}
           />
-          <select value={sort} onChange={(e) => setSort(e.target.value as Sort)} aria-label={t.sort} className={`${inputClasses} w-auto! shrink-0`}>
+          <select value={sort} onChange={(e) => filter(setSort)(e.target.value as Sort)} aria-label={t.sort} className={`${inputClasses} w-auto! shrink-0`}>
             {(Object.keys(t.sorts) as Sort[]).map((s) => <option key={s} value={s}>{t.sort} : {t.sorts[s]}</option>)}
           </select>
         </div>
@@ -140,7 +164,7 @@ export function TrendPicker({
         <p className="rounded-2xl border border-dashed border-line bg-white p-8 text-center text-sm text-muted">{t.noResults}</p>
       ) : (
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {visible.map((c) => {
+          {visible.slice(0, shown).map((c) => {
             const isSelected = selected.includes(c.id);
             const otherTheme = !isSelected && selectedTheme !== null && c.theme !== selectedTheme;
             const full = !isSelected && selected.length >= MAX_SELECTION;
@@ -161,6 +185,20 @@ export function TrendPicker({
                   <span className="absolute left-2 top-2 rounded-full bg-white/90 px-2 py-0.5 text-xs font-medium text-ink shadow-sm">
                     {themeName(c.theme)}
                   </span>
+                  {(c.tiktok || c.rising) && (
+                    <span className="absolute right-2 top-2 flex flex-col items-end gap-1">
+                      {c.tiktok && (
+                        <span data-badge="tiktok" title={t.tiktokHint} className="rounded-full bg-ink px-2 py-0.5 text-xs font-semibold text-white shadow-sm">
+                          <span aria-hidden>♪ </span>{t.tiktokBadge}
+                        </span>
+                      )}
+                      {c.rising && (
+                        <span data-badge="rising" title={t.risingHint} className="rounded-full bg-marigold-soft px-2 py-0.5 text-xs font-semibold text-ink shadow-sm">
+                          <span aria-hidden>↗ </span>{t.risingBadge}
+                        </span>
+                      )}
+                    </span>
+                  )}
                 </div>
                 <div className="flex flex-1 flex-col gap-3 p-4">
                   <h3 className="line-clamp-2 min-h-[2.5rem] text-sm font-semibold leading-5">{c.name}</h3>
@@ -205,6 +243,16 @@ export function TrendPicker({
             );
           })}
         </ul>
+      )}
+      {visible.length > 0 && (
+        <div className="flex flex-col items-center gap-2">
+          <p data-showing className="text-xs text-muted">{fmt(t.showing, { n: number(Math.min(shown, visible.length)), total: number(visible.length) })}</p>
+          {shown < visible.length && (
+            <button type="button" data-show-more onClick={() => setShown((n) => n + PAGE_SIZE)} className="rounded-xl border border-line bg-white px-5 py-2 text-sm font-semibold hover:border-brand hover:text-brand">
+              {t.showMore}
+            </button>
+          )}
+        </div>
       )}
       <p className="text-xs text-muted">{fmt(t.profitHint, { commission: commissionLabel })}</p>
 
