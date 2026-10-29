@@ -30,3 +30,12 @@ create table public.trend_sources (
 
 alter table public.trend_sources enable row level security; -- serveur uniquement (aucune politique)
 revoke all on public.trend_sources from anon, authenticated;
+
+-- Produits « santé » fréquents dans la zone TikTok (appareils et allégations thérapeutiques) : bloqués même sans l'IA.
+insert into public.moderation_rules (kind, term) values
+  ('prohibited', 'light therapy'), ('prohibited', 'laser pen'), ('prohibited', 'acne'), ('prohibited', 'wrinkle removal'),
+  ('prohibited', 'anti cellulite'), ('prohibited', 'anti-cellulite'), ('prohibited', 'slimming'), ('prohibited', 'weight loss'),
+  ('prohibited', 'fat burning'), ('prohibited', 'ems'), ('prohibited', 'muscle stimulator'), ('prohibited', 'anti aging'),
+  ('prohibited', 'anti-aging'), ('prohibited', 'teeth whitening'), ('prohibited', 'luminothérapie'), ('prohibited', 'acné'),
+  ('prohibited', 'minceur'), ('prohibited', 'perte de poids'), ('prohibited', 'anti-rides')
+on conflict do nothing;

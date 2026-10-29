@@ -110,7 +110,7 @@ async function discover(source: SourceId): Promise<number> {
 
   if (found.length) {
     const pids = found.map((f) => f.product.pid);
-    const { data: existing } = await admin.from("trending_products").select("supplier_product_id, tiktok, trending").in("supplier_product_id", pids);
+    const { data: existing } = await admin.from("trending_products").select("supplier_product_id, tiktok, trending, theme").in("supplier_product_id", pids);
     const known = new Map((existing ?? []).map((e) => [e.supplier_product_id, e]));
     const common = (f: Found) => {
       const prev = known.get(f.product.pid);
@@ -144,6 +144,17 @@ async function discover(source: SourceId): Promise<number> {
         .update({ status: "pending", reject_reason: null })
         .eq("reject_reason", "not_trending")
         .in("supplier_product_id", seen.map((f) => f.product.pid));
+      // Trouvés d'abord dans la zone TikTok (sans thème), puis par un mot-clé : le thème du mot-clé sert d'indice
+      // et le produit refusé faute de thème (« unclassified ») est trié à nouveau.
+      const untyped = seen.filter((f) => !known.get(f.product.pid)?.theme).map((f) => f.product.pid);
+      if (source !== TIKTOK_SOURCE && untyped.length) {
+        await admin
+          .from("trending_products")
+          .update({ theme: source, status: "pending", reject_reason: null, classified_at: null })
+          .is("theme", null)
+          .or("reject_reason.is.null,reject_reason.eq.unclassified")
+          .in("supplier_product_id", untyped);
+      }
     }
   }
 
