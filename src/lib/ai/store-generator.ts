@@ -244,11 +244,23 @@ export interface GenerationResult {
   usage: { inputTokens: number; outputTokens: number };
 }
 
+/**
+ * Clé de l'API Anthropic : ANTHROPIC_API_KEY, ou KREO_ANTHROPIC_API_KEY quand l'hébergeur réserve
+ * les noms « ANTHROPIC_… » (c'est le cas de l'environnement cloud de développement).
+ */
+export function anthropicApiKey(): string | null {
+  return process.env.ANTHROPIC_API_KEY || process.env.KREO_ANTHROPIC_API_KEY || null;
+}
+
+/** Client Anthropic, ou erreur « not_configured » sans clé. */
+export function anthropicClient(): Anthropic {
+  const apiKey = anthropicApiKey();
+  if (!apiKey) throw new StoreGenerationError("not_configured");
+  return new Anthropic({ apiKey });
+}
+
 export async function generateStore(brief: StoreBrief): Promise<GenerationResult> {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    throw new StoreGenerationError("not_configured");
-  }
-  const client = new Anthropic();
+  const client = anthropicClient();
 
   let response;
   try {

@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { Locale } from "../i18n/config";
-import { AI_MODEL, StoreGenerationError } from "./store-generator";
+import { AI_MODEL, anthropicClient, StoreGenerationError } from "./store-generator";
 
 /**
  * L'IA choisit les produits du catalogue CJ qui conviennent à une boutique,
@@ -54,10 +54,7 @@ export interface AiUsage {
 }
 
 async function callJson(system: string, user: string, schema: Record<string, unknown>, maxTokens: number): Promise<{ data: unknown; usage: AiUsage }> {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    throw new StoreGenerationError("not_configured");
-  }
-  const client = new Anthropic();
+  const client = anthropicClient();
   let response;
   try {
     response = await client.beta.messages.create({

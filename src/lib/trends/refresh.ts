@@ -1,5 +1,5 @@
 import { classifyTrends } from "../ai/product-curator";
-import { AI_MODEL } from "../ai/store-generator";
+import { AI_MODEL, anthropicApiKey } from "../ai/store-generator";
 import { getProductDetail, getShippingOptions, searchProducts } from "../cj/catalog";
 import { bestShippingOption, type CjProductSummary } from "../cj/normalize";
 import { findViolation, type ModerationRule } from "../moderation/match";
@@ -199,7 +199,7 @@ async function classify(): Promise<number> {
   });
   const drop = (r: ClassifyRow, reason: string) => ({ ...keep(r, r.theme, null, null), status: "rejected", reject_reason: reason });
 
-  if (!process.env.ANTHROPIC_API_KEY) {
+  if (!anthropicApiKey()) {
     await admin.from("trending_products").upsert(
       rows.map((r) => (r.theme ? keep(r, r.theme, r.name, null) : drop(r, "unclassified"))),
       { onConflict: "id" },

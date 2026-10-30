@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { Locale } from "../i18n/config";
 import { SEO_DESCRIPTION_MAX, SEO_TITLE_MAX } from "../marketing/settings";
-import { AI_MODEL, StoreGenerationError } from "./store-generator";
+import { AI_MODEL, anthropicClient, StoreGenerationError } from "./store-generator";
 
 /**
  * Contenus marketing générés par l'IA pour une boutique ou un produit :
@@ -159,8 +159,7 @@ function describe(input: MarketingInput): string {
 }
 
 export async function generateMarketing(input: MarketingInput): Promise<{ content: MarketingContent; usage: { inputTokens: number; outputTokens: number } }> {
-  if (!process.env.ANTHROPIC_API_KEY) throw new StoreGenerationError("not_configured");
-  const client = new Anthropic();
+  const client = anthropicClient();
   let response;
   try {
     response = await client.beta.messages.create({
