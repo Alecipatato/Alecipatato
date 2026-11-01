@@ -235,6 +235,18 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
   Vérification 25/passage (`?limit=` ≤ 100), revérification quotidienne. ⚠️ Écritures groupées (`upsert`) : toutes les
   lignes doivent avoir les MÊMES colonnes (sinon `null`) et inclure les colonnes NOT NULL. Galerie : filtre « Populaires sur
   TikTok », badges TikTok / « En hausse », 48 produits à la fois (« Afficher plus »). `CJ_MIN_INTERVAL_MS` (défaut 1100).
+- **Données toujours à jour** (étape D, 2026-11-01) : notifications CJ — `src/lib/cj/webhook-message.ts` (pur, testé :
+  signature `sign` = Base64(HMAC-SHA256(openId, corps brut)), vecteur de la doc ; lecture PRODUCT/VARIANT/STOCK, stock CN
+  seulement), route `/api/cj/webhook` (signature, idempotence `cj_webhook_events.message_id`, réponse < 3 s puis `after()`),
+  `src/lib/products/live-sync.ts` : produit DELETE / statut 2 → `removeSupplierProduct` (toutes les boutiques +
+  `trending_products`), sinon resynchro ciblée `syncProductsByIds` (`sync.ts`) et revérification prioritaire de la
+  tendance (`checked_at` = 1970). `openId` gardé dans `integration_tokens.open_id` (`getCjOpenId`). Inscription
+  `/webhook/set` (produit + stock ; commandes/suivi CANCEL) refaite chaque jour et abonnements par produit
+  (`cj_subscriptions`, boutiques d'abord puis tendances, `CJ_WEBHOOK_LIMIT` = 1000) dans la tâche `sync-products`,
+  seulement si `CJ_WEBHOOK_URL` (adresse publique HTTPS ; CJ refuse localhost). Limites CJ : aucun renvoi d'une
+  notification manquée, prix des variantes pas toujours notifiés, regroupement 2-5 min → la synchro horaire reste.
+  Paiement : `confirmSupplierStock` (`checkout.ts`) relit le stock CJ (≤ 6 s, sinon la vente continue) → `outOfStock`
+  + resynchro. Tests : `e2e-live.js` (simulateur CJ : `/webhook/*`, `openId` 4242, `vidStock`).
 - **Fiches complètes et variantes** (étape B, 2026-10-28) : `normalize.ts` lit images (≤ 12), photos de la description,
   matériaux, emballage, poids, options et variantes (clé, poids, dimensions) ; stock par variante via
   `/product/stock/getInventoryByPid` (`getVariantInventories`, vérifié avec la vraie clé). `src/lib/products/variants.ts`
@@ -282,9 +294,11 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
       panier/paiement par variante, ajout de produits par le vendeur ou par l'IA
 - [x] Étape C — catalogue tendance élargi : zone TikTok et produits « tendance » de CJ, 11 thèmes, ≈ 40 produits par
       thème, tri et noms FR/EN par l'IA, filtre TikTok et affichage par pages dans la galerie
+- [x] Étape D — données à jour : notifications CJ signées (produit retiré partout en quelques minutes, variante
+      épuisée), abonnements automatiques, stock revérifié au paiement, synchro horaire conservée pour les prix
 - [ ] Prochaine étape — mise en production (déploiement Cloudflare, vraies clés en mode test, validation CJ)
 
-## Prochaines étapes (demandées par le propriétaire le 2026-10-26 ; A, B et C faites, D à F NON commencées)
+## Prochaines étapes (demandées par le propriétaire le 2026-10-26 ; A à D faites, E et F NON commencées)
 
 Ne pas commencer sans sa validation explicite ; proposer d'abord un ordre de réalisation.
 

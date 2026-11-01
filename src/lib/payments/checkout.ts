@@ -1,7 +1,10 @@
+import { after } from "next/server";
+import { getVariantInventories } from "../cj/catalog";
 import { getUsdCadRate } from "../fx";
 import { fmt, isLocale } from "../i18n/config";
 import { MESSAGES } from "../i18n/messages";
 import { computeOrderFinancials } from "../money";
+import { syncProductsByIds } from "../products/sync";
 import { getPlatformSettings } from "../settings";
 import { createAdminClient } from "../supabase/admin";
 import { automaticTaxEnabled, getStripe, isLiveMode } from "../stripe";
@@ -21,6 +24,41 @@ export class CheckoutError extends Error {
     readonly productTitle?: string,
   ) {
     super(code);
+  }
+}
+
+/** Délai maximum de la vérification du stock chez CJ : au-delà, la vente n'est pas bloquée. */
+const STOCK_CHECK_TIMEOUT_MS = 6000;
+
+/**
+ * Stock relu chez CJ juste avant le paiement (une rupture peut survenir entre deux synchronisations) :
+ * variante épuisée → paiement refusé et fiche resynchronisée tout de suite. Si CJ ne répond pas,
+ * la vente continue (la synchronisation planifiée corrigera).
+ */
+async function confirmSupplierStock(lines: { product: { id: string; title: string; supplier: string; supplier_product_id: string | null }; quantity: number; variantId: string | null; variantLabel: string | null }[]) {
+  const byPid = new Map<string, typeof lines>();
+  for (const l of lines) {
+    if (l.product.supplier !== "cj" || !l.product.supplier_product_id || !l.variantId) continue;
+    byPid.set(l.product.supplier_product_id, [...(byPid.get(l.product.supplier_product_id) ?? []), l]);
+  }
+  for (const [pid, group] of byPid) {
+    let stock: Map<string, number>;
+    try {
+      stock = await Promise.race([
+        getVariantInventories(pid),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("délai dépassé")), STOCK_CHECK_TIMEOUT_MS)),
+      ]);
+    } catch (err) {
+      console.warn(`Stock CJ ${pid} non vérifié au paiement :`, err);
+      continue;
+    }
+    for (const l of group) {
+      const available = stock.get(l.variantId!);
+      if (available !== undefined && available < l.quantity) {
+        after(() => syncProductsByIds([l.product.id]).catch((err) => console.warn("Resynchronisation après rupture :", err)));
+        throw new CheckoutError("outOfStock", l.variantLabel ? `${l.product.title} (${l.variantLabel})` : l.product.title);
+      }
+    }
   }
 }
 
@@ -117,6 +155,7 @@ export async function createCheckoutSession(params: {
   if (isLiveMode() && lines.some((l) => l.product.supplier === "sample")) {
     throw new CheckoutError("samples");
   }
+  await confirmSupplierStock(lines);
 
   const settings = await getPlatformSettings();
   const fx = await getUsdCadRate(settings.usdCadFallbackRate);

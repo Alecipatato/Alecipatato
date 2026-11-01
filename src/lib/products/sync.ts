@@ -25,19 +25,51 @@ export interface SyncReport {
 type VariantCost = { costUsdCents: number; shippingUsdCents: number; shippingMethod?: string; daysMin?: number; daysMax?: number; stock?: number | null };
 type PublicVariant = { vid: string; label: string; priceCents: number; image: string | null; inStock: boolean };
 
-export async function syncSupplierProducts(limit = 25): Promise<SyncReport> {
-  const admin = createAdminClient();
-  const report: SyncReport = { checked: 0, priceRaised: 0, outOfStock: 0, unavailable: 0, errors: 0 };
+const SYNC_COLUMNS = "id, supplier_product_id, supplier_variant_id, supplier_cost_usd_cents, shipping_cost_usd_cents, shipping_method, delivery_days_min, delivery_days_max, price_cents, variants, variant_costs";
 
-  const { data: products, error } = await admin
+export async function syncSupplierProducts(limit = 25): Promise<SyncReport> {
+  const { data: products, error } = await createAdminClient()
     .from("products")
-    .select("id, supplier_product_id, supplier_variant_id, supplier_cost_usd_cents, shipping_cost_usd_cents, shipping_method, delivery_days_min, delivery_days_max, price_cents, variants, variant_costs")
+    .select(SYNC_COLUMNS)
     .eq("supplier", "cj")
     .in("status", ["proposed", "active"])
     .order("last_synced_at", { ascending: true, nullsFirst: true })
     .limit(limit);
   if (error) throw new Error(`Lecture des produits impossible : ${error.message}`);
-  if (!products?.length) return report;
+  return syncRows(products ?? []);
+}
+
+/** Resynchronise tout de suite des produits précis (notification CJ, rupture constatée au paiement). */
+export async function syncProductsByIds(ids: string[]): Promise<SyncReport> {
+  if (ids.length === 0) return { checked: 0, priceRaised: 0, outOfStock: 0, unavailable: 0, errors: 0 };
+  const { data: products, error } = await createAdminClient()
+    .from("products")
+    .select(SYNC_COLUMNS)
+    .eq("supplier", "cj")
+    .in("status", ["proposed", "active"])
+    .in("id", ids);
+  if (error) throw new Error(`Lecture des produits impossible : ${error.message}`);
+  return syncRows(products ?? []);
+}
+
+type SyncRow = {
+  id: string;
+  supplier_product_id: string;
+  supplier_variant_id: string | null;
+  supplier_cost_usd_cents: number;
+  shipping_cost_usd_cents: number;
+  shipping_method: string | null;
+  delivery_days_min: number | null;
+  delivery_days_max: number | null;
+  price_cents: number;
+  variants: unknown;
+  variant_costs: unknown;
+};
+
+async function syncRows(products: SyncRow[]): Promise<SyncReport> {
+  const admin = createAdminClient();
+  const report: SyncReport = { checked: 0, priceRaised: 0, outOfStock: 0, unavailable: 0, errors: 0 };
+  if (!products.length) return report;
 
   const settings = await getPlatformSettings();
   const fx = await getUsdCadRate(settings.usdCadFallbackRate);

@@ -106,13 +106,15 @@ async function saveToken(data: unknown): Promise<string> {
     access_expires_at: parseDate(d.accessTokenExpiryDate, 170 * 86_400_000).toISOString(),
     refresh_token: typeof d.refreshToken === "string" ? d.refreshToken : null,
     refresh_expires_at: d.refreshToken ? parseDate(d.refreshTokenExpiryDate, 170 * 86_400_000).toISOString() : null,
+    // openId : clé de signature des notifications CJ (absent du renouvellement : on garde l'ancien).
+    ...((typeof d.openId === "number" || typeof d.openId === "string") && { open_id: String(d.openId) }),
     updated_at: new Date().toISOString(),
   };
   await createAdminClient().from("integration_tokens").upsert(row);
   return row.access_token;
 }
 
-async function getAccessToken(forceNew = false): Promise<string> {
+async function getAccessToken(forceNew = false, withApiKey = false): Promise<string> {
   const apiKey = process.env.CJ_API_KEY;
   if (!apiKey) throw new CjNotConfiguredError();
   const admin = createAdminClient();
@@ -125,7 +127,7 @@ async function getAccessToken(forceNew = false): Promise<string> {
   const soon = Date.now() + 60 * 60 * 1000; // marge d'une heure
   if (data && !forceNew && new Date(data.access_expires_at).getTime() > soon) return data.access_token;
 
-  if (data?.refresh_token && data.refresh_expires_at && new Date(data.refresh_expires_at).getTime() > soon) {
+  if (!withApiKey && data?.refresh_token && data.refresh_expires_at && new Date(data.refresh_expires_at).getTime() > soon) {
     const { status, json } = await rawCall("POST", "/authentication/refreshAccessToken", { body: { refreshToken: data.refresh_token } });
     if (isSuccess(status, json)) return saveToken(json.data);
   }
@@ -133,6 +135,16 @@ async function getAccessToken(forceNew = false): Promise<string> {
   const { status, json } = await rawCall("POST", "/authentication/getAccessToken", { body: { apiKey } });
   if (!isSuccess(status, json)) throw new CjError(`Authentification CJ refusée : ${json.message ?? `HTTP ${status}`}`, json.code);
   return saveToken(json.data);
+}
+
+/** openId du compte CJ (clé de signature des notifications), demandé à CJ s'il n'est pas encore connu. */
+export async function getCjOpenId(): Promise<string | null> {
+  const read = async () =>
+    (await createAdminClient().from("integration_tokens").select("open_id").eq("provider", "cj").maybeSingle<{ open_id: string | null }>()).data?.open_id ?? null;
+  const known = await read();
+  if (known || !isCjConfigured()) return known;
+  await getAccessToken(true, true); // jeton demandé avec la clé : la réponse de CJ contient l'openId
+  return read();
 }
 
 /** Appel authentifié à l'API CJ. Retourne le champ `data` de la réponse. */

@@ -84,9 +84,14 @@ Limites du compte gratuit et nombre d'appels par heure : table `platform_setting
 3. **Synchronisation** : appelez `GET /api/cron/sync-products` toutes les heures avec
    `Authorization: Bearer <CRON_SECRET>` (prix, stock, produits retirés).
    **Produits tendance** (« produits gagnants ») : appelez `GET /api/cron/trends` toutes les heures avec le même
-   en-tête. Une fois par jour, la tâche relève les produits les plus importés par les boutiques CJ dans 6 thèmes,
-   puis vérifie chaque produit par petits lots (livraison Canada ≤ 15 jours). Au lancement, `?limit=30` remplit
-   la galerie plus vite. Sans clé CJ, la galerie montre 36 produits d'exemple.
+   en-tête. Chaque thème (11) et la sélection TikTok de CJ sont relus environ une fois par jour ; l'IA trie les
+   nouveaux produits, puis chaque produit est vérifié par petits lots (livraison Canada ≤ 15 jours). Au lancement,
+   `?limit=100` remplit la galerie plus vite. Sans clé CJ, la galerie montre 36 produits d'exemple.
+   **Notifications CJ (données à jour en quelques minutes)** : une fois le site en ligne, mettez
+   `CJ_WEBHOOK_URL=https://<votre-domaine>/api/cj/webhook`. La tâche `sync-products` inscrit alors cette adresse chez
+   CJ et abonne les produits à surveiller (ceux des boutiques d'abord, puis les produits tendance ; 1000 au maximum,
+   `CJ_WEBHOOK_LIMIT`). Un produit retiré chez CJ disparaît de la galerie et de toutes les boutiques ; une variante
+   épuisée est marquée indisponible. Le stock est aussi revérifié chez CJ au moment du paiement.
 
 4. **Commandes** (phase 6) : chaque commande payée est transmise à CJ (adresse, téléphone, produits,
    transporteur choisi) puis payée avec votre **portefeuille CJ** si `CJ_AUTO_PAY=true`. En cas d'échec :
