@@ -16,7 +16,8 @@ import { TREND_THEMES, type TrendThemeId } from "./themes";
  *      - un thème : produits les plus importés pour ses mots-clés, dans la zone TikTok de CJ,
  *        parmi les produits « tendance » de CJ, puis dans tout le catalogue ;
  *      - « tiktok » : les produits tendance de la zone TikTok de CJ, tous thèmes ;
- *   2. tri par l'IA des nouveaux produits : thème (ou refus : santé, cosmétiques, marques…) et nom court FR/EN ;
+ *   2. tri par l'IA des nouveaux produits : thème (ou refus : santé, cosmétiques, marques…) et nom court FR/EN,
+ *      puis équilibre des thèmes (PER_THEME produits au plus par thème) ;
  *   3. vérification par lots : fiche, variante la moins chère, livraison Canada ≤ 15 jours ;
  *   4. score de demande : boutiques CJ + ventes réelles sur la plateforme (30 jours).
  * Aucune popularité n'est inventée : « TikTok » et « tendance » sont les indicateurs donnés par CJ.
@@ -46,6 +47,9 @@ export interface TrendsReport {
   source: SourceId | null;
   discovered: number;
   classified: number;
+  /** Produits mis en attente ou remis en place par l'équilibre des thèmes. */
+  trimmed: number;
+  restored: number;
   checked: number;
   ready: number;
   rejected: number;
@@ -91,11 +95,16 @@ async function collect(source: SourceId, rules: ModerationRule[]): Promise<{ fou
   }
 
   const theme = TREND_THEMES.find((t) => t.id === source)!;
+  // La zone TikTok de CJ est surtout faite de produits pour animaux, et y chercher un mot-clé ramène des produits
+  // voisins (« yoga mat » → tapis pour chats). Elle sert donc seulement à marquer « TikTok » les produits
+  // trouvés par le mot-clé lui-même (populaires ou « tendance »).
+  const tiktokPids = new Set<string>();
   for (const keyword of theme.keywords) {
-    add(await search(`${keyword} tiktok`, keyword, SEARCH_SIZE, { byPopularity: true, tiktok: true }), { tiktok: true });
+    for (const p of (await search(`${keyword} tiktok`, keyword, SEARCH_SIZE, { byPopularity: true, tiktok: true })) ?? []) tiktokPids.add(p.pid);
     add(await search(`${keyword} tendance`, keyword, SEARCH_SIZE, { byPopularity: true, trending: true }), { trending: true });
     add(await search(keyword, keyword, SEARCH_SIZE, { byPopularity: true }), {});
   }
+  for (const f of map.values()) if (tiktokPids.has(f.product.pid)) f.tiktok = true;
   // Priorité aux produits populaires sur TikTok ou marqués « tendance », puis aux plus importés.
   const rank = (f: Found) => (f.tiktok ? 2 : 0) + (f.trending ? 1 : 0);
   const top = [...map.values()].sort((a, b) => rank(b) - rank(a) || b.product.listedCount - a.product.listedCount).slice(0, PER_THEME);
@@ -164,7 +173,7 @@ async function discover(source: SourceId): Promise<number> {
     .from("trending_products")
     .update({ status: "rejected", reject_reason: "not_trending" })
     .lt("discovered_at", new Date(Date.now() - STALE_DAYS * DAY_MS).toISOString())
-    .neq("status", "rejected");
+    .or("status.neq.rejected,reject_reason.eq.theme_full");
   return found.length;
 }
 
@@ -235,6 +244,46 @@ async function classify(): Promise<number> {
     }
   }
   return classified;
+}
+
+type BalanceRow = { id: string; theme: string; status: string; reject_reason: string | null; tiktok: boolean; trending: boolean; listed_count: number };
+
+/**
+ * Équilibre des thèmes : au plus PER_THEME produits par thème, toutes sources confondues (la zone TikTok
+ * de CJ, presque entièrement faite de produits pour animaux, remplirait sinon la galerie). Les meilleurs
+ * restent (TikTok, puis « tendance », puis les plus importés) ; les autres attendent une place
+ * (« theme_full ») et reviennent si un produit du thème est retiré.
+ */
+async function balanceThemes(): Promise<{ trimmed: number; restored: number }> {
+  const admin = createAdminClient();
+  const { data: rows } = await admin
+    .from("trending_products")
+    .select("id, theme, status, reject_reason, tiktok, trending, listed_count")
+    .not("theme", "is", null)
+    .not("classified_at", "is", null)
+    .or("status.neq.rejected,reject_reason.eq.theme_full")
+    .limit(10_000)
+    .returns<BalanceRow[]>();
+  const byTheme = new Map<string, BalanceRow[]>();
+  for (const r of rows ?? []) byTheme.set(r.theme, [...(byTheme.get(r.theme) ?? []), r]);
+  const rank = (r: BalanceRow) => (r.tiktok ? 2 : 0) + (r.trending ? 1 : 0);
+  const trim: string[] = [];
+  const restore: string[] = [];
+  for (const list of byTheme.values()) {
+    list.sort((a, b) => rank(b) - rank(a) || b.listed_count - a.listed_count);
+    list.forEach((r, i) => {
+      const full = r.reject_reason === "theme_full";
+      if (i < PER_THEME && full) restore.push(r.id);
+      if (i >= PER_THEME && !full) trim.push(r.id);
+    });
+  }
+  for (let i = 0; i < trim.length; i += 200) {
+    await admin.from("trending_products").update({ status: "rejected", reject_reason: "theme_full" }).in("id", trim.slice(i, i + 200));
+  }
+  for (let i = 0; i < restore.length; i += 200) {
+    await admin.from("trending_products").update({ status: "pending", reject_reason: null }).in("id", restore.slice(i, i + 200));
+  }
+  return { trimmed: trim.length, restored: restore.length };
 }
 
 async function check(limit: number): Promise<{ checked: number; ready: number; rejected: number }> {
@@ -334,7 +383,8 @@ export async function refreshTrends(options: { checkLimit?: number } = {}): Prom
   const source = await nextSource();
   const discovered = source ? await discover(source) : 0;
   const classified = await classify();
+  const balance = await balanceThemes();
   const result = await check(options.checkLimit ?? CHECK_BATCH);
   await rescore();
-  return { source, discovered, classified, ...result };
+  return { source, discovered, classified, ...balance, ...result };
 }
