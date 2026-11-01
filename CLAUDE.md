@@ -221,8 +221,13 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
   vente au prix conseillé.
   **Étape C (2026-10-29) — des centaines de produits, priorité TikTok** : 11 thèmes (+ beauté, mode, enfants, auto, jardin).
   `refresh.ts` traite UNE source par passage (la plus ancienne, table `trend_sources`, chacune ≈ 1 fois/jour) : « tiktok »
-  (zone TikTok CJ `zonePlatform=tiktok` + `productFlag=0`, pages de 100) ou un thème (par mot-clé : zone TikTok, « tendance »,
-  tout le catalogue ; tri popularité ; 40 produits/thème, TikTok et tendance d'abord). Colonnes `trending_products.tiktok`,
+  (zone TikTok CJ `zonePlatform=tiktok` + `productFlag=0`, pages de 100) ou un thème (5 mots-clés, tri popularité ;
+  40 produits/thème, TikTok et tendance d'abord). ⚠️ Constaté le 2026-11-01 : la zone TikTok CJ est presque entièrement
+  faite de produits pour animaux, et zone TikTok / « tendance » respectent mal le mot-clé (« yoga mat » → tapis pour chats,
+  tapisserie) : pour un thème, elles servent SEULEMENT à marquer les produits trouvés par le mot-clé. Équilibre
+  `balanceThemes` : 40 produits au plus par thème toutes sources confondues, le surplus en `reject_reason = 'theme_full'`
+  (remis en place si une place se libère). Clé IA : `anthropicApiKey()` (`ANTHROPIC_API_KEY` ou `KREO_ANTHROPIC_API_KEY`,
+  tolère « sk-ant-sk-ant-… » / « -sk-ant-… »). Validé en réel : 396 produits, 8 thèmes à 40, les autres 22-28. Colonnes `trending_products.tiktok`,
   `trending` (indicateurs CJ, jamais inventés), `name_fr`/`name_en`, `classified_at`, `theme` nullable avant tri.
   Tri IA `classifyTrends` (`product-curator.ts`, lots de 40, `ai_generations.kind = 'classify_trends'`, `user_id` null =
   appel plateforme) : thème ou refus `ai:<raison>` (santé/thérapie, cosmétiques appliqués sur la peau, sous-vêtements, marques…)
