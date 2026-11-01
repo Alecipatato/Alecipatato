@@ -95,16 +95,19 @@ async function collect(source: SourceId, rules: ModerationRule[]): Promise<{ fou
   }
 
   const theme = TREND_THEMES.find((t) => t.id === source)!;
-  // La zone TikTok de CJ est surtout faite de produits pour animaux, et y chercher un mot-clé ramène des produits
-  // voisins (« yoga mat » → tapis pour chats). Elle sert donc seulement à marquer « TikTok » les produits
-  // trouvés par le mot-clé lui-même (populaires ou « tendance »).
+  // La zone TikTok et la liste « tendance » de CJ respectent mal le mot-clé (« yoga mat » → tapis pour chats,
+  // tapisserie murale) : elles servent seulement à marquer les produits trouvés par le mot-clé lui-même.
   const tiktokPids = new Set<string>();
+  const trendingPids = new Set<string>();
   for (const keyword of theme.keywords) {
     for (const p of (await search(`${keyword} tiktok`, keyword, SEARCH_SIZE, { byPopularity: true, tiktok: true })) ?? []) tiktokPids.add(p.pid);
-    add(await search(`${keyword} tendance`, keyword, SEARCH_SIZE, { byPopularity: true, trending: true }), { trending: true });
+    for (const p of (await search(`${keyword} tendance`, keyword, SEARCH_SIZE, { byPopularity: true, trending: true })) ?? []) trendingPids.add(p.pid);
     add(await search(keyword, keyword, SEARCH_SIZE, { byPopularity: true }), {});
   }
-  for (const f of map.values()) if (tiktokPids.has(f.product.pid)) f.tiktok = true;
+  for (const f of map.values()) {
+    if (tiktokPids.has(f.product.pid)) f.tiktok = true;
+    if (trendingPids.has(f.product.pid)) f.trending = true;
+  }
   // Priorité aux produits populaires sur TikTok ou marqués « tendance », puis aux plus importés.
   const rank = (f: Found) => (f.tiktok ? 2 : 0) + (f.trending ? 1 : 0);
   const top = [...map.values()].sort((a, b) => rank(b) - rank(a) || b.product.listedCount - a.product.listedCount).slice(0, PER_THEME);

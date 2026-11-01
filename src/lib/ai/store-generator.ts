@@ -249,7 +249,10 @@ export interface GenerationResult {
  * les noms « ANTHROPIC_… » (c'est le cas de l'environnement cloud de développement).
  */
 export function anthropicApiKey(): string | null {
-  return process.env.ANTHROPIC_API_KEY || process.env.KREO_ANTHROPIC_API_KEY || null;
+  const raw = (process.env.ANTHROPIC_API_KEY || process.env.KREO_ANTHROPIC_API_KEY || "").trim();
+  // Erreur de copie fréquente (« sk-ant-sk-ant-… », « -sk-ant-… ») : la clé commence au dernier « sk-ant- ».
+  const start = raw.lastIndexOf("sk-ant-");
+  return (start > 0 ? raw.slice(start) : raw) || null;
 }
 
 /** Client Anthropic, ou erreur « not_configured » sans clé. */
