@@ -1,5 +1,6 @@
 import type { Locale } from "../config";
 import { admin } from "./admin";
+import { ads } from "./ads";
 import { auth } from "./auth";
 import { common } from "./common";
 import { dashboard } from "./dashboard";
@@ -29,6 +30,7 @@ function build(locale: Locale) {
     marketingTools: marketingTools[locale],
     domains: domains[locale],
     trends: trends[locale],
+    ads: ads[locale],
     moderation: admin[locale].moderation,
     admin: admin[locale].admin,
   };

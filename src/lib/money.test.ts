@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  adBudgetPlan,
   computeOrderFinancials,
   estimateProductEconomics,
   repriceForCost,
@@ -222,5 +223,30 @@ describe("synchro du prix d'une variante", () => {
     assert.equal(r.raised, true);
     assert.equal(r.priceCents, r.suggestedCents);
     assert.ok(r.priceCents > 3299);
+  });
+});
+
+describe("adBudgetPlan (repères de budget publicitaire)", () => {
+  it("gain moyen, seuil, objectif à 60 %, budget = 2 × objectif arrondi aux 5 $", () => {
+    const plan = adBudgetPlan([1500, 2500]); // gain moyen 20 $
+    assert.deepEqual(plan, {
+      avgProfitCents: 2000,
+      breakEvenCpaCents: 2000,
+      targetCpaCents: 1200,
+      dailyBudgetCents: 2500, // 2 × 12 $ = 24 $ → 25 $
+      testDays: 5,
+      testBudgetCents: 12500,
+    });
+  });
+  it("jamais moins de 20 $ par jour", () => {
+    assert.equal(adBudgetPlan([600])?.dailyBudgetCents, 2000);
+  });
+  it("ignore les produits sans gain ; null s'il n'en reste aucun", () => {
+    assert.equal(adBudgetPlan([0, -100, 1000])?.avgProfitCents, 1000);
+    assert.equal(adBudgetPlan([]), null);
+    assert.equal(adBudgetPlan([0, -5]), null);
+  });
+  it("entiers seulement (moyenne arrondie vers le bas)", () => {
+    assert.equal(adBudgetPlan([1000, 1001])?.avgProfitCents, 1000);
   });
 });

@@ -247,6 +247,14 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
   notification manquée, prix des variantes pas toujours notifiés, regroupement 2-5 min → la synchro horaire reste.
   Paiement : `confirmSupplierStock` (`checkout.ts`) relit le stock CJ (≤ 6 s, sinon la vente continue) → `outOfStock`
   + resynchro. Tests : `e2e-live.js` (simulateur CJ : `/webhook/*`, `openId` 4242, `vidStock`).
+- **Publicité — guides** (étape E-a, 2026-11-02) : `/tableau-de-bord/boutiques/[id]/publicite` (bouton « Publicité » sur la
+  page boutique) : choix « Apprendre à faire mes publicités » / « Lancer une campagne » (E-b), rappel que l'argent pub va
+  directement à Meta/TikTok, repères de budget `adBudgetPlan` (`money.ts`, testé : gain moyen = seuil, objectif 60 %,
+  budget = 2 × objectif arrondi aux 5 $, min. 20 $/jour, test 5 jours) à partir de `estimateProductEconomics` au prix réel.
+  Guides : structure `src/lib/ads/guides.ts` (5 guides : préparer, Meta, TikTok payant, TikTok gratuit, résultats ; étapes
+  `auto` vérifiées d'après la boutique — produits ≥ 5, pages légales, en ligne, contenus IA, pixels — ou cochées à la main
+  dans `ad_guide_progress`, action `ads-actions.ts`), textes FR/EN `messages/ads.ts` (menus Meta/TikTok décrits sans
+  promesse ; « les menus changent souvent »). Test : `e2e-ads.js` (sans CJ).
 - **Fiches complètes et variantes** (étape B, 2026-10-28) : `normalize.ts` lit images (≤ 12), photos de la description,
   matériaux, emballage, poids, options et variantes (clé, poids, dimensions) ; stock par variante via
   `/product/stock/getInventoryByPid` (`getVariantInventories`, vérifié avec la vraie clé). `src/lib/products/variants.ts`

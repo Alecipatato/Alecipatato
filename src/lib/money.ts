@@ -300,3 +300,41 @@ export function repriceForCost(input: {
   const raised = input.currentPriceCents < minimumPriceCents(cost, input.minMarginRate);
   return { suggestedCents, priceCents: raised ? suggestedCents : input.currentPriceCents, raised };
 }
+
+/** Budget publicitaire minimum conseillé par jour (20 $ : minimum d'un groupe d'annonces TikTok). */
+export const AD_MIN_DAILY_BUDGET_CENTS = 2000;
+/** Durée conseillée d'un premier test, en jours (laisser l'algorithme apprendre avant de juger). */
+export const AD_TEST_DAYS = 5;
+
+export interface AdBudgetPlan {
+  /** Gain moyen du vendeur par vente, avant publicité. */
+  avgProfitCents: number;
+  /** Coût publicitaire par vente au-delà duquel chaque vente fait perdre de l'argent. */
+  breakEvenCpaCents: number;
+  /** Objectif conseillé : 60 % du seuil, pour garder au moins 40 % du gain. */
+  targetCpaCents: number;
+  dailyBudgetCents: number;
+  testDays: number;
+  testBudgetCents: number;
+}
+
+/**
+ * Repères de budget publicitaire à partir du gain par vente de chaque produit (ownerProfitCents).
+ * Suggestions prudentes, pas des garanties : budget quotidien = 2 × objectif par vente (arrondi aux 5 $
+ * supérieurs), jamais moins de 20 $ ; test de 5 jours. Null sans produit rentable.
+ */
+export function adBudgetPlan(profitsPerSaleCents: number[]): AdBudgetPlan | null {
+  const profits = profitsPerSaleCents.filter((p) => Number.isInteger(p) && p > 0);
+  if (profits.length === 0) return null;
+  const avgProfitCents = Math.floor(profits.reduce((sum, p) => sum + p, 0) / profits.length);
+  const targetCpaCents = mulDivRound(avgProfitCents, 60, 100);
+  const dailyBudgetCents = Math.max(AD_MIN_DAILY_BUDGET_CENTS, Math.ceil((2 * targetCpaCents) / 500) * 500);
+  return {
+    avgProfitCents,
+    breakEvenCpaCents: avgProfitCents,
+    targetCpaCents,
+    dailyBudgetCents,
+    testDays: AD_TEST_DAYS,
+    testBudgetCents: dailyBudgetCents * AD_TEST_DAYS,
+  };
+}
