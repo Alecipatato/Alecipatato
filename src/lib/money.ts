@@ -338,3 +338,65 @@ export function adBudgetPlan(profitsPerSaleCents: number[]): AdBudgetPlan | null
     testBudgetCents: dailyBudgetCents * AD_TEST_DAYS,
   };
 }
+
+/** Palier de commission : à partir de cette marge brute (30 derniers jours), ce taux s'applique. */
+export interface CommissionTier {
+  fromMarginCents: number;
+  /** Ex. "0.12". */
+  rate: string;
+}
+
+/**
+ * Paliers de commission (réglage commission_tiers) : [{ from_margin_cents, rate }], triés, le premier à 0.
+ * Valeur absente ou invalide : un seul palier au taux de base (commission fixe).
+ */
+export function parseCommissionTiers(raw: unknown, baseRate: string): CommissionTier[] {
+  const fallback = [{ fromMarginCents: 0, rate: baseRate }];
+  if (!Array.isArray(raw) || raw.length === 0 || raw.length > 10) return fallback;
+  const tiers: CommissionTier[] = [];
+  for (const t of raw) {
+    const r = (t ?? {}) as Record<string, unknown>;
+    const from = r.from_margin_cents;
+    const rate = typeof r.rate === "number" ? String(r.rate) : typeof r.rate === "string" ? r.rate.trim() : "";
+    if (!Number.isInteger(from) || (from as number) < 0 || !/^0(\.\d{1,4})?$|^1(\.0{1,4})?$/.test(rate)) return fallback;
+    tiers.push({ fromMarginCents: from as number, rate });
+  }
+  tiers.sort((a, b) => a.fromMarginCents - b.fromMarginCents);
+  if (tiers[0].fromMarginCents !== 0 || new Set(tiers.map((t) => t.fromMarginCents)).size !== tiers.length) return fallback;
+  return tiers;
+}
+
+/** Palier atteint pour une marge brute des 30 derniers jours, et le palier suivant (s'il existe). */
+export function commissionTierFor(tiers: CommissionTier[], marginCents: number): { tier: CommissionTier; index: number; next: CommissionTier | null } {
+  let index = 0;
+  for (let i = 0; i < tiers.length; i++) if (marginCents >= tiers[i].fromMarginCents) index = i;
+  return { tier: tiers[index], index, next: tiers[index + 1] ?? null };
+}
+
+export type TierInputError = "invalid" | "first" | "duplicate" | "increasing";
+
+/**
+ * Paliers saisis dans l'administration : montant en dollars (« 1000 », « 1 000,50 ») et taux en pour cent (« 12 », « 12,5 »).
+ * Entiers seulement (cents, points de base). Le premier palier commence à 0 ; les taux ne montent jamais d'un palier à l'autre.
+ */
+export function parseTierInputs(rows: { from: string; rate: string }[]): { tiers: CommissionTier[] } | { error: TierInputError } {
+  const tiers: CommissionTier[] = [];
+  for (const row of rows) {
+    if (!row.from.trim() && !row.rate.trim()) continue;
+    const amount = row.from.replace(/[\s $]/g, "").replace(",", ".").match(/^(\d{1,9})(?:\.(\d{1,2}))?$/);
+    const pct = row.rate.replace(/[\s%]/g, "").replace(",", ".").match(/^(\d{1,3})(?:\.(\d{1,2}))?$/);
+    if (!amount || !pct) return { error: "invalid" };
+    const fromMarginCents = Number(amount[1]) * 100 + Number((amount[2] ?? "").padEnd(2, "0"));
+    const bp = Number(pct[1]) * 100 + Number((pct[2] ?? "").padEnd(2, "0"));
+    if (bp > 10_000) return { error: "invalid" };
+    tiers.push({ fromMarginCents, rate: (bp / 10_000).toFixed(4).replace(/0+$/, "").replace(/\.$/, "") });
+  }
+  if (tiers.length === 0 || tiers.length > 10) return { error: "invalid" };
+  tiers.sort((a, b) => a.fromMarginCents - b.fromMarginCents);
+  if (tiers[0].fromMarginCents !== 0) return { error: "first" };
+  for (let i = 1; i < tiers.length; i++) {
+    if (tiers[i].fromMarginCents === tiers[i - 1].fromMarginCents) return { error: "duplicate" };
+    if (rateToBasisPoints(tiers[i].rate) > rateToBasisPoints(tiers[i - 1].rate)) return { error: "increasing" };
+  }
+  return { tiers };
+}

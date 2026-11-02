@@ -4,6 +4,7 @@ import { getUsdCadRate } from "../fx";
 import { fmt, isLocale } from "../i18n/config";
 import { MESSAGES } from "../i18n/messages";
 import { computeOrderFinancials } from "../money";
+import { getSellerCommission } from "../commission";
 import { syncProductsByIds } from "../products/sync";
 import { getPlatformSettings } from "../settings";
 import { createAdminClient } from "../supabase/admin";
@@ -102,7 +103,7 @@ export async function createCheckoutSession(params: {
 }): Promise<string> {
   const admin = createAdminClient();
 
-  const { data: store } = await admin.from("stores").select("id, name, status, currency, language").eq("id", params.storeId).maybeSingle();
+  const { data: store } = await admin.from("stores").select("id, name, status, currency, language, owner_id").eq("id", params.storeId).maybeSingle();
   if (!store || store.status !== "active") throw new CheckoutError("unavailable");
   if (!(await storeAcceptsPayments(store.id))) {
     throw new CheckoutError("notAccepting");
@@ -159,6 +160,8 @@ export async function createCheckoutSession(params: {
 
   const settings = await getPlatformSettings();
   const fx = await getUsdCadRate(settings.usdCadFallbackRate);
+  // Commission dégressive : taux du palier atteint par le vendeur (marge des 30 derniers jours), figé sur la commande.
+  const { rate: commissionRate } = await getSellerCommission(store.owner_id);
   const supplierShippingUsdCents = lines.reduce((sum, l) => sum + l.unitShippingUsdCents * l.quantity, 0);
 
   // Calcul provisoire (avant taxes et frais Stripe) ; recalculé à la confirmation du paiement.
@@ -166,7 +169,7 @@ export async function createCheckoutSession(params: {
     lines,
     supplierShippingUsdCents,
     fxRateUsdCad: fx.rate,
-    commissionRate: settings.commissionRate,
+    commissionRate,
   });
 
   const { data: order, error: orderError } = await admin
@@ -182,7 +185,7 @@ export async function createCheckoutSession(params: {
       supplier_shipping_cents: financials.supplierShippingCents,
       fx_rate_usd_cad: fx.rate,
       gross_margin_cents: financials.grossMarginCents,
-      commission_rate: settings.commissionRate,
+      commission_rate: commissionRate,
       commission_cents: financials.commissionCents,
       store_payout_cents: financials.storePayoutCents,
     })

@@ -7,6 +7,7 @@ import { Alert } from "@/components/ui";
 import { getAdConnection, metaCampaignsAvailable } from "@/lib/ads/connections";
 import { getMetaInsights, listMetaAdAccounts, listMetaPages, type MetaInsights } from "@/lib/ads/meta";
 import { requireUser } from "@/lib/auth";
+import { getSellerCommission } from "@/lib/commission";
 import { getUsdCadRate } from "@/lib/fx";
 import { fmt } from "@/lib/i18n/config";
 import { getLocale, getMessages } from "@/lib/i18n/server";
@@ -80,9 +81,11 @@ export default async function CampaignPage({ params, searchParams }: PageProps<"
     getPlatformSettings(),
   ]);
   const fx = await getUsdCadRate(settings.usdCadFallbackRate);
+  // Taux du vendeur (commission dégressive) pour des estimations justes.
+  const sellerRate = (await getSellerCommission(user.id)).rate;
   const plan = adBudgetPlan(
     (products ?? []).map((p) =>
-      estimateProductEconomics({ supplierCostUsdCents: Number(p.supplier_cost_usd_cents), shippingUsdCents: Number(p.shipping_cost_usd_cents), fxRateUsdCad: fx.rate, minMarginRate: settings.minMarginRate, commissionRate: settings.commissionRate, priceCents: Number(p.price_cents) }).ownerProfitCents,
+      estimateProductEconomics({ supplierCostUsdCents: Number(p.supplier_cost_usd_cents), shippingUsdCents: Number(p.shipping_cost_usd_cents), fxRateUsdCad: fx.rate, minMarginRate: settings.minMarginRate, commissionRate: sellerRate, priceCents: Number(p.price_cents) }).ownerProfitCents,
     ),
   );
   const suggested = plan?.dailyBudgetCents ?? 2000;

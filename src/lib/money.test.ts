@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   adBudgetPlan,
+  commissionTierFor,
+  parseCommissionTiers,
+  parseTierInputs,
   computeOrderFinancials,
   estimateProductEconomics,
   repriceForCost,
@@ -248,5 +251,60 @@ describe("adBudgetPlan (repères de budget publicitaire)", () => {
   });
   it("entiers seulement (moyenne arrondie vers le bas)", () => {
     assert.equal(adBudgetPlan([1000, 1001])?.avgProfitCents, 1000);
+  });
+});
+
+describe("commission dégressive", () => {
+  const generous = [
+    { from_margin_cents: 0, rate: "0.15" },
+    { from_margin_cents: 100000, rate: "0.12" },
+    { from_margin_cents: 500000, rate: "0.10" },
+    { from_margin_cents: 2000000, rate: "0.08" },
+  ];
+  it("lit les paliers (triés)", () => {
+    const tiers = parseCommissionTiers([...generous].reverse(), "0.15");
+    assert.deepEqual(tiers.map((t) => [t.fromMarginCents, t.rate]), [[0, "0.15"], [100000, "0.12"], [500000, "0.10"], [2000000, "0.08"]]);
+  });
+  it("valeur invalide : commission fixe au taux de base", () => {
+    for (const bad of [null, [], [{ from_margin_cents: 100, rate: "0.1" }], [{ from_margin_cents: 0, rate: "abc" }], [{ from_margin_cents: 0, rate: "0.2" }, { from_margin_cents: 0, rate: "0.1" }], [{ from_margin_cents: -1, rate: "0.1" }], [{ from_margin_cents: 0, rate: "1.5" }]]) {
+      assert.deepEqual(parseCommissionTiers(bad, "0.15"), [{ fromMarginCents: 0, rate: "0.15" }], JSON.stringify(bad));
+    }
+  });
+  it("palier atteint et suivant, bornes comprises", () => {
+    const tiers = parseCommissionTiers(generous, "0.15");
+    assert.equal(commissionTierFor(tiers, 0).tier.rate, "0.15");
+    assert.equal(commissionTierFor(tiers, 99999).tier.rate, "0.15");
+    assert.equal(commissionTierFor(tiers, 99999).next?.fromMarginCents, 100000);
+    assert.equal(commissionTierFor(tiers, 100000).tier.rate, "0.12");
+    assert.equal(commissionTierFor(tiers, 500000).tier.rate, "0.10");
+    const top = commissionTierFor(tiers, 9_000_000);
+    assert.equal(top.tier.rate, "0.08");
+    assert.equal(top.next, null);
+    assert.equal(top.index, 3);
+  });
+  it("le taux du palier sert au partage de la marge", () => {
+    const { tier } = commissionTierFor(parseCommissionTiers(generous, "0.15"), 600000);
+    assert.deepEqual(splitMargin({ grossMarginCents: 10000, commissionRate: tier.rate }), { commissionCents: 1000, storePayoutCents: 9000 });
+  });
+});
+
+describe("parseTierInputs (paliers saisis par l'admin)", () => {
+  it("dollars et pourcentages → cents et taux", () => {
+    assert.deepEqual(parseTierInputs([{ from: "0", rate: "15" }, { from: "1 000", rate: "12,5" }, { from: "", rate: "" }, { from: "20000$", rate: "8 %" }]), {
+      tiers: [{ fromMarginCents: 0, rate: "0.15" }, { fromMarginCents: 100000, rate: "0.125" }, { fromMarginCents: 2000000, rate: "0.08" }],
+    });
+  });
+  it("les paliers relus donnent les mêmes valeurs", () => {
+    const r = parseTierInputs([{ from: "0", rate: "15" }, { from: "5000", rate: "10" }]);
+    assert.ok("tiers" in r);
+    assert.deepEqual(parseCommissionTiers(r.tiers.map((t) => ({ from_margin_cents: t.fromMarginCents, rate: t.rate })), "0.15"), r.tiers);
+  });
+  it("erreurs", () => {
+    assert.deepEqual(parseTierInputs([{ from: "100", rate: "15" }]), { error: "first" });
+    assert.deepEqual(parseTierInputs([{ from: "0", rate: "15" }, { from: "0", rate: "12" }]), { error: "duplicate" });
+    assert.deepEqual(parseTierInputs([{ from: "0", rate: "10" }, { from: "1000", rate: "12" }]), { error: "increasing" });
+    assert.deepEqual(parseTierInputs([{ from: "abc", rate: "15" }]), { error: "invalid" });
+    assert.deepEqual(parseTierInputs([{ from: "0", rate: "150" }]), { error: "invalid" });
+    assert.deepEqual(parseTierInputs([]), { error: "invalid" });
   });
 });

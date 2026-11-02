@@ -164,6 +164,17 @@ plateforme garde 15 % de la marge brute et transfère le reste au compte Stripe 
      Une boutique suspendue est hors ligne, ne peut plus encaisser et ses versements attendent.
    - **Modération** : marques, mentions de contrefaçon, produits et catégories interdits (liste de départ
      fournie). Ajoutez ou retirez des mots, puis « Lancer la vérification » pour l'appliquer aux produits existants.
+   - **Commission** : paliers de la commission dégressive (marge brute des 30 derniers jours de chaque vendeur →
+     taux). Modifiables à tout moment ; seules les ventes à venir sont touchées (le taux est figé sur chaque commande).
+   - **Sécurité** : versements retenus à approuver et journal de toutes les actions des administrateurs.
+3. **Double authentification obligatoire** : à la première visite de `/admin`, scannez le code QR avec une application
+   d'authentification (Google Authenticator, Microsoft Authenticator, 1Password…) ; un code à 6 chiffres est ensuite
+   demandé à chaque connexion. Sur un projet Supabase en ligne, vérifiez que **Authentication > Multi-Factor >
+   TOTP** est activé (c'est le cas par défaut). En local, `supabase/config.toml` l'active (`[auth.mfa.totp]`).
+4. **Sécurité de l'argent** : aucun argent n'est stocké sur le site (Stripe garde l'argent et les cartes). Un versement
+   de plus de 2 000 $, ou au-delà de 10 000 $ versés en 24 h, attend l'approbation d'un administrateur (alerte par
+   courriel à `ADMIN_ALERT_EMAIL`) — plafonds modifiables dans `platform_settings.payout_limits`. Une modification des
+   paliers de commission déclenche aussi une alerte.
 
 ## Pages légales
 

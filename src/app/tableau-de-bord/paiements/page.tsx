@@ -3,6 +3,8 @@ import { Alert } from "@/components/ui";
 import { buttonClasses } from "@/components/styles";
 import { requireUser } from "@/lib/auth";
 import { refreshConnectStatus } from "@/lib/payments/connect";
+import { getSellerCommission } from "@/lib/commission";
+import { rateToBasisPoints } from "@/lib/money";
 import { getPlatformSettings } from "@/lib/settings";
 import { fmt, intlLocale } from "@/lib/i18n/config";
 import { getLocale, getMessages } from "@/lib/i18n/server";
@@ -60,8 +62,9 @@ export default async function PaymentsPage({ searchParams }: PageProps<"/tableau
   const sum = (rows: Record<string, unknown>[] | null, key: string) => (rows ?? []).reduce((n, r) => n + Number(r[key] ?? 0), 0);
   const paidOut = (payouts ?? []).filter((p) => p.status === "paid" || p.status === "reversed").reduce((n, p) => n + Number(p.amount_cents) - Number(p.reversed_cents), 0);
   const upcoming = (payouts ?? []).filter((p) => p.status === "pending" || p.status === "held").reduce((n, p) => n + Number(p.amount_cents), 0);
-  const pct = Math.round(Number(settings.commissionRate) * 100);
-  const commissionPct = locale === "fr" ? `${pct} %` : `${pct}%`;
+  const commission = await getSellerCommission(user.id);
+  const percent = (rate: string) => new Intl.NumberFormat(intlLocale(locale), { style: "percent", maximumFractionDigits: 1 }).format(rateToBasisPoints(rate) / 10_000);
+  const tt = t.tiers;
 
   return (
     <div className="flex flex-col gap-8">
@@ -116,8 +119,45 @@ export default async function PaymentsPage({ searchParams }: PageProps<"/tableau
         ))}
       </section>
       <p className="-mt-4 text-xs text-muted">
-        {fmt(t.commissionNote, { pct: commissionPct, total: price(sum(orders, "commission_cents")) })}
+        {fmt(t.commissionNote, { total: price(sum(orders, "commission_cents")) })}
       </p>
+
+      <section className="rounded-2xl border border-line bg-white p-6" data-commission>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="max-w-xl">
+            <h2 className="font-display text-xl font-bold">{tt.title} : <span data-commission-rate className="text-brand">{fmt(tt.current, { rate: percent(commission.rate) })}</span></h2>
+            <p className="mt-1 text-sm text-muted">{tt.intro}</p>
+          </div>
+          <div className="rounded-xl bg-paper px-4 py-3 text-right">
+            <p className="text-xs text-muted">{tt.margin}</p>
+            <p className="font-display text-2xl font-bold tabular-nums" data-commission-margin>{price(commission.marginCents)}</p>
+          </div>
+        </div>
+        {commission.tiers.length > 1 && (
+          <>
+            <p className="mt-4 text-sm font-medium" data-commission-next>
+              {commission.next ? fmt(tt.next, { amount: price(commission.next.fromMarginCents - commission.marginCents), rate: percent(commission.next.rate) }) : tt.top}
+            </p>
+            {commission.next && (
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-line" role="progressbar" aria-valuemin={0} aria-valuemax={100}
+                aria-valuenow={Math.floor(((commission.marginCents - commission.tiers[commission.tierIndex].fromMarginCents) * 100) / (commission.next.fromMarginCents - commission.tiers[commission.tierIndex].fromMarginCents))}>
+                <div className="h-full rounded-full bg-brand" style={{ width: `${Math.max(2, Math.floor(((commission.marginCents - commission.tiers[commission.tierIndex].fromMarginCents) * 100) / (commission.next.fromMarginCents - commission.tiers[commission.tierIndex].fromMarginCents)))}%` }} />
+              </div>
+            )}
+            <ol className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {commission.tiers.map((tier, i) => (
+                <li key={tier.fromMarginCents} data-tier={i} data-current={i === commission.tierIndex || undefined}
+                  className={`rounded-xl border p-4 ${i === commission.tierIndex ? "border-brand bg-brand-soft" : "border-line"}`}>
+                  <p className="font-display text-2xl font-bold">{percent(tier.rate)}</p>
+                  <p className="text-xs text-muted">{fmt(tt.from, { amount: price(tier.fromMarginCents) })}</p>
+                  {i === commission.tierIndex && <p className="mt-1 text-xs font-semibold text-brand-strong">{tt.you}</p>}
+                </li>
+              ))}
+            </ol>
+          </>
+        )}
+        <p className="mt-4 text-xs text-muted">{tt.frozen}</p>
+      </section>
 
       <section className="rounded-2xl border border-line bg-white">
         <h2 className="px-6 pt-6 font-display text-xl font-bold">{t.payouts}</h2>

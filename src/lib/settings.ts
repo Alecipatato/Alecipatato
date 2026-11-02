@@ -1,4 +1,4 @@
-import { parseRefundRules, type RefundRules } from "./money";
+import { type CommissionTier, parseCommissionTiers, parseRefundRules, type RefundRules } from "./money";
 import { createAdminClient } from "./supabase/admin";
 
 /**
@@ -8,8 +8,10 @@ import { createAdminClient } from "./supabase/admin";
 export interface PlatformSettings {
   freePlan: { maxStores: number; maxRegenerationsPerStore: number };
   aiRateLimit: { maxRequestsPerHour: number };
-  /** Ex. "0.15" (chaîne, convertie en entier pour les calculs). */
+  /** Taux de base, ex. "0.15" (chaîne, convertie en entier pour les calculs) : premier palier et estimations. */
   commissionRate: string;
+  /** Commission dégressive selon la marge brute des 30 derniers jours du vendeur (premier palier à 0). */
+  commissionTiers: CommissionTier[];
   payoutReserveDays: number;
   refundRules: RefundRules;
   usdCadFallbackRate: string;
@@ -19,6 +21,8 @@ export interface PlatformSettings {
   minMarginRate: string;
   /** Entreprise qui exploite la plateforme (pages légales). Chaînes vides si non renseignées. */
   legalIdentity: { legalName: string; address: string; email: string; privacyOfficer: string };
+  /** Plafonds de versements (cents) : au-delà, le versement attend l'approbation d'un administrateur. */
+  payoutLimits: { maxSingleCents: number; maxDailyCents: number };
   /** Tarifs IA par modèle, en cents US par million de jetons. */
   aiPricing: Record<string, { inputCentsPerMTok: number; outputCentsPerMTok: number }>;
 }
@@ -27,6 +31,7 @@ const DEFAULTS: PlatformSettings = {
   freePlan: { maxStores: 1, maxRegenerationsPerStore: 3 },
   aiRateLimit: { maxRequestsPerHour: 10 },
   commissionRate: "0.15",
+  commissionTiers: [{ fromMarginCents: 0, rate: "0.15" }],
   payoutReserveDays: 7,
   refundRules: parseRefundRules(null),
   usdCadFallbackRate: "1.38",
@@ -35,12 +40,14 @@ const DEFAULTS: PlatformSettings = {
   minMarginRate: "0.40",
   legalIdentity: { legalName: "", address: "", email: "", privacyOfficer: "" },
   aiPricing: { "claude-opus-5-5": { inputCentsPerMTok: 400, outputCentsPerMTok: 2000 } },
+  payoutLimits: { maxSingleCents: 200_000, maxDailyCents: 1_000_000 },
 };
 
 const KEYS = [
   "free_plan_limits",
   "ai_rate_limit",
   "commission_rate",
+  "commission_tiers",
   "payout_reserve_days",
   "refund_rules",
   "usd_cad_fallback_rate",
@@ -49,6 +56,7 @@ const KEYS = [
   "min_margin_percent",
   "legal_identity",
   "ai_pricing",
+  "payout_limits",
 ];
 
 const shortText = (v: unknown) => (typeof v === "string" ? v.trim().slice(0, 300) : "");
@@ -94,6 +102,7 @@ export async function getPlatformSettings(): Promise<PlatformSettings> {
     },
     aiRateLimit: { maxRequestsPerHour: nonNegativeInt(rate.max_requests_per_hour, DEFAULTS.aiRateLimit.maxRequestsPerHour) },
     commissionRate: decimalString(byKey.commission_rate, DEFAULTS.commissionRate, 0, 1),
+    commissionTiers: parseCommissionTiers(byKey.commission_tiers, decimalString(byKey.commission_rate, DEFAULTS.commissionRate, 0, 1)),
     payoutReserveDays: nonNegativeInt(byKey.payout_reserve_days, DEFAULTS.payoutReserveDays),
     refundRules: parseRefundRules(byKey.refund_rules),
     usdCadFallbackRate: decimalString(byKey.usd_cad_fallback_rate, DEFAULTS.usdCadFallbackRate, 0.5, 3),
@@ -107,5 +116,9 @@ export async function getPlatformSettings(): Promise<PlatformSettings> {
       privacyOfficer: shortText(legal.privacy_officer),
     },
     aiPricing: parseAiPricing(byKey.ai_pricing),
+    payoutLimits: {
+      maxSingleCents: nonNegativeInt(((byKey.payout_limits ?? {}) as Record<string, unknown>).max_single_cents, DEFAULTS.payoutLimits.maxSingleCents),
+      maxDailyCents: nonNegativeInt(((byKey.payout_limits ?? {}) as Record<string, unknown>).max_daily_cents, DEFAULTS.payoutLimits.maxDailyCents),
+    },
   };
 }

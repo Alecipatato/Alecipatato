@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { buttonClasses } from "@/components/styles";
 import { requireUser } from "@/lib/auth";
+import { getSellerCommission } from "@/lib/commission";
 import { isCjConfigured } from "@/lib/cj/client";
 import { getUsdCadRate } from "@/lib/fx";
 import { intlLocale } from "@/lib/i18n/config";
@@ -49,8 +50,9 @@ export default async function AddProductsPage({ params, searchParams }: PageProp
   if (mode === "list") {
     const [products, settings] = await Promise.all([availableTrends(store.id), getPlatformSettings()]);
     const fx = await getUsdCadRate(settings.usdCadFallbackRate);
-    const cards = toTrendCards(products ?? [], { fxRateUsdCad: fx.rate, minMarginRate: settings.minMarginRate, commissionRate: settings.commissionRate });
-    const commissionLabel = new Intl.NumberFormat(intlLocale(locale), { style: "percent", maximumFractionDigits: 2 }).format(rateToBasisPoints(settings.commissionRate) / 10_000);
+    const sellerRate = (await getSellerCommission(user.id)).rate; // commission dégressive : estimations au taux du vendeur
+    const cards = toTrendCards(products ?? [], { fxRateUsdCad: fx.rate, minMarginRate: settings.minMarginRate, commissionRate: sellerRate });
+    const commissionLabel = new Intl.NumberFormat(intlLocale(locale), { style: "percent", maximumFractionDigits: 2 }).format(rateToBasisPoints(sellerRate) / 10_000);
     return (
       <div className="mx-auto max-w-7xl">
         {header}

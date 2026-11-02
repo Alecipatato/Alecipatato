@@ -1,3 +1,5 @@
+import { alertAdmin } from "../email/resend";
+import { getPlatformSettings } from "../settings";
 import { createAdminClient } from "../supabase/admin";
 import { getStripe } from "../stripe";
 
@@ -70,11 +72,17 @@ export async function releaseDuePayouts(now = new Date()): Promise<ReleaseReport
 
   const { data: due, error } = await admin
     .from("payouts")
-    .select("id, amount_cents, currency, order_id, store_id, orders(order_number, disputed, stripe_charge_id), stores(name, owner_id, status)")
+    .select("id, amount_cents, currency, order_id, store_id, approved_at, orders(order_number, disputed, stripe_charge_id), stores(name, owner_id, status)")
     .eq("status", "pending")
     .lte("available_at", now.toISOString())
     .limit(100);
   if (error) throw new Error(`Lecture des versements impossible : ${error.message}`);
+
+  // Plafonds de sécurité : versements des dernières 24 h (approuvés compris) pour le plafond quotidien.
+  const { payoutLimits } = await getPlatformSettings();
+  const { data: recent } = await admin.from("payouts").select("amount_cents").eq("status", "paid").gte("paid_at", new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString());
+  let paidLast24h = (recent ?? []).reduce((sum, p) => sum + Number(p.amount_cents), 0);
+  const limited: string[] = [];
 
   for (const payout of due ?? []) {
     const order = payout.orders as unknown as { order_number: string; disputed: boolean; stripe_charge_id: string | null } | null;
@@ -88,12 +96,19 @@ export async function releaseDuePayouts(now = new Date()): Promise<ReleaseReport
     }
 
     if (order.disputed) {
-      await admin.from("payouts").update({ status: "held" }).eq("id", payout.id);
+      await admin.from("payouts").update({ status: "held", hold_reason: "dispute" }).eq("id", payout.id);
       report.held++;
       continue;
     }
 
     const amount = Number(payout.amount_cents);
+    // Versement trop gros ou plafond quotidien dépassé : retenu jusqu'à l'approbation d'un administrateur.
+    if (!payout.approved_at && (amount > payoutLimits.maxSingleCents || paidLast24h + amount > payoutLimits.maxDailyCents)) {
+      await admin.from("payouts").update({ status: "held", hold_reason: "limit" }).eq("id", payout.id);
+      limited.push(`${store.name} — commande ${order.order_number} : ${(amount / 100).toFixed(2)} ${payout.currency}`);
+      report.held++;
+      continue;
+    }
     if (amount === 0) {
       await admin.from("payouts").update({ status: "paid", paid_at: now.toISOString() }).eq("id", payout.id);
       continue;
@@ -128,6 +143,7 @@ export async function releaseDuePayouts(now = new Date()): Promise<ReleaseReport
         .from("payouts")
         .update({ status: "paid", stripe_transfer_id: transfer.id, paid_at: now.toISOString(), failure_reason: null })
         .eq("id", payout.id);
+      paidLast24h += amount;
       report.paid++;
     } catch (err) {
       // On laisse le versement « en attente » : il sera retenté au prochain passage.
@@ -135,6 +151,12 @@ export async function releaseDuePayouts(now = new Date()): Promise<ReleaseReport
       await admin.from("payouts").update({ failure_reason: reason }).eq("id", payout.id);
       report.skipped.push({ payoutId: payout.id, reason });
     }
+  }
+  if (limited.length) {
+    await alertAdmin(
+      `${limited.length} versement(s) retenu(s) : plafond de sécurité dépassé`,
+      `Ces versements attendent votre approbation dans Administration > Sécurité :\n\n${limited.join("\n")}`,
+    );
   }
   return report;
 }

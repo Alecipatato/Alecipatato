@@ -24,10 +24,21 @@ export async function isAdmin(userId: string): Promise<boolean> {
   return data?.role === "admin";
 }
 
-/** Administrateur connecté, sinon page introuvable (on ne révèle pas l'existence de l'espace admin). */
+/** Niveau d'authentification de la session : « aal2 » = mot de passe + code de double authentification. */
+export async function currentAssuranceLevel(): Promise<"aal1" | "aal2" | null> {
+  const supabase = await createUserClient();
+  const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  return (data?.currentLevel as "aal1" | "aal2" | null) ?? null;
+}
+
+/**
+ * Administrateur connecté AVEC double authentification, sinon : page introuvable pour les non-admins (on ne révèle pas
+ * l'existence de l'espace admin) ou page de double authentification pour un admin connecté avec son seul mot de passe.
+ */
 export async function requireAdmin() {
   const user = await requireUser();
   if (!(await isAdmin(user.id))) notFound();
+  if ((await currentAssuranceLevel()) !== "aal2") redirect("/securite-admin");
   return user;
 }
 

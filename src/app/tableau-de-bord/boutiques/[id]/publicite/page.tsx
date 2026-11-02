@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { metaCampaignsAvailable } from "@/lib/ads/connections";
 import { AD_GUIDES, type AutoCheck, type GuideStep, type StepLink, stepKey } from "@/lib/ads/guides";
 import { requireUser } from "@/lib/auth";
+import { getSellerCommission } from "@/lib/commission";
 import { getUsdCadRate } from "@/lib/fx";
 import { fmt, intlLocale } from "@/lib/i18n/config";
 import { getLocale, getMessages } from "@/lib/i18n/server";
@@ -36,11 +37,13 @@ export default async function AdsPage({ params }: PageProps<"/tableau-de-bord/bo
     getPlatformSettings(),
   ]);
   const fx = await getUsdCadRate(settings.usdCadFallbackRate);
+  // Taux du vendeur (commission dégressive) pour des estimations justes.
+  const sellerRate = (await getSellerCommission(user.id)).rate;
   const locale = await getLocale();
   const m = await getMessages(locale);
   const t = m.ads;
   const price = (cents: number) => formatPrice(cents, "CAD", locale);
-  const commission = new Intl.NumberFormat(intlLocale(locale), { style: "percent", maximumFractionDigits: 2 }).format(rateToBasisPoints(settings.commissionRate) / 10_000);
+  const commission = new Intl.NumberFormat(intlLocale(locale), { style: "percent", maximumFractionDigits: 2 }).format(rateToBasisPoints(sellerRate) / 10_000);
 
   // Gain du vendeur par vente, au prix réel de chaque produit.
   const plan = adBudgetPlan(
@@ -51,7 +54,7 @@ export default async function AdsPage({ params }: PageProps<"/tableau-de-bord/bo
           shippingUsdCents: Number(p.shipping_cost_usd_cents),
           fxRateUsdCad: fx.rate,
           minMarginRate: settings.minMarginRate,
-          commissionRate: settings.commissionRate,
+          commissionRate: sellerRate,
           priceCents: Number(p.price_cents),
         }).ownerProfitCents,
     ),

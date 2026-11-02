@@ -268,6 +268,25 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
   ⚠️ App Review Meta + vérification d'entreprise nécessaires pour les vendeurs. **TikTok** : PAS encore fait — dès le
   2027-01-01, `/campaign/create/` etc. ne créent plus de campagnes Ventes « manuelles » : utiliser les API « Upgraded
   Smart+ » (doc à lire en rendant les pages avec Playwright : business-api.tiktok.com/portal/docs).
+- **Commission dégressive** (étape F1, 2026-11-03) : paliers choisis par le propriétaire (« Généreux ») : 15 % → 12 % dès
+  1 000 $ → 10 % dès 5 000 $ → 8 % dès 20 000 $ de marge brute sur 30 jours (toutes les boutiques du vendeur ; commandes
+  payées/expédiées/livrées/partiellement remboursées). Réglage `platform_settings.commission_tiers` (+ `commission_rate`
+  = 1er palier), lu par `parseCommissionTiers` ; `commissionTierFor`, `parseTierInputs` (`money.ts`, testés).
+  `src/lib/commission.ts` : `getSellerCommission(ownerId)` (taux, marge, palier suivant), `marginByOwner()`.
+  Checkout : taux du vendeur FIGÉ dans `orders.commission_rate` (la confirmation Stripe le relit). Affichage : écran
+  Paiements (taux, marge 30 j, progression, paliers), estimations (galerie, Publicité, campagnes) au taux du vendeur,
+  CGU (`platform-context.ts` décrit les paliers). Admin : `/admin/commission` (paliers modifiables, taux jamais en hausse
+  d'un palier à l'autre, vendeurs par palier). Test : `e2e-commission.js`.
+- **Sécurité de l'argent** (étape F2, 2026-11-03) : `requireAdmin()` exige la double authentification (session `aal2`,
+  `currentAssuranceLevel`), sinon `/securite-admin` (hors de `/admin` : configuration TOTP Supabase — code QR + clé — ou
+  code à chaque connexion ; actions serveur `mfa.enroll` / `challengeAndVerify`, essais inachevés effacés). Local :
+  `[auth.mfa.totp]` activé dans `supabase/config.toml`. Journal `admin_audit_log` (`logAdminAction`, `src/lib/audit.ts`) :
+  suspension/réactivation, règles de modération, revérification, relance CJ, paliers, approbation de versement, MFA.
+  Plafonds `platform_settings.payout_limits` (2 000 $ par versement, 10 000 $ / 24 h) dans `releaseDuePayouts` :
+  dépassement → `payouts.status = 'held'`, `hold_reason = 'limit'` + `alertAdmin` ; approbation dans `/admin/securite`
+  (`approved_by/at`, n'est plus retenu ensuite). Litiges : `hold_reason = 'dispute'`. Alerte courriel aussi quand les
+  paliers de commission changent. Tests : `e2e-security.js` ; `mfa-helper.js` (TOTP RFC 6238, `enrollAdmin`) dans les
+  tests qui passent par /admin.
 - **Fiches complètes et variantes** (étape B, 2026-10-28) : `normalize.ts` lit images (≤ 12), photos de la description,
   matériaux, emballage, poids, options et variantes (clé, poids, dimensions) ; stock par variante via
   `/product/stock/getInventoryByPid` (`getVariantInventories`, vérifié avec la vraie clé). `src/lib/products/variants.ts`
@@ -319,9 +338,11 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
       épuisée), abonnements automatiques, stock revérifié au paiement, synchro horaire conservée pour les prix
 - [x] Étape E — publicité : guides pas à pas + budget (E-a) ; campagnes Meta créées en pause et lancées depuis la
       plateforme (E-b). TikTok depuis la plateforme : à faire avec l'API Smart+
+- [x] Étape F — commission dégressive (paliers « Généreux », 30 jours, réglables dans /admin/commission) ; sécurité :
+      double authentification admin obligatoire, journal des actions, plafonds de versements avec approbation, alertes
 - [ ] Prochaine étape — mise en production (déploiement Cloudflare, vraies clés en mode test, validation CJ)
 
-## Prochaines étapes (demandées par le propriétaire le 2026-10-26 ; A à E faites (sauf campagnes TikTok), F NON commencée)
+## Prochaines étapes (demandées par le propriétaire le 2026-10-26 ; A à F faites, sauf les campagnes TikTok depuis la plateforme)
 
 Ne pas commencer sans sa validation explicite ; proposer d'abord un ordre de réalisation.
 

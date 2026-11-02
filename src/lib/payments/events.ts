@@ -222,7 +222,7 @@ async function handleDisputeCreated(dispute: Stripe.Dispute) {
   if (error && error.code !== "23505") throw new Error(`Enregistrement du litige impossible : ${error.message}`);
 
   await admin.from("orders").update({ disputed: true }).eq("id", order.id);
-  await admin.from("payouts").update({ status: "held" }).eq("order_id", order.id).eq("status", "pending");
+  await admin.from("payouts").update({ status: "held", hold_reason: "dispute" }).eq("order_id", order.id).eq("status", "pending");
 }
 
 /** Litige clos : gagné → on libère le versement ; perdu → on applique les règles. */
@@ -261,7 +261,7 @@ async function handleDisputeClosed(dispute: Stripe.Dispute) {
   }
 
   await admin.from("orders").update({ disputed: false }).eq("id", row.order_id);
-  await admin.from("payouts").update({ status: "pending" }).eq("order_id", row.order_id).eq("status", "held");
+  await admin.from("payouts").update({ status: "pending", hold_reason: null }).eq("order_id", row.order_id).eq("status", "held").eq("hold_reason", "dispute");
 }
 
 async function handleAccountUpdated(account: Stripe.Account) {
