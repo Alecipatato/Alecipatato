@@ -255,6 +255,19 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
   `auto` vérifiées d'après la boutique — produits ≥ 5, pages légales, en ligne, contenus IA, pixels — ou cochées à la main
   dans `ad_guide_progress`, action `ads-actions.ts`), textes FR/EN `messages/ads.ts` (menus Meta/TikTok décrits sans
   promesse ; « les menus changent souvent »). Test : `e2e-ads.js` (sans CJ).
+- **Publicité — campagnes Meta** (étape E-b, 2026-11-02) : doc Meta vérifiée (Graph v26.0). `src/lib/ads/meta.ts` (client
+  fetch ; `metaCampaignPayloads` pur et testé : campagne `OUTCOME_SALES` + `special_ad_categories: []`, ensemble
+  `OFFSITE_CONVERSIONS` + `promoted_object {pixel_id, PURCHASE}`, Canada 18+, budget en cents, visuel `link_data` +
+  `SHOP_NOW`, publicité — TOUT en `PAUSED`), connexion Facebook Login (`/api/ads/meta/connect` → cookie `meta_oauth`
+  anti-falsification → `/api/ads/meta/callback`, jeton longue durée), jetons chiffrés AES-GCM (`src/lib/ads/crypto.ts`,
+  `ADS_ENCRYPTION_KEY`, testé) dans `ad_connections` (par boutique, serveur seulement). Écran
+  `/publicite/campagne` (actions `ads-campaign-actions.ts`) : choix compte (CAD obligatoire) + page, pixel Meta requis,
+  brouillon IA (`runMarketingGeneration`, `src/lib/ai/marketing-run.ts`, partagé avec l'écran Marketing), relecture +
+  modération, création en pause, lancer (confirmation) / pause, résultats `insights`, refus Meta affiché (`failed`).
+  Option masquée sans `META_APP_ID`/`META_APP_SECRET`/clé. Test : `e2e-campaigns.js` + `mock-meta.js` (port 4060).
+  ⚠️ App Review Meta + vérification d'entreprise nécessaires pour les vendeurs. **TikTok** : PAS encore fait — dès le
+  2027-01-01, `/campaign/create/` etc. ne créent plus de campagnes Ventes « manuelles » : utiliser les API « Upgraded
+  Smart+ » (doc à lire en rendant les pages avec Playwright : business-api.tiktok.com/portal/docs).
 - **Fiches complètes et variantes** (étape B, 2026-10-28) : `normalize.ts` lit images (≤ 12), photos de la description,
   matériaux, emballage, poids, options et variantes (clé, poids, dimensions) ; stock par variante via
   `/product/stock/getInventoryByPid` (`getVariantInventories`, vérifié avec la vraie clé). `src/lib/products/variants.ts`
@@ -304,9 +317,11 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
       thème, tri et noms FR/EN par l'IA, filtre TikTok et affichage par pages dans la galerie
 - [x] Étape D — données à jour : notifications CJ signées (produit retiré partout en quelques minutes, variante
       épuisée), abonnements automatiques, stock revérifié au paiement, synchro horaire conservée pour les prix
+- [x] Étape E — publicité : guides pas à pas + budget (E-a) ; campagnes Meta créées en pause et lancées depuis la
+      plateforme (E-b). TikTok depuis la plateforme : à faire avec l'API Smart+
 - [ ] Prochaine étape — mise en production (déploiement Cloudflare, vraies clés en mode test, validation CJ)
 
-## Prochaines étapes (demandées par le propriétaire le 2026-10-26 ; A à D faites, E et F NON commencées)
+## Prochaines étapes (demandées par le propriétaire le 2026-10-26 ; A à E faites (sauf campagnes TikTok), F NON commencée)
 
 Ne pas commencer sans sa validation explicite ; proposer d'abord un ordre de réalisation.
 

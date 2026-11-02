@@ -193,6 +193,27 @@ Bouton **Marketing** sur la page de chaque boutique :
   les pixels ne se chargent qu'après « Accepter ».
 - **Contenus IA** : scripts de vidéos TikTok, textes publicitaires et suggestion SEO, à relire avant publication.
 
+## Publicité (guides et campagnes Meta)
+
+Bouton **Publicité** sur la page de chaque boutique : le vendeur choisit entre
+- **les guides pas à pas** (préparer la boutique, Meta, TikTok payant, TikTok gratuit, lire ses résultats) avec un
+  budget conseillé calculé à partir de ses vraies marges — rien à configurer ;
+- **une campagne Meta lancée depuis la plateforme** : il relie son compte publicitaire, l'IA rédige la publicité,
+  la campagne est créée **en pause** dans SON compte et il la lance. Meta lui facture directement ses dépenses.
+
+Pour activer les campagnes Meta :
+1. Sur [developers.facebook.com](https://developers.facebook.com), créez une application de type **Entreprise**,
+   ajoutez les produits **Facebook Login for Business** et **Marketing API**.
+2. Adresse de redirection OAuth autorisée : `https://<votre-domaine>/api/ads/meta/callback`.
+3. Mettez `META_APP_ID`, `META_APP_SECRET` et une clé de chiffrement des jetons `ADS_ENCRYPTION_KEY`
+   (`openssl rand -base64 32`) dans les variables d'environnement.
+4. Pour les comptes d'autres personnes que vous, Meta exige une **vérification d'entreprise** et l'**App Review**
+   des permissions `ads_management`, `ads_read`, `business_management`, `pages_show_list`, `pages_read_engagement`
+   (accès « Full »). En attendant, seuls les comptes ayant un rôle dans l'application peuvent se connecter.
+
+> Les campagnes TikTok depuis la plateforme viendront ensuite : TikTok remplace son API de création de campagnes
+> « Ventes » par une nouvelle API (« Smart+ ») à partir du 1er janvier 2027.
+
 ## Domaines personnalisés (Cloudflare for SaaS)
 
 1. Votre domaine principal doit être géré par Cloudflare. Dans **SSL/TLS > Custom Hostnames**, activez
