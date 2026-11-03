@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { parseDailyBudget } from "@/lib/ads/budget";
 import { getAdConnection } from "@/lib/ads/connections";
 import { createPausedMetaCampaign, listMetaAdAccounts, listMetaPages, MetaError, setMetaCampaignStatus } from "@/lib/ads/meta";
 import { runMarketingGeneration } from "@/lib/ai/marketing-run";
@@ -16,8 +17,6 @@ import { publicStoreUrl, platformUrl } from "@/lib/tenant";
 export type CampaignState = { error?: string };
 
 const page = (storeId: string) => `/tableau-de-bord/boutiques/${storeId}/publicite/campagne`;
-const MIN_BUDGET_CENTS = 100;
-const MAX_BUDGET_CENTS = 100_000;
 
 async function ownedStore(storeId: string) {
   const user = await requireUser();
@@ -28,14 +27,6 @@ async function ownedStore(storeId: string) {
     .eq("owner_id", user.id)
     .maybeSingle();
   return data && data.status !== "suspended" ? { user, store: data } : null;
-}
-
-/** Montant saisi en dollars (« 25 », « 25,50 ») → cents ; null si invalide. */
-function parseBudget(value: FormDataEntryValue | null): number | null {
-  const match = String(value ?? "").trim().replace(",", ".").match(/^(\d{1,4})(?:\.(\d{1,2}))?$/);
-  if (!match) return null;
-  const cents = Number(match[1]) * 100 + Number((match[2] ?? "").padEnd(2, "0"));
-  return cents >= MIN_BUDGET_CENTS && cents <= MAX_BUDGET_CENTS ? cents : null;
 }
 
 /** Compte publicitaire et page Facebook choisis par le vendeur (vérifiés auprès de Meta). */
@@ -64,7 +55,7 @@ export async function draftMetaCampaign(storeId: string, _prev: CampaignState, f
   const t = m.ads.campaigns;
   const ctx = await ownedStore(storeId);
   if (!ctx) return { error: m.dashboard.actions.notFound };
-  const budget = parseBudget(formData.get("daily_budget"));
+  const budget = parseDailyBudget(formData.get("daily_budget"));
   if (!budget) return { error: t.errors.budget };
   const admin = createAdminClient();
   const { data: product } = await admin.from("products").select("id, title, images").eq("store_id", storeId).eq("status", "active").eq("id", String(formData.get("product_id") ?? "")).maybeSingle();
@@ -119,7 +110,7 @@ export async function createMetaCampaign(storeId: string, _prev: CampaignState, 
     headline: String(formData.get("headline") ?? "").trim().slice(0, 255),
     description: String(formData.get("description") ?? "").trim().slice(0, 255),
   };
-  const budget = parseBudget(formData.get("daily_budget"));
+  const budget = parseDailyBudget(formData.get("daily_budget"));
   if (!texts.primary_text || !texts.headline) return { error: t.errors.texts };
   if (!budget) return { error: t.errors.budget };
   const violation = await moderate([texts.primary_text, texts.headline, texts.description]);

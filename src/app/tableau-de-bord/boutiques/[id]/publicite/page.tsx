@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { metaCampaignsAvailable } from "@/lib/ads/connections";
+import { metaCampaignsAvailable, tiktokCampaignsAvailable } from "@/lib/ads/connections";
 import { AD_GUIDES, type AutoCheck, type GuideStep, type StepLink, stepKey } from "@/lib/ads/guides";
+import { buttonClasses } from "@/components/styles";
 import { requireUser } from "@/lib/auth";
 import { getSellerCommission } from "@/lib/commission";
 import { getUsdCadRate } from "@/lib/fx";
@@ -60,7 +61,7 @@ export default async function AdsPage({ params }: PageProps<"/tableau-de-bord/bo
     ),
   );
 
-  const campaigns = metaCampaignsAvailable();
+  const campaigns = { meta: metaCampaignsAvailable(), tiktok: tiktokCampaignsAvailable() };
   const pixels = parsePixels(store.pixels);
   const auto: Record<AutoCheck, boolean> = {
     products: (products?.length ?? 0) >= MIN_PRODUCTS,
@@ -93,16 +94,23 @@ export default async function AdsPage({ params }: PageProps<"/tableau-de-bord/bo
           <p className="mt-1 text-sm text-muted">{t.choose.guides.text}</p>
           <p className="mt-4 text-sm font-semibold text-brand group-hover:underline">{t.choose.guides.cta} ↓</p>
         </a>
-        <Link href={`/tableau-de-bord/boutiques/${store.id}/publicite/campagne`} data-ads-choice="campaigns" className={`group rounded-2xl border bg-white p-6 transition ${campaigns ? "border-line hover:border-brand" : "border-line opacity-75"}`}>
+        <div className={`rounded-2xl border border-line bg-white p-6 ${campaigns.meta || campaigns.tiktok ? "" : "opacity-75"}`}>
           <p className="text-3xl" aria-hidden>🚀</p>
           <h2 className="mt-3 font-display text-xl font-bold">{t.choose.campaigns.title}</h2>
           <p className="mt-1 text-sm text-muted">{t.choose.campaigns.text}</p>
-          {campaigns ? (
-            <p className="mt-4 text-sm font-semibold text-brand group-hover:underline">{t.choose.campaigns.cta} →</p>
+          {campaigns.meta || campaigns.tiktok ? (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {campaigns.meta && (
+                <Link href={`/tableau-de-bord/boutiques/${store.id}/publicite/campagne`} data-ads-choice="campaigns" data-campaign-platform="meta" className={buttonClasses.secondary}>{t.choose.campaigns.meta} →</Link>
+              )}
+              {campaigns.tiktok && (
+                <Link href={`/tableau-de-bord/boutiques/${store.id}/publicite/tiktok`} data-campaign-platform="tiktok" className={buttonClasses.secondary}>{t.choose.campaigns.tiktok} →</Link>
+              )}
+            </div>
           ) : (
             <p className="mt-4 inline-block rounded-full bg-paper px-3 py-1 text-xs font-semibold text-muted">{t.choose.campaigns.soon}</p>
           )}
-        </Link>
+        </div>
       </div>
 
       <p className="rounded-xl border border-brand/20 bg-brand-soft px-4 py-3 text-sm text-brand-strong">{t.money}</p>

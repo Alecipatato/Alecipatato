@@ -265,9 +265,23 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
   brouillon IA (`runMarketingGeneration`, `src/lib/ai/marketing-run.ts`, partagé avec l'écran Marketing), relecture +
   modération, création en pause, lancer (confirmation) / pause, résultats `insights`, refus Meta affiché (`failed`).
   Option masquée sans `META_APP_ID`/`META_APP_SECRET`/clé. Test : `e2e-campaigns.js` + `mock-meta.js` (port 4060).
-  ⚠️ App Review Meta + vérification d'entreprise nécessaires pour les vendeurs. **TikTok** : PAS encore fait — dès le
-  2027-01-01, `/campaign/create/` etc. ne créent plus de campagnes Ventes « manuelles » : utiliser les API « Upgraded
-  Smart+ » (doc à lire en rendant les pages avec Playwright : business-api.tiktok.com/portal/docs).
+  ⚠️ App Review Meta + vérification d'entreprise nécessaires pour les vendeurs.
+- **Publicité — campagnes TikTok** (2026-11-03) : doc officielle lue en rendant les pages avec Playwright
+  (business-api.tiktok.com/portal/docs/<slug>/v1.3) + SDK officiel `tiktok/tiktok-business-api-sdk` (raw GitHub). Dès le
+  2027-01-01, Ventes « manuelles » interdites → API « Upgraded Smart+ ». `src/lib/ads/tiktok.ts` (client fetch, enveloppe
+  `{code: 0, data}` ; `tiktokCampaignPayloads` pur et testé) : autorisation annonceur (`/portal/auth` → `auth_code` →
+  `/oauth2/access_token/`, jeton sans expiration), `/oauth2/advertiser/get/` + `/advertiser/info/` (devise CAD exigée),
+  identités `TT_USER` (`/identity/get/`) et vidéos (`/identity/video/get/`) → **Spark Ad** obligatoire (identité
+  personnalisée interdite pour les comptes créés depuis le 2026-01-15) ; bouton dynamique (`/creative/cta/recommend/`
+  `new_version` → `/creative/portfolio/create/` type CTA) ; `smart_plus/campaign/create/` (`WEB_CONVERSIONS`, `WEBSITE`,
+  budget quotidien de campagne en UNITÉS `centsToUnits`, `request_id` numérique) → `smart_plus/adgroup/create/`
+  (`CONVERT`, pixel, `SHOPPING`, Canada `6251999`, 18+, ciblage automatique) → `smart_plus/ad/create/`
+  (`smart_plus_ad_id`) — TOUT en `DISABLE` ; activation `smart_plus/{ad,adgroup,campaign}/status/update/` ; résultats
+  `/report/integrated/get/`. Routes `/api/ads/tiktok/{connect,callback}` (cookie `tiktok_oauth`), actions
+  `tiktok-campaign-actions.ts`, écran `/publicite/tiktok` (`ad_connections` : `page_*` = compte TikTok ;
+  `ad_campaigns.tiktok_item_id`, `external_adset_id` = groupe, `external_creative_id` = portefeuille CTA).
+  `TIKTOK_APP_ID`/`TIKTOK_APP_SECRET`. Test : `e2e-tiktok.js` + `mock-tiktok.js` (port 4070). À valider avec une vraie
+  application TikTok (identifiant de lieu du Canada, événement `SHOPPING`).
 - **Commission dégressive** (étape F1, 2026-11-03) : paliers choisis par le propriétaire (« Généreux ») : 15 % → 12 % dès
   1 000 $ → 10 % dès 5 000 $ → 8 % dès 20 000 $ de marge brute sur 30 jours (toutes les boutiques du vendeur ; commandes
   payées/expédiées/livrées/partiellement remboursées). Réglage `platform_settings.commission_tiers` (+ `commission_rate`
@@ -336,13 +350,13 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
       thème, tri et noms FR/EN par l'IA, filtre TikTok et affichage par pages dans la galerie
 - [x] Étape D — données à jour : notifications CJ signées (produit retiré partout en quelques minutes, variante
       épuisée), abonnements automatiques, stock revérifié au paiement, synchro horaire conservée pour les prix
-- [x] Étape E — publicité : guides pas à pas + budget (E-a) ; campagnes Meta créées en pause et lancées depuis la
-      plateforme (E-b). TikTok depuis la plateforme : à faire avec l'API Smart+
+- [x] Étape E — publicité : guides pas à pas + budget (E-a) ; campagnes Meta et TikTok (Smart+, Spark Ads) créées
+      en pause et lancées depuis la plateforme (E-b)
 - [x] Étape F — commission dégressive (paliers « Généreux », 30 jours, réglables dans /admin/commission) ; sécurité :
       double authentification admin obligatoire, journal des actions, plafonds de versements avec approbation, alertes
 - [ ] Prochaine étape — mise en production (déploiement Cloudflare, vraies clés en mode test, validation CJ)
 
-## Prochaines étapes (demandées par le propriétaire le 2026-10-26 ; A à F faites, sauf les campagnes TikTok depuis la plateforme)
+## Prochaines étapes (demandées par le propriétaire le 2026-10-26 ; A à F faites)
 
 Ne pas commencer sans sa validation explicite ; proposer d'abord un ordre de réalisation.
 

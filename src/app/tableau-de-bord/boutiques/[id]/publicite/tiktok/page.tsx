@@ -1,0 +1,222 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { disconnectTiktok } from "@/app/tableau-de-bord/tiktok-campaign-actions";
+import { buttonClasses } from "@/components/styles";
+import { Alert } from "@/components/ui";
+import { getAdConnection, tiktokCampaignsAvailable } from "@/lib/ads/connections";
+import { getTiktokInsights, listTiktokAdvertisers, listTiktokIdentities, listTiktokPosts, type TiktokInsights } from "@/lib/ads/tiktok";
+import { requireUser } from "@/lib/auth";
+import { getSellerCommission } from "@/lib/commission";
+import { getUsdCadRate } from "@/lib/fx";
+import { fmt } from "@/lib/i18n/config";
+import { getLocale, getMessages } from "@/lib/i18n/server";
+import { parsePixels } from "@/lib/marketing/settings";
+import { adBudgetPlan, estimateProductEconomics } from "@/lib/money";
+import { getPlatformSettings } from "@/lib/settings";
+import { formatPrice } from "@/lib/store-config";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { ChooseTiktokForm, TiktokDraftForm, TiktokReviewForm, TiktokStatusButton } from "./client";
+
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getMessages()).ads.tiktok.metaTitle };
+}
+
+const RESULTS = ["connecte", "refuse", "invalide", "echec", "deconnecte"] as const;
+type Result = (typeof RESULTS)[number];
+
+/** Campagnes TikTok d'une boutique : autorisation, compte, brouillon (vidéo + texte IA), création désactivée, lancement. */
+export default async function TiktokCampaignPage({ params, searchParams }: PageProps<"/tableau-de-bord/boutiques/[id]/publicite/tiktok">) {
+  const user = await requireUser();
+  const { id } = await params;
+  const sp = await searchParams;
+  const admin = createAdminClient();
+  const { data: store } = await admin.from("stores").select("id, name, status, pixels").eq("id", id).eq("owner_id", user.id).maybeSingle();
+  if (!store) notFound();
+  const locale = await getLocale();
+  const m = await getMessages(locale);
+  const t = m.ads.tiktok;
+  const c = m.ads.campaigns;
+  const price = (cents: number) => formatPrice(cents, "CAD", locale);
+  const base = `/tableau-de-bord/boutiques/${store.id}`;
+  const result = RESULTS.includes(sp.tiktok as Result) ? (sp.tiktok as Result) : null;
+
+  const header = (
+    <div>
+      <Link href={`${base}/publicite`} className="text-sm font-medium text-muted hover:text-ink">{t.back}</Link>
+      <h1 className="mt-4 font-display text-4xl font-bold tracking-tight">{t.title}</h1>
+      <p className="mt-1 max-w-3xl text-muted">{t.intro}</p>
+    </div>
+  );
+  if (!tiktokCampaignsAvailable()) {
+    return (
+      <div className="flex flex-col gap-6">
+        {header}
+        <Alert kind="info">{t.notConfigured}</Alert>
+        <Link href={`${base}/publicite#guides`} className={`${buttonClasses.secondary} self-start`}>{m.ads.choose.guides.cta}</Link>
+      </div>
+    );
+  }
+
+  const connection = await getAdConnection(store.id, "tiktok");
+  const pixelId = parsePixels(store.pixels).tiktok;
+  const suspended = store.status === "suspended";
+
+  // Compte relié : comptes annonceurs et comptes TikTok lus chez TikTok s'il faut (re)choisir.
+  const choosing = Boolean(connection) && (!connection?.adAccountId || !connection.pageId || sp.changer === "1");
+  let advertisers: Awaited<ReturnType<typeof listTiktokAdvertisers>> = [];
+  let identities: Awaited<ReturnType<typeof listTiktokIdentities>> = [];
+  let tiktokDown = false;
+  if (connection && choosing) {
+    try {
+      advertisers = await listTiktokAdvertisers(connection.accessToken);
+      // Comptes TikTok du compte annonceur déjà choisi, sinon du premier.
+      const advertiserId = connection.adAccountId ?? advertisers[0]?.id;
+      if (advertiserId) identities = await listTiktokIdentities(connection.accessToken, advertiserId);
+    } catch {
+      tiktokDown = true;
+    }
+  }
+  const ready = Boolean(connection?.adAccountId && connection.pageId) && !choosing;
+  const videos = ready && connection ? await listTiktokPosts(connection.accessToken, connection.adAccountId!, connection.pageId!).catch(() => []) : [];
+
+  const [{ data: products }, { data: campaigns }, settings, seller] = await Promise.all([
+    admin.from("products").select("id, title, price_cents, supplier_cost_usd_cents, shipping_cost_usd_cents").eq("store_id", store.id).eq("status", "active").order("position"),
+    admin.from("ad_campaigns").select("*").eq("store_id", store.id).eq("platform", "tiktok").order("created_at", { ascending: false }).limit(20),
+    getPlatformSettings(),
+    getSellerCommission(user.id),
+  ]);
+  const fx = await getUsdCadRate(settings.usdCadFallbackRate);
+  const plan = adBudgetPlan(
+    (products ?? []).map((p) =>
+      estimateProductEconomics({ supplierCostUsdCents: Number(p.supplier_cost_usd_cents), shippingUsdCents: Number(p.shipping_cost_usd_cents), fxRateUsdCad: fx.rate, minMarginRate: settings.minMarginRate, commissionRate: seller.rate, priceCents: Number(p.price_cents) }).ownerProfitCents,
+    ),
+  );
+  const suggested = plan?.dailyBudgetCents ?? 2000;
+  const dollars = (cents: number) => (cents / 100).toFixed(2).replace(/\.00$/, "");
+  const draft = (campaigns ?? []).find((x) => x.id === sp.brouillon && x.status === "draft") ?? null;
+
+  // Résultats des campagnes créées (lus chez TikTok ; ignorés si TikTok ne répond pas).
+  const insights = new Map<string, TiktokInsights | null>();
+  if (connection?.adAccountId) {
+    await Promise.all(
+      (campaigns ?? [])
+        .filter((x) => x.external_campaign_id && (x.status === "active" || x.status === "paused"))
+        .slice(0, 10)
+        .map(async (x) => insights.set(x.id, await getTiktokInsights(connection.accessToken, connection.adAccountId!, x.external_campaign_id!).catch(() => null))),
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-8">
+      {header}
+      {result && <Alert kind={result === "connecte" || result === "deconnecte" ? "success" : "error"}>{t.results[result]}</Alert>}
+      {sp.creee && <Alert kind="success">{t.created}</Alert>}
+      <p className="rounded-xl border border-brand/20 bg-brand-soft px-4 py-3 text-sm text-brand-strong">{m.ads.money}</p>
+
+      {!connection ? (
+        <section className="rounded-2xl border border-line bg-white p-6" data-tiktok-connect>
+          <p className="font-semibold">{t.before}</p>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted">{t.requirements.map((r) => <li key={r}>{r}</li>)}</ul>
+          {!pixelId && <p className="mt-3 text-sm"><Link href={`${base}/marketing`} className="font-semibold text-brand hover:underline">{t.pixelMissing}</Link></p>}
+          {!suspended && <a href={`/api/ads/tiktok/connect?store=${store.id}`} className={`${buttonClasses.primary} mt-5`}>{t.connect}</a>}
+        </section>
+      ) : (
+        <section className="rounded-2xl border border-line bg-white p-6" data-tiktok-connected>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="font-semibold text-brand-strong">✓ {t.connected}</p>
+              {connection.adAccountId && connection.pageId && (
+                <p className="mt-1 text-sm text-muted">{fmt(t.choose.current, { account: `${connection.adAccountName} (${connection.adAccountCurrency})`, identity: connection.pageName ?? "" })}</p>
+              )}
+            </div>
+            <div className="flex gap-2">
+              {ready && <Link href="?changer=1" className={buttonClasses.secondary}>{t.choose.change}</Link>}
+              <form action={disconnectTiktok.bind(null, store.id)}><button type="submit" data-tiktok-disconnect className={buttonClasses.secondary}>{t.disconnect}</button></form>
+            </div>
+          </div>
+          {choosing && (
+            <div className="mt-5 border-t border-line pt-5">
+              <h2 className="font-display text-lg font-bold">{t.choose.title}</h2>
+              {tiktokDown ? (
+                <Alert kind="error">{t.reconnect}</Alert>
+              ) : advertisers.length === 0 || identities.length === 0 ? (
+                <p className="mt-2 text-sm text-muted">{t.choose.none}</p>
+              ) : (
+                <div className="mt-4"><ChooseTiktokForm storeId={store.id} advertisers={advertisers} identities={identities} current={{ advertiserId: connection.adAccountId, identityId: connection.pageId }} /></div>
+              )}
+            </div>
+          )}
+        </section>
+      )}
+
+      {ready && !suspended && (
+        !pixelId ? (
+          <Alert kind="info"><Link href={`${base}/marketing`} className="font-semibold underline">{t.pixelMissing}</Link></Alert>
+        ) : draft ? (
+          <section id="brouillon" className="scroll-mt-6 rounded-2xl border-2 border-brand/30 bg-white p-6" data-campaign-draft={draft.id}>
+            <h2 className="font-display text-xl font-bold">{c.review.title}</h2>
+            <p className="mt-1 text-sm text-muted">{t.review.intro}</p>
+            <div className="mt-5"><TiktokReviewForm storeId={store.id} draft={{ id: draft.id, adText: draft.primary_text, budget: dollars(Number(draft.daily_budget_cents)) }} /></div>
+            <p className="mt-3 break-all text-xs text-muted">{fmt(t.review.video, { id: draft.tiktok_item_id ?? "" })} · {fmt(c.review.link, { url: draft.link_url })}</p>
+          </section>
+        ) : (
+          <section className="rounded-2xl border border-line bg-white p-6">
+            <h2 className="font-display text-xl font-bold">{t.draft.title}</h2>
+            <div className="mt-4">
+              {(products ?? []).length === 0 ? (
+                <p className="text-sm text-muted">{m.ads.budget.none}</p>
+              ) : videos.length === 0 ? (
+                <p className="text-sm text-muted" data-no-videos>{t.draft.noVideos}</p>
+              ) : (
+                <TiktokDraftForm storeId={store.id} products={(products ?? []).map((p) => ({ id: p.id, title: p.title }))} videos={videos} suggestedBudget={dollars(suggested)} budgetHint={fmt(t.draft.budgetHint, { amount: price(suggested) })} />
+              )}
+            </div>
+          </section>
+        )
+      )}
+
+      {connection && (
+        <section>
+          <h2 className="mb-4 font-display text-2xl font-bold">{c.list.title}</h2>
+          {(campaigns ?? []).filter((x) => x.status !== "draft").length === 0 ? (
+            <p className="text-sm text-muted">{c.list.empty}</p>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {(campaigns ?? []).filter((x) => x.status !== "draft").map((x) => {
+                const r = insights.get(x.id);
+                return (
+                  <article key={x.id} data-campaign={x.id} data-status={x.status} className="flex flex-wrap items-start justify-between gap-4 rounded-2xl border border-line bg-white p-5">
+                    <div className="min-w-0">
+                      <p className="font-semibold">{x.name}</p>
+                      <p className="mt-1 text-sm text-muted">
+                        <span className={`mr-2 rounded-full px-2 py-0.5 text-xs font-semibold ${x.status === "active" ? "bg-brand text-white" : x.status === "failed" ? "bg-danger-soft text-danger" : "bg-paper text-muted"}`}>{c.list.status[x.status as keyof typeof c.list.status]}</span>
+                        {fmt(c.list.budget, { amount: price(Number(x.daily_budget_cents)) })}
+                      </p>
+                      {x.status === "failed" && x.error && <p className="mt-2 text-sm text-danger">{fmt(t.errors.tiktok, { reason: x.error })}</p>}
+                      {(x.status === "active" || x.status === "paused") && (
+                        r ? (
+                          <dl className="mt-3 flex gap-6 text-sm" data-insights>
+                            <div><dt className="text-xs text-muted">{c.list.spend}</dt><dd className="font-semibold tabular-nums">{price(r.spendCents)}</dd></div>
+                            <div><dt className="text-xs text-muted">{c.list.clicks}</dt><dd className="font-semibold tabular-nums">{r.clicks}</dd></div>
+                            <div><dt className="text-xs text-muted">{c.list.purchases}</dt><dd className="font-semibold tabular-nums">{r.purchases}</dd></div>
+                          </dl>
+                        ) : (
+                          <p className="mt-2 text-xs text-muted">{c.list.noData}</p>
+                        )
+                      )}
+                      {x.external_campaign_id && (
+                        <a href="https://ads.tiktok.com/i18n/manage/campaign" target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs font-semibold text-brand hover:underline">{t.manage} ↗</a>
+                      )}
+                    </div>
+                    {!suspended && (x.status === "active" || x.status === "paused") && <TiktokStatusButton storeId={store.id} campaignId={x.id} active={x.status === "active"} />}
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      )}
+    </div>
+  );
+}

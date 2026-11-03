@@ -222,8 +222,14 @@ Pour activer les campagnes Meta :
    des permissions `ads_management`, `ads_read`, `business_management`, `pages_show_list`, `pages_read_engagement`
    (accès « Full »). En attendant, seuls les comptes ayant un rôle dans l'application peuvent se connecter.
 
-> Les campagnes TikTok depuis la plateforme viendront ensuite : TikTok remplace son API de création de campagnes
-> « Ventes » par une nouvelle API (« Smart+ ») à partir du 1er janvier 2027.
+Pour activer les campagnes **TikTok** (API « Upgraded Smart+ », obligatoire dès le 1er janvier 2027) :
+1. Sur [business-api.tiktok.com](https://business-api.tiktok.com), créez une application développeur (Marketing API) ;
+   adresse de redirection : `https://<votre-domaine>/api/ads/tiktok/callback`. TikTok examine l'application avant de
+   l'ouvrir à d'autres annonceurs que vous.
+2. Mettez `TIKTOK_APP_ID`, `TIKTOK_APP_SECRET` (et `ADS_ENCRYPTION_KEY`) dans les variables d'environnement.
+3. Sur TikTok, les publicités sont des **Spark Ads** : le vendeur relie le compte TikTok de sa boutique à son compte
+   publicitaire, publie une vidéo, puis la choisit dans la plateforme. La campagne est créée **désactivée** dans son
+   compte et il la lance ; TikTok lui facture directement ses dépenses.
 
 ## Domaines personnalisés (Cloudflare for SaaS)
 

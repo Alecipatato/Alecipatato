@@ -2,6 +2,7 @@ import { createAdminClient } from "../supabase/admin";
 import { platformUrl } from "../tenant";
 import { decryptSecret, encryptSecret, hasEncryptionKey } from "./crypto";
 import { isMetaConfigured } from "./meta";
+import { isTiktokConfigured } from "./tiktok";
 
 /** Connexion publicitaire d'une boutique (jeton déchiffré, côté serveur seulement). */
 export interface AdConnection {
@@ -20,6 +21,14 @@ export interface AdConnection {
 export function metaCampaignsAvailable(): boolean {
   return isMetaConfigured() && hasEncryptionKey();
 }
+
+/** Les campagnes TikTok sont disponibles si l'application TikTok et la clé de chiffrement sont configurées. */
+export function tiktokCampaignsAvailable(): boolean {
+  return isTiktokConfigured() && hasEncryptionKey();
+}
+
+/** Adresse de retour de l'autorisation TikTok (à déclarer dans l'application TikTok for Business). */
+export const tiktokRedirectUri = () => `${platformUrl()}/api/ads/tiktok/callback`;
 
 /** Adresse de retour de la connexion Facebook (à déclarer dans l'application Meta). */
 export const metaRedirectUri = () => `${platformUrl()}/api/ads/meta/callback`;
