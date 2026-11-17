@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EasyTrade — Trading simplifié</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="banner hidden" id="setupBanner"></div>
+
+  <header>
+    <div class="brand">⚡ EasyTrade</div>
+    <div class="mode" id="modeBadge">…</div>
+    <div class="feed-status" id="marketStatus">…</div>
+    <div class="balance"><span>Liquidités</span><strong id="cash">—</strong></div>
+    <div class="balance"><span>Valeur totale</span><strong id="equity">—</strong></div>
+    <div class="balance"><span>Résultat du jour</span><strong id="dayPnl">—</strong></div>
+  </header>
+
+  <main>
+    <section class="card chart-card">
+      <div class="chart-head">
+        <input id="symbol" list="symbolList" value="AAPL" maxlength="10" autocomplete="off" />
+        <datalist id="symbolList">
+          <option value="AAPL">Apple</option><option value="MSFT">Microsoft</option>
+          <option value="NVDA">Nvidia</option><option value="TSLA">Tesla</option>
+          <option value="AMZN">Amazon</option><option value="GOOGL">Alphabet</option>
+          <option value="META">Meta</option><option value="SPY">S&amp;P 500 (ETF)</option>
+          <option value="QQQ">Nasdaq 100 (ETF)</option>
+        </datalist>
+        <div class="price" id="price">—</div>
+        <div class="change" id="change"></div>
+        <select id="timeframe">
+          <option value="1Min">1 min</option>
+          <option value="5Min" selected>5 min</option>
+          <option value="15Min">15 min</option>
+          <option value="1Hour">1 h</option>
+          <option value="1Day">1 jour</option>
+        </select>
+      </div>
+      <div class="chart-wrap"><canvas id="chart"></canvas></div>
+      <div class="legend">
+        <span><i class="dot entry"></i>Entrée</span>
+        <span><i class="dot sl"></i>Stop-loss (perte max)</span>
+        <span><i class="dot tp"></i>Objectif (take-profit)</span>
+      </div>
+    </section>
+
+    <section class="card order-card">
+      <h2>Passer un ordre</h2>
+
+      <label>Montant investi ($)</label>
+      <div class="amount-row">
+        <input type="number" id="amount" min="1" step="1" value="200" />
+        <div class="quick">
+          <button data-pct="10">10%</button>
+          <button data-pct="25">25%</button>
+          <button data-pct="50">50%</button>
+          <button data-pct="100">Max</button>
+        </div>
+      </div>
+
+      <label>Perte maximum</label>
+      <div class="unit-row">
+        <input type="number" id="sl" min="0" step="0.1" value="2" />
+        <select id="slUnit"><option value="pct">%</option><option value="usd">$</option></select>
+      </div>
+
+      <label>Objectif de gain</label>
+      <div class="unit-row">
+        <input type="number" id="tp" min="0" step="0.1" value="4" />
+        <select id="tpUnit"><option value="pct">%</option><option value="usd">$</option></select>
+      </div>
+
+      <div class="preview" id="preview"></div>
+
+      <div class="actions">
+        <button class="buy" id="buyBtn">ACHETER</button>
+        <button class="sell" id="sellBtn">VENDRE</button>
+      </div>
+      <p class="hint">
+        <b>Acheter</b> = vous gagnez si le prix monte. <b>Vendre</b> = vente à découvert, vous gagnez si le prix baisse.
+        Le stop-loss et l'objectif sont enregistrés chez Alpaca : la position se ferme toute seule, même si cette page est fermée.
+      </p>
+    </section>
+
+    <section class="card wide bot-card">
+      <div class="row-between">
+        <h2>🤖 Robot IA (indicateurs + validation Claude)</h2>
+        <div class="bot-controls">
+          <span class="bot-state" id="botState">Arrêté</span>
+          <button class="ghost" id="botRunBtn">Analyser maintenant</button>
+          <button class="toggle" id="botToggle">Démarrer le robot</button>
+        </div>
+      </div>
+      <div class="bot-grid">
+        <div>
+          <label>Actions surveillées (séparées par des virgules)</label>
+          <input id="botSymbols" />
+        </div>
+        <div><label>Montant par trade ($)</label><input type="number" id="botAmount" min="1" /></div>
+        <div><label>Perte max (%)</label><input type="number" id="botSl" step="0.1" min="0.2" /></div>
+        <div><label>Objectif (%)</label><input type="number" id="botTp" step="0.1" min="0.2" /></div>
+        <div><label>Analyse toutes les (min)</label><input type="number" id="botInterval" min="1" max="120" /></div>
+        <div><label>Confiance IA minimum (%)</label><input type="number" id="botConfidence" min="0" max="100" /></div>
+        <div class="checks">
+          <label class="check"><input type="checkbox" id="botClaude" /> Validation par Claude</label>
+          <label class="check"><input type="checkbox" id="botShort" /> Autoriser la vente à découvert</label>
+        </div>
+        <div class="save-col"><button class="ghost" id="botSave">Enregistrer</button></div>
+      </div>
+      <p class="hint" id="botLimits"></p>
+      <div class="logs" id="botLogs"></div>
+    </section>
+
+    <section class="card wide">
+      <h2>Positions ouvertes</h2>
+      <table>
+        <thead>
+          <tr><th>Action</th><th>Sens</th><th>Quantité</th><th>Entrée</th><th>Actuel</th><th>Stop-loss</th><th>Objectif</th><th>Gain / Perte</th><th></th></tr>
+        </thead>
+        <tbody id="positions"></tbody>
+      </table>
+      <p class="empty" id="noPositions">Aucune position ouverte.</p>
+      <p class="hint" id="pendingOrders"></p>
+    </section>
+
+    <section class="card wide">
+      <div class="row-between">
+        <h2>Historique des exécutions</h2>
+        <button class="ghost" id="refreshHistory">Actualiser</button>
+      </div>
+      <table>
+        <thead>
+          <tr><th>Date</th><th>Action</th><th>Sens</th><th>Quantité</th><th>Prix</th><th>Type</th></tr>
+        </thead>
+        <tbody id="history"></tbody>
+      </table>
+      <p class="empty" id="noHistory">Aucune transaction pour l'instant.</p>
+    </section>
+  </main>
+
+  <div id="toasts"></div>
+
+  <footer>
+    Courtier : Alpaca. Prix avec 15 min de délai possible selon votre abonnement de données.
+    Le trading comporte un risque de perte en capital. Ni cet outil ni l'IA ne garantissent de gains. Ceci n'est pas un conseil financier.
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
