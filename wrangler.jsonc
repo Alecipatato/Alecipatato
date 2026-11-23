@@ -1,0 +1,41 @@
+{
+	// Déploiement Cloudflare Workers (OpenNext). Voir DEPLOIEMENT.md.
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "kreo",
+	// Worker personnalisé : l'application OpenNext + les tâches planifiées (cron).
+	"main": "custom-worker.ts",
+	"compatibility_date": "2026-11-01",
+	"compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+	"assets": {
+		"directory": ".open-next/assets",
+		"binding": "ASSETS"
+	},
+	"services": [
+		{
+			// Référence à lui-même exigée par OpenNext ; le nom doit être celui du worker.
+			"binding": "WORKER_SELF_REFERENCE",
+			"service": "kreo"
+		}
+	],
+	"observability": { "enabled": true },
+	// Adresses servies (à décommenter en remplaçant mondomaine.com, voir DEPLOIEMENT.md, étape 6) :
+	// domaine principal, toutes les boutiques (*.mondomaine.com) et domaines personnalisés des clients (*/*).
+	// "routes": [
+	// 	{ "pattern": "mondomaine.com", "custom_domain": true },
+	// 	{ "pattern": "*.mondomaine.com/*", "zone_name": "mondomaine.com" },
+	// 	{ "pattern": "*/*", "zone_name": "mondomaine.com" }
+	// ],
+	// Tâches planifiées (heure UTC) : voir custom-worker.ts.
+	"triggers": {
+		"crons": ["*/10 * * * *", "*/15 * * * *", "7 * * * *"]
+	},
+	// Variables non secrètes (les clés vont dans les secrets : `npx wrangler secret put NOM`).
+	"vars": {
+		"NEXT_PUBLIC_PLATFORM_NAME": "Kreo",
+		// Domaine principal, lu aussi par les tâches planifiées (à remplacer, sans https://).
+		// "NEXT_PUBLIC_ROOT_DOMAIN": "mondomaine.com",
+		"CJ_SANDBOX": "true",
+		"CJ_ORDERS_ENABLED": "false",
+		"CJ_AUTO_PAY": "false"
+	}
+}

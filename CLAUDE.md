@@ -317,6 +317,14 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
   la liste » (produits tendance, tous thèmes, 1 à 20, sauf ceux déjà en vente) ou « Laisser l'IA choisir » (3/5/10, mots-clés
   de la dernière recherche ou du thème) ; avec CJ : `sourcing_jobs` avec `auto_accept` (en vente directement) ; sans CJ :
   produits d'exemple insérés (`trendSampleRows`). Une seule recherche à la fois par boutique.
+- **Déploiement Cloudflare** (2026-11-23) : guide `DEPLOIEMENT.md`. `wrangler.jsonc` (worker `kreo`, `nodejs_compat`,
+  `global_fetch_strictly_public`, routes à décommenter) + `custom-worker.ts` (application OpenNext + `scheduled` : chaque
+  cron appelle `/api/cron/*` en interne avec `CRON_SECRET` et l'en-tête `host` = domaine principal). `npm run cf:build` =
+  OpenNext + `scripts/patch-open-next.cjs` (bogue OpenNext : `import cookie` par défaut → toute requête avec témoin
+  plantait). Pas de cache R2 (rendu à la demande). Vérification : `scripts/smoke-cloudflare.cjs` contre
+  `opennextjs-cloudflare preview -c wrangler.local.jsonc` (copie locale sans `global_fetch_strictly_public`, qui bloque
+  127.0.0.1) avec `CF_PREVIEW_LOG`. Sur Cloudflare, `cf-ipcountry` décide la langue avant le navigateur (tests : témoin
+  `lang`). OpenNext avertit que le proxy Node est expérimental : validé par le test.
 - Écran avec formulaire qui disparaît après l'action (produit refusé, commande remboursée) : afficher
   la confirmation en haut de page via un paramètre d'URL, pas dans le formulaire.
 - Le client Supabase admin désactive la mémorisation des GET de Next (signal par requête) : une relecture
@@ -354,7 +362,8 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
       en pause et lancées depuis la plateforme (E-b)
 - [x] Étape F — commission dégressive (paliers « Généreux », 30 jours, réglables dans /admin/commission) ; sécurité :
       double authentification admin obligatoire, journal des actions, plafonds de versements avec approbation, alertes
-- [ ] Prochaine étape — mise en production (déploiement Cloudflare, vraies clés en mode test, validation CJ)
+- [x] Préparation de la mise en ligne — build Cloudflare validé en local (workerd), tâches planifiées, guide `DEPLOIEMENT.md`
+- [ ] Prochaine étape — mise en ligne réelle par le propriétaire (comptes, domaine, clés test), puis validation CJ/Stripe en ligne
 
 ## Prochaines étapes (demandées par le propriétaire le 2026-10-26 ; A à F faites)
 

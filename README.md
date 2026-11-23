@@ -3,6 +3,8 @@
 Plateforme SaaS où une IA crée gratuitement des boutiques de dropshipping.
 Voir `CLAUDE.md` pour la vision complète, la stack et les phases.
 
+> Mise en ligne : voir **[DEPLOIEMENT.md](DEPLOIEMENT.md)**.
+
 ## Démarrer en local
 
 ```bash
@@ -262,3 +264,6 @@ npm test        # calculs d'argent, prix (marge minimale), lecture des réponses
 | `npm run dev` | serveur de développement |
 | `npm run build` | compilation de production (vérifie aussi les types) |
 | `npm run lint` | vérification du code |
+| `npm run cf:build` | compilation pour Cloudflare (OpenNext + correctif) |
+| `npm run cf:deploy` | mise en ligne sur Cloudflare — voir [DEPLOIEMENT.md](DEPLOIEMENT.md) |
+| `node scripts/smoke-cloudflare.cjs` | vérification de la version Cloudflare en local |
