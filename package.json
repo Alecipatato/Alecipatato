@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "node --test \"src/**/*.test.ts\"",
+    "test:e2e": "node tests/e2e/run.cjs",
     "cf:build": "opennextjs-cloudflare build && node scripts/patch-open-next.cjs",
     "cf:preview": "npm run cf:build && opennextjs-cloudflare preview",
     "cf:deploy": "npm run cf:build && opennextjs-cloudflare deploy"

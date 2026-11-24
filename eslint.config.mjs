@@ -15,8 +15,9 @@ const eslintConfig = defineConfig([
     // Compilation Cloudflare (OpenNext / wrangler) et scripts Node en CommonJS.
     ".open-next/**",
     ".wrangler/**",
-    "scripts/**/*.cjs",
   ]),
+  // Scripts Node en CommonJS (tests de bout en bout, vérification Cloudflare) : require() est normal.
+  { files: ["**/*.cjs"], rules: { "@typescript-eslint/no-require-imports": "off" } },
 ]);
 
 export default eslintConfig;

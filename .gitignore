@@ -47,3 +47,6 @@ next-env.d.ts
 .dev.vars*
 !.dev.vars.example
 wrangler.local.jsonc
+
+# Tests de bout en bout (journaux, captures)
+/tests/e2e/.output/

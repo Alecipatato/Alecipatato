@@ -247,6 +247,7 @@ Pour activer les campagnes **TikTok** (API « Upgraded Smart+ », obligatoire d�
 
 ```bash
 npm test        # calculs d'argent, prix (marge minimale), lecture des réponses CJ, langues, modération
+npm run test:e2e   # parcours complets dans un navigateur (IA, Stripe, CJ et courriels simulés) — voir tests/e2e/README.md
 ```
 
 ## Comment ça marche

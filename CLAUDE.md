@@ -97,7 +97,13 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
 - Classes CSS partagées dans `src/components/styles.ts` (PAS dans un fichier "use client" : une
   constante exportée d'un module client n'est pas lisible par un Server Component).
 - **Tests locaux** : `npx supabase start` (Docker) + boîte courriel http://127.0.0.1:54324.
-  Pour tester l'IA sans clé : un faux serveur via `ANTHROPIC_BASE_URL`.
+- **Tests de bout en bout** (2026-11-24, dans le dépôt) : `npm run test:e2e` (`tests/e2e/run.cjs` : faux serveurs
+  `mocks/servers.cjs` — IA 4010, Stripe 4020 avec webhooks signés `whsec_e2e_test`, CJ 4030, Resend 4040 —, `next build`
+  puis `next start -p 3100`, suites `tests/e2e/suites/*.test.cjs` avec `node:test` + Playwright ; options `--no-build`,
+  `--serve`, filtre par nom). Variables pointées vers les faux serveurs (`ANTHROPIC_BASE_URL`, `STRIPE_API_BASE`,
+  `CJ_API_BASE`, `RESEND_API_BASE`) ; commandes de test des faux serveurs : `/__log`, `/__set`, `/__event`, `/__ship`…
+  Identifiants simulés uniques par lancement (la base n'est pas vidée). 59 vérifications ; pas encore couverts :
+  Meta/TikTok, Cloudflare. Guide : `tests/e2e/README.md`. Toute nouvelle fonction doit y ajouter son parcours.
 - **Supabase** : schéma dans `supabase/migrations/`. RLS : les clients *lisent* leurs données ;
   **toutes les écritures passent par le serveur** (clé secrète). Le rôle `anon` ne voit que les
   boutiques/produits actifs et des colonnes non sensibles (jamais les coûts fournisseur).
@@ -246,7 +252,7 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
   seulement si `CJ_WEBHOOK_URL` (adresse publique HTTPS ; CJ refuse localhost). Limites CJ : aucun renvoi d'une
   notification manquée, prix des variantes pas toujours notifiés, regroupement 2-5 min → la synchro horaire reste.
   Paiement : `confirmSupplierStock` (`checkout.ts`) relit le stock CJ (≤ 6 s, sinon la vente continue) → `outOfStock`
-  + resynchro. Tests : `e2e-live.js` (simulateur CJ : `/webhook/*`, `openId` 4242, `vidStock`).
+  + resynchro. Tests : `tests/e2e/suites/05-produits-tendance.test.cjs` (`openId` 4242 du faux CJ).
 - **Publicité — guides** (étape E-a, 2026-11-02) : `/tableau-de-bord/boutiques/[id]/publicite` (bouton « Publicité » sur la
   page boutique) : choix « Apprendre à faire mes publicités » / « Lancer une campagne » (E-b), rappel que l'argent pub va
   directement à Meta/TikTok, repères de budget `adBudgetPlan` (`money.ts`, testé : gain moyen = seuil, objectif 60 %,
@@ -254,7 +260,7 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
   Guides : structure `src/lib/ads/guides.ts` (5 guides : préparer, Meta, TikTok payant, TikTok gratuit, résultats ; étapes
   `auto` vérifiées d'après la boutique — produits ≥ 5, pages légales, en ligne, contenus IA, pixels — ou cochées à la main
   dans `ad_guide_progress`, action `ads-actions.ts`), textes FR/EN `messages/ads.ts` (menus Meta/TikTok décrits sans
-  promesse ; « les menus changent souvent »). Test : `e2e-ads.js` (sans CJ).
+  promesse ; « les menus changent souvent »).
 - **Publicité — campagnes Meta** (étape E-b, 2026-11-02) : doc Meta vérifiée (Graph v26.0). `src/lib/ads/meta.ts` (client
   fetch ; `metaCampaignPayloads` pur et testé : campagne `OUTCOME_SALES` + `special_ad_categories: []`, ensemble
   `OFFSITE_CONVERSIONS` + `promoted_object {pixel_id, PURCHASE}`, Canada 18+, budget en cents, visuel `link_data` +
@@ -264,7 +270,7 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
   `/publicite/campagne` (actions `ads-campaign-actions.ts`) : choix compte (CAD obligatoire) + page, pixel Meta requis,
   brouillon IA (`runMarketingGeneration`, `src/lib/ai/marketing-run.ts`, partagé avec l'écran Marketing), relecture +
   modération, création en pause, lancer (confirmation) / pause, résultats `insights`, refus Meta affiché (`failed`).
-  Option masquée sans `META_APP_ID`/`META_APP_SECRET`/clé. Test : `e2e-campaigns.js` + `mock-meta.js` (port 4060).
+  Option masquée sans `META_APP_ID`/`META_APP_SECRET`/clé. (Test de bout en bout à recréer : faux serveur Meta.)
   ⚠️ App Review Meta + vérification d'entreprise nécessaires pour les vendeurs.
 - **Publicité — campagnes TikTok** (2026-11-03) : doc officielle lue en rendant les pages avec Playwright
   (business-api.tiktok.com/portal/docs/<slug>/v1.3) + SDK officiel `tiktok/tiktok-business-api-sdk` (raw GitHub). Dès le
@@ -280,7 +286,7 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
   `/report/integrated/get/`. Routes `/api/ads/tiktok/{connect,callback}` (cookie `tiktok_oauth`), actions
   `tiktok-campaign-actions.ts`, écran `/publicite/tiktok` (`ad_connections` : `page_*` = compte TikTok ;
   `ad_campaigns.tiktok_item_id`, `external_adset_id` = groupe, `external_creative_id` = portefeuille CTA).
-  `TIKTOK_APP_ID`/`TIKTOK_APP_SECRET`. Test : `e2e-tiktok.js` + `mock-tiktok.js` (port 4070). À valider avec une vraie
+  `TIKTOK_APP_ID`/`TIKTOK_APP_SECRET`. (Test de bout en bout à recréer : faux serveur TikTok.) À valider avec une vraie
   application TikTok (identifiant de lieu du Canada, événement `SHOPPING`).
 - **Commission dégressive** (étape F1, 2026-11-03) : paliers choisis par le propriétaire (« Généreux ») : 15 % → 12 % dès
   1 000 $ → 10 % dès 5 000 $ → 8 % dès 20 000 $ de marge brute sur 30 jours (toutes les boutiques du vendeur ; commandes
@@ -290,7 +296,7 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
   Checkout : taux du vendeur FIGÉ dans `orders.commission_rate` (la confirmation Stripe le relit). Affichage : écran
   Paiements (taux, marge 30 j, progression, paliers), estimations (galerie, Publicité, campagnes) au taux du vendeur,
   CGU (`platform-context.ts` décrit les paliers). Admin : `/admin/commission` (paliers modifiables, taux jamais en hausse
-  d'un palier à l'autre, vendeurs par palier). Test : `e2e-commission.js`.
+  d'un palier à l'autre, vendeurs par palier).
 - **Sécurité de l'argent** (étape F2, 2026-11-03) : `requireAdmin()` exige la double authentification (session `aal2`,
   `currentAssuranceLevel`), sinon `/securite-admin` (hors de `/admin` : configuration TOTP Supabase — code QR + clé — ou
   code à chaque connexion ; actions serveur `mfa.enroll` / `challengeAndVerify`, essais inachevés effacés). Local :
@@ -299,8 +305,8 @@ Principes : montants stockés en **entiers (cents)** avec la devise ; ne jamais 
   Plafonds `platform_settings.payout_limits` (2 000 $ par versement, 10 000 $ / 24 h) dans `releaseDuePayouts` :
   dépassement → `payouts.status = 'held'`, `hold_reason = 'limit'` + `alertAdmin` ; approbation dans `/admin/securite`
   (`approved_by/at`, n'est plus retenu ensuite). Litiges : `hold_reason = 'dispute'`. Alerte courriel aussi quand les
-  paliers de commission changent. Tests : `e2e-security.js` ; `mfa-helper.js` (TOTP RFC 6238, `enrollAdmin`) dans les
-  tests qui passent par /admin.
+  paliers de commission changent. Tests : `tests/e2e/suites/04-administration.test.cjs` (`totp`, `enrollAdmin` dans
+  `tests/e2e/lib/helpers.cjs`).
 - **Fiches complètes et variantes** (étape B, 2026-10-28) : `normalize.ts` lit images (≤ 12), photos de la description,
   matériaux, emballage, poids, options et variantes (clé, poids, dimensions) ; stock par variante via
   `/product/stock/getInventoryByPid` (`getVariantInventories`, vérifié avec la vraie clé). `src/lib/products/variants.ts`
